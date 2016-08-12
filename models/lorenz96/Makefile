@@ -1,4 +1,3 @@
-#FC=ifort
 FC=ifort
 FFLAGS=-O3 -g -traceback
 INCLUDES=-I. -I$(NETCDF)/include

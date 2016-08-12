@@ -1,0 +1,9 @@
+&params
+ size = 40,
+ forcing = 8.0,
+ delta_t = 0.05,
+/
+&runtime
+ start_t = 0,
+ end_t = 1000,
+/

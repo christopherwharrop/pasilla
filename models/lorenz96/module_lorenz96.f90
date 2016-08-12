@@ -267,17 +267,20 @@ contains
     use netcdf
 
     class(lorenz96), intent(inout) :: this
-    character(*), intent(in) :: filename    ! name of input file
+    character(*), intent(in)       :: filename  ! name of input file
 
-    integer :: ierr          ! return value of function
+    integer :: ierr  ! return value of function
 
     ! General netCDF variables
-    integer :: ncFileID      ! netCDF file identifier
+    integer :: ncFileID  ! netCDF file identifier
     integer :: nDimensions, nVariables, nAttributes, unlimitedDimID
     integer :: StateVarDimID, CoordinatesVarID, LocationVarID, StateVarID
 
     ! local variables
-    integer :: i           ! loop index variable
+    integer      :: i  ! loop index variable
+    integer      :: size
+    real(r8kind) :: forcing
+    real(r8kind) :: delta_t
 
     ! assume normal termination
     ierr = 0 
@@ -287,24 +290,32 @@ contains
     call nc_check(nf90_Inquire(ncFileID, nDimensions, nVariables, nAttributes, unlimitedDimID))
 
     ! Read Global Attributes 
-    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_forcing", this%forcing ))
-    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_delta_t", this%delta_t ))
+    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_forcing", forcing ))
+    if (forcing /= this%forcing) then
+      write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
+      write(*,'(A,F7.3,A,F7.3)') '       Input file forcing =',forcing,', expecting ',this%forcing
+      stop
+    end if
+    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_delta_t", delta_t ))
+    if (delta_t /= this%delta_t) then
+      write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
+      write(*,'(A,F7.3,A,F7.3)') '       Input file delta_t =',delta_t,', expecting ',this%delta_t
+      stop
+    end if
     call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_t", this%t ))
     call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_step", this%step ))
 
     ! Read the model size
     call nc_check(nf90_inq_dimid(ncFileID, "StateDim", StateVarDimID))
-    call nc_check(nf90_inquire_dimension(ncFileID, StateVarDimID, len=this%size))
-
-    ! Reallocate space for the data
-    if (allocated(this%x)) deallocate(this%x)
-    if (allocated(this%location)) deallocate(this%location)
-    allocate(this%x(this%size))
-    allocate(this%location(this%size))
+    call nc_check(nf90_inquire_dimension(ncFileID, StateVarDimID, len=size))
+    if (size /= this%size) then
+      write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
+      write(*,'(A,I,A,I)') '       Input file size =',size,', expecting ',this%size
+      stop
+    end if
 
     ! Get the state vector location ID
      call nc_check(nf90_inq_varid(ncFileID, "Location", LocationVarID))
-
 
     ! Get the actual state vector ID
     call nc_check(nf90_inq_varid(ncFileID, "State", StateVarID))

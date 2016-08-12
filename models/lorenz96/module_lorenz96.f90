@@ -20,7 +20,7 @@ module module_lorenz96
   contains
       final              :: destructor
       procedure, private :: comp_dt
-      procedure          :: adv_1step
+      procedure          :: adv_nsteps
       procedure          :: nc_read_model_state
       procedure          :: nc_write_model_state
   end type lorenz96
@@ -108,40 +108,46 @@ contains
 
 
   !------------------------------------------------------------------
-  ! adv_1step
+  ! adv_nsteps
   !
-  ! Does single time step advance for lorenz 96 model
+  ! Does n time step advances for lorenz 96 model
   ! using four-step rk time step
   !------------------------------------------------------------------
-  subroutine adv_1step(this)
+  subroutine adv_nsteps(this,steps)
 
     class(lorenz96), intent(inout) :: this
+    integer, intent(in) :: steps
 
     real(r8kind), dimension(size(this%x)) :: x1, x2, x3, x4, dx, inter
+    integer :: step
+    
+    do step = 1, steps
 
-    call this%comp_dt(this%x, dx)   !  Compute the first intermediate step
-    x1    = this%delta_t * dx
-    inter = this%x + x1 / 2.0_r8kind
+      call this%comp_dt(this%x, dx)   !  Compute the first intermediate step
+      x1    = this%delta_t * dx
+      inter = this%x + x1 / 2.0_r8kind
 
-    call this%comp_dt(inter, dx)    !  Compute the second intermediate step
-    x2    = this%delta_t * dx
-    inter = this%x + x2 / 2.0_r8kind
+      call this%comp_dt(inter, dx)    !  Compute the second intermediate step
+      x2    = this%delta_t * dx
+      inter = this%x + x2 / 2.0_r8kind
 
-    call this%comp_dt(inter, dx)    !  Compute the third intermediate step
-    x3    = this%delta_t * dx
-    inter = this%x + x3
+      call this%comp_dt(inter, dx)    !  Compute the third intermediate step
+      x3    = this%delta_t * dx
+      inter = this%x + x3
 
-    call this%comp_dt(inter, dx)    !  Compute fourth intermediate step
-    x4 = this%delta_t * dx
+      call this%comp_dt(inter, dx)    !  Compute fourth intermediate step
+      x4 = this%delta_t * dx
 
-    !  Compute new value for x
-    this%x = this%x + x1/6.0_r8kind + x2/3.0_r8kind + x3/3.0_r8kind + x4/6.0_r8kind
+      !  Compute new value for x
+      this%x = this%x + x1/6.0_r8kind + x2/3.0_r8kind + x3/3.0_r8kind + x4/6.0_r8kind
 
-    ! Increment time step
-    this%t = this%t + this%delta_t
-    this%step = this%step + 1
+      ! Increment time step
+      this%t = this%t + this%delta_t
+      this%step = this%step + 1
 
-  end subroutine adv_1step
+    end do
+
+  end subroutine adv_nsteps
 
 
   !------------------------------------------------------------------

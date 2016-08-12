@@ -17,7 +17,7 @@ program lorenz96Model
   integer         :: size    = 40
   real(r8kind)    :: forcing = 8.00_r8kind
   real(r8kind)    :: delta_t = 0.05_r8kind
-  integer         :: start_step = 1
+  integer         :: start_step = 0
   integer         :: run_steps   = 1000
   integer         :: output_interval_steps = 100
   namelist /params/  size, forcing, delta_t 
@@ -35,7 +35,7 @@ program lorenz96Model
   L96 = lorenz96(size, forcing, delta_t)
 
   ! Read initial model state from restart file if start_t is not 1
-  if (start_step /= 1 ) then
+  if (start_step /= 0 ) then
     write(restart_file,'(A,I0.6,A)') 'lorenz96out_', start_step, '.nc'
     ierr = L96%nc_read_model_state(trim(restart_file))
   end if

@@ -4,7 +4,7 @@
  delta_t = 0.05,
 /
 &runtime
- start_step = 1,
+ start_step = 0,
  run_steps = 1000,
  output_interval_steps = 100,
 /

@@ -20,7 +20,7 @@ module module_lorenz96
   contains
       final              :: destructor
       procedure, private :: comp_dt
-      procedure          :: adv_1step
+      procedure          :: adv_nsteps
       procedure          :: nc_read_model_state
       procedure          :: nc_write_model_state
   end type lorenz96
@@ -108,40 +108,46 @@ contains
 
 
   !------------------------------------------------------------------
-  ! adv_1step
+  ! adv_nsteps
   !
-  ! Does single time step advance for lorenz 96 model
+  ! Does n time step advances for lorenz 96 model
   ! using four-step rk time step
   !------------------------------------------------------------------
-  subroutine adv_1step(this)
+  subroutine adv_nsteps(this,steps)
 
     class(lorenz96), intent(inout) :: this
+    integer, intent(in) :: steps
 
     real(r8kind), dimension(size(this%x)) :: x1, x2, x3, x4, dx, inter
+    integer :: step
+    
+    do step = 1, steps
 
-    call this%comp_dt(this%x, dx)   !  Compute the first intermediate step
-    x1    = this%delta_t * dx
-    inter = this%x + x1 / 2.0_r8kind
+      call this%comp_dt(this%x, dx)   !  Compute the first intermediate step
+      x1    = this%delta_t * dx
+      inter = this%x + x1 / 2.0_r8kind
 
-    call this%comp_dt(inter, dx)    !  Compute the second intermediate step
-    x2    = this%delta_t * dx
-    inter = this%x + x2 / 2.0_r8kind
+      call this%comp_dt(inter, dx)    !  Compute the second intermediate step
+      x2    = this%delta_t * dx
+      inter = this%x + x2 / 2.0_r8kind
 
-    call this%comp_dt(inter, dx)    !  Compute the third intermediate step
-    x3    = this%delta_t * dx
-    inter = this%x + x3
+      call this%comp_dt(inter, dx)    !  Compute the third intermediate step
+      x3    = this%delta_t * dx
+      inter = this%x + x3
 
-    call this%comp_dt(inter, dx)    !  Compute fourth intermediate step
-    x4 = this%delta_t * dx
+      call this%comp_dt(inter, dx)    !  Compute fourth intermediate step
+      x4 = this%delta_t * dx
 
-    !  Compute new value for x
-    this%x = this%x + x1/6.0_r8kind + x2/3.0_r8kind + x3/3.0_r8kind + x4/6.0_r8kind
+      !  Compute new value for x
+      this%x = this%x + x1/6.0_r8kind + x2/3.0_r8kind + x3/3.0_r8kind + x4/6.0_r8kind
 
-    ! Increment time step
-    this%t = this%t + this%delta_t
-    this%step = this%step + 1
+      ! Increment time step
+      this%t = this%t + this%delta_t
+      this%step = this%step + 1
 
-  end subroutine adv_1step
+    end do
+
+  end subroutine adv_nsteps
 
 
   !------------------------------------------------------------------
@@ -261,17 +267,20 @@ contains
     use netcdf
 
     class(lorenz96), intent(inout) :: this
-    character(*), intent(in) :: filename    ! name of input file
+    character(*), intent(in)       :: filename  ! name of input file
 
-    integer :: ierr          ! return value of function
+    integer :: ierr  ! return value of function
 
     ! General netCDF variables
-    integer :: ncFileID      ! netCDF file identifier
+    integer :: ncFileID  ! netCDF file identifier
     integer :: nDimensions, nVariables, nAttributes, unlimitedDimID
     integer :: StateVarDimID, CoordinatesVarID, LocationVarID, StateVarID
 
     ! local variables
-    integer :: i           ! loop index variable
+    integer      :: i  ! loop index variable
+    integer      :: size
+    real(r8kind) :: forcing
+    real(r8kind) :: delta_t
 
     ! assume normal termination
     ierr = 0 
@@ -281,24 +290,32 @@ contains
     call nc_check(nf90_Inquire(ncFileID, nDimensions, nVariables, nAttributes, unlimitedDimID))
 
     ! Read Global Attributes 
-    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_forcing", this%forcing ))
-    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_delta_t", this%delta_t ))
+    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_forcing", forcing ))
+    if (forcing /= this%forcing) then
+      write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
+      write(*,'(A,F7.3,A,F7.3)') '       Input file forcing =',forcing,', expecting ',this%forcing
+      stop
+    end if
+    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_delta_t", delta_t ))
+    if (delta_t /= this%delta_t) then
+      write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
+      write(*,'(A,F7.3,A,F7.3)') '       Input file delta_t =',delta_t,', expecting ',this%delta_t
+      stop
+    end if
     call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_t", this%t ))
     call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_step", this%step ))
 
     ! Read the model size
     call nc_check(nf90_inq_dimid(ncFileID, "StateDim", StateVarDimID))
-    call nc_check(nf90_inquire_dimension(ncFileID, StateVarDimID, len=this%size))
-
-    ! Reallocate space for the data
-    if (allocated(this%x)) deallocate(this%x)
-    if (allocated(this%location)) deallocate(this%location)
-    allocate(this%x(this%size))
-    allocate(this%location(this%size))
+    call nc_check(nf90_inquire_dimension(ncFileID, StateVarDimID, len=size))
+    if (size /= this%size) then
+      write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
+      write(*,'(A,I,A,I)') '       Input file size =',size,', expecting ',this%size
+      stop
+    end if
 
     ! Get the state vector location ID
      call nc_check(nf90_inq_varid(ncFileID, "Location", LocationVarID))
-
 
     ! Get the actual state vector ID
     call nc_check(nf90_inq_varid(ncFileID, "State", StateVarID))

@@ -5,6 +5,6 @@
 /
 &runtime
  start_step = 0,
- end_step = 1000,
+ run_steps = 1000,
  output_interval_steps = 100,
 /

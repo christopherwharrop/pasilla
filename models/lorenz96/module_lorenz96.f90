@@ -21,6 +21,7 @@ module module_lorenz96
       final              :: destructor
       procedure, private :: comp_dt
       procedure          :: adv_nsteps
+      procedure          :: interpolate
       procedure          :: nc_read_model_state
       procedure          :: nc_write_model_state
   end type lorenz96
@@ -148,6 +149,34 @@ contains
     end do
 
   end subroutine adv_nsteps
+
+
+  !------------------------------------------------------------------  
+  ! Interpolates from state vector x to the location. 
+  !------------------------------------------------------------------  
+  subroutine interpolate(this, location, obs_val)
+
+    class(lorenz96), intent(in) :: this
+    real(r8kind), intent(in)    :: location
+    real(r8kind), intent(out)   :: obs_val
+
+    integer :: lower_index, upper_index, i
+    real(r8kind) :: lctn, lctnfrac
+
+    ! Scale the location to the size of the domain
+    lctn = this%size * location
+
+    ! Compute grid indices bounding the location
+    lower_index = int(lctn) + 1
+    upper_index = lower_index + 1
+    if(lower_index > this%size) lower_index = lower_index - this%size
+    if(upper_index > this%size) upper_index = upper_index - this%size
+
+    ! Interpolate model value at the location
+    lctnfrac = lctn - int(lctn)
+    obs_val = (1.0_r8kind - lctnfrac) * this%x(lower_index) + lctnfrac * this%x(upper_index)
+ 
+  end subroutine interpolate
 
 
   !------------------------------------------------------------------

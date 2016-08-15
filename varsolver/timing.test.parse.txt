@@ -1,0 +1,5 @@
+Routine                       Calls Walltime  % of Tot
+  adept                           1      0.0    100.0%
+    adept_IP_get_bkg_vec_         1      0.0     10.0%
+    adept_IP_var_solver_          1      0.0     88.2%
+      adept_IP_pre_con_dif_       2      0.0     88.2%

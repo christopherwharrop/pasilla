@@ -7,11 +7,11 @@ FFLAGS=$(FCOPT) -finstrument-functions -mkl=sequential $(FCDEBUG)
 INCLUDES=-I$(NETCDF)/include -I$(GPTL)/include
 LIBS=-L/contrib/gptl/gptl-v5.4.4_impi_noomp/lib -lgptl
 
-varsolver.exe: varsolver_12aug.o
-	$(FC) -o varsolver.exe varsolver_12aug.o $(FFLAGS) $(LIBS)
+varsolver.exe: varsolver.o
+	$(FC) -o varsolver.exe varsolver.o $(FFLAGS) $(LIBS)
 
-varsolver_12aug.o: varsolver_12aug.f90
-	$(FC) -c varsolver_12aug.f90 $(FFLAGS) $(INCLUDES)
+varsolver.o: varsolver.f90
+	$(FC) -c varsolver.f90 $(FFLAGS) $(INCLUDES)
 
 clean:
 	rm -f *.exe *.o

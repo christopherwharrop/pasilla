@@ -8,12 +8,13 @@ implicit none
 integer                      ::      tim_len, obs_len, bkg_len
 integer, allocatable         ::      bkg_tim(:)
 integer, allocatable         ::      bkg_pos(:,:)
-integer, allocatable         ::      obs_pos(:,:) 
+integer, allocatable         ::      obs_tim(:)
+integer, allocatable         ::      obs_pos(:) 
 real(KIND=8), allocatable    ::      obs_opr(:,:,:)
 real(KIND=8), allocatable    ::      obs_cov(:,:,:)
 real(KIND=8), allocatable    ::      bkg_cov(:,:,:)
 real(KIND=8), allocatable    ::      hrh_cov(:,:,:)
-real(KIND=8), allocatable    ::      obs_vec(:,:)
+real(KIND=8), allocatable    ::      obs_vec(:)
 real(KIND=8), allocatable    ::      bkg_vec(:,:)
 real(KIND=8), allocatable    ::      anl_vec(:,:)
 real(KIND=8), allocatable    ::      bht_ino(:,:,:)
@@ -29,9 +30,9 @@ ret = gptlstart ('adept')
 ! FIRST - NEED TO KNOW HOW MANY OBSERVATIONS AND STATE VECTOR
 ! OBTAIN THE OBSERATIONS, Y, AND THE BACKGROUND, Xb 
 call get_bkg_vec(bkg_tim,bkg_pos,bkg_vec)
-call get_obs_vec(bkg_tim,bkg_pos,obs_len,obs_pos,obs_vec)
+call get_obs_vec(bkg_tim,bkg_pos,obs_len,obs_tim,obs_pos,obs_vec)
 tim_len=size(bkg_tim)
-bkg_len=size(bkg_vec)
+bkg_len=size(bkg_pos,2)
 
 ! BJE
 ! KNOWING THE NUMBERS, ALLOCATE VECTORS/MATRICIES (ARRAYS) ACCORTINGLY
@@ -44,19 +45,19 @@ allocate (bht_ino(tim_len,bkg_len,1))
 
 ! BJE
 ! GET THE INNOVATION VECTOR - (Y-HXb) - OVERWRITE OBS_VEC
-call get_ino_vec(bkg_tim,bkg_pos,obs_pos,obs_vec,bkg_vec)
+call get_ino_vec(bkg_tim,bkg_pos,obs_tim,obs_pos,obs_vec,bkg_vec)
 
 ! BJE
 ! KNOWING THE LOCATION OF THE OBS, CREATE OBS OPERATOR, H 
-call get_obs_opr(obs_pos,obs_opr)
+call get_obs_opr(obs_tim,obs_pos,obs_opr)
 
 ! BJE   
 ! OBTAIN THE COVARIANCE MATRIX R - OBS ERROR
 ! SOMEDAY WILL COME TO US FROM THE UFO
-call get_obs_cov(obs_pos,obs_cov)
+call get_obs_cov(obs_tim,obs_pos,obs_cov)
 
 ! BJE
-! OBTAIN THE B(1/2) MATRIX - FOR PRE CONDITIONING
+! OBTAIN THE B(1/2) MATRIX - FOR PRE CONDITIONING 
 call get_bkg_cov(bkg_cov)
 
 ! BJE
@@ -93,9 +94,10 @@ contains
 
 ! BJE
 ! GENERATE THE OBSERVATION ERROR COVARIANCE MATRIX, "R"
-subroutine get_obs_cov(obs_pos,obs_cov) 
+subroutine get_obs_cov(obs_tim,obs_pos,obs_cov) 
 implicit none
-integer, intent(in)         :: obs_pos(:,:)
+integer, intent(in)         :: obs_tim(:)
+integer, intent(in)         :: obs_pos(:)
 real(KIND=8), intent(inout) :: obs_cov(:,:,:)
 integer                     :: obs_len
 integer                     :: i,t 
@@ -104,10 +106,8 @@ print *,"GET_OBS_COV_MAT"
 tim_len=size(obs_cov,1)
 obs_len=size(obs_cov,2)
 
-do t=1,tim_len
-    do i=1,obs_len
-        obs_cov(t,i,i)=1.0
-    end do
+do i=1,obs_len
+    obs_cov(obs_tim(i),i,i)=1.0
 end do
 
 print *,"GET_OBS_COV_MAT COMPLETE"
@@ -137,7 +137,6 @@ do t=1,tim_len
             if(jj.gt.bkg_len) jj=jj-bkg_len
             if(jj.lt.1) jj=bkg_len+jj
             bkg_cov(t,i,jj)=var*exp(-((float(j)*0.5)**2))
-            if(i.eq.rad) print *,i,j,jj,bkg_cov(t,i,jj)
         end do
     end do
 end do
@@ -177,37 +176,47 @@ end subroutine pre_con_dif
 
 ! BJE
 ! GENERATE THE OBSERVATIONS "Y", AND THEIR LOCATIONS - FOR "H"
-subroutine get_obs_vec(bkg_tim,bkg_pos,obs_len,obs_pos,obs_vec)
+subroutine get_obs_vec(bkg_tim,bkg_pos,obs_len,obs_tim,obs_pos,obs_vec)
 implicit none
 integer, intent(in)                      :: bkg_tim(:)
 integer, intent(in)                      :: bkg_pos(:,:)
 integer, intent(inout)                   :: obs_len
-integer, intent(inout), allocatable      :: obs_pos(:,:) 
-real(KIND=8), intent(inout), allocatable :: obs_vec(:,:) 
+integer, intent(inout), allocatable      :: obs_tim(:)
+integer, intent(inout), allocatable      :: obs_pos(:) 
+real(KIND=8), intent(inout), allocatable :: obs_vec(:) 
+real(KIND=8)                             :: pi
 integer                                  :: i,t
 print *,"GET_OBS_VEC"
 
-bkg_len=size(bkg_pos)
+pi=3.14159265359
+bkg_len=size(bkg_pos,2)
 tim_len=size(bkg_tim)
 
 obs_len=8
-allocate(obs_pos(tim_len,obs_len))
-allocate(obs_vec(tim_len,obs_len))
+allocate(obs_tim(obs_len))
+allocate(obs_pos(obs_len))
+allocate(obs_vec(obs_len))
 
-do t=1,tim_len
-    do i=1,obs_len
-        if((2**(i-1)).lt.bkg_len) then 
-            obs_pos(t,i)=2**(i-1)
-        else
-            obs_pos(t,i)=bkg_len-(i*2)
-        end if
-    end do
-end do
+obs_pos(1)=1
+obs_pos(2)=2
+obs_pos(3)=4
+obs_pos(4)=8
+obs_pos(5)=16
+obs_pos(6)=24
+obs_pos(7)=26 
+obs_pos(8)=32 
 
-do t=1,tim_len
-    do i=1,obs_len
-        obs_vec(t,i)=50.0+50.0*sin(((0.2*float(t)+float(obs_pos(t,i)))/10.0)*(3.1416))
-    end do
+obs_tim(1)=1
+obs_tim(2)=2
+obs_tim(3)=3
+obs_tim(4)=2
+obs_tim(5)=2
+obs_tim(6)=3
+obs_tim(7)=2
+obs_tim(8)=1
+
+do i=1,obs_len
+    obs_vec(i)=50.0+50.0*sin(((0.2*float(obs_tim(i)-1)+float(obs_pos(i)))/10.0)*(pi))
 end do
 
 print *,"GET_OBS_VEC COMPLETE" 
@@ -216,9 +225,10 @@ end subroutine get_obs_vec
 
 ! BJE
 ! GET THE OBSERVATION OPERATOR, H, FROM THE INPUTS
-subroutine get_obs_opr(obs_pos,obs_opr)
+subroutine get_obs_opr(obs_tim,obs_pos,obs_opr)
 implicit none
-integer, intent(inout)      :: obs_pos(:,:)
+integer, intent(inout)      :: obs_tim(:)
+integer, intent(inout)      :: obs_pos(:)
 real(KIND=8), intent(inout) :: obs_opr(:,:,:)
 integer                     :: bkg_len
 integer                     :: obs_len
@@ -230,10 +240,8 @@ obs_len=size(obs_opr,2)
 bkg_len=size(obs_opr,3)
 obs_opr(:,:,:)=0.0
 
-do t=1,tim_len
-    do i=1,obs_len
-        obs_opr(t,i,obs_pos(t,i))=1.0
-    end do
+do i=1,obs_len
+        obs_opr(obs_tim(i),i,obs_pos(i))=1.0
 end do
 
 print *,"GET_OBS_OPR COMPLETE"
@@ -247,9 +255,11 @@ real(KIND=8), intent(inout), allocatable :: bkg_vec(:,:)
 integer,intent(inout), allocatable       :: bkg_pos(:,:)
 integer,intent(inout), allocatable       :: bkg_tim(:) 
 integer                                  :: i,t
+real(KIND=8)                             :: pi
 print *,"GET_BKG_VEC"
 
-tim_len=1
+pi=3.14159265359
+tim_len=3
 bkg_len=40
 allocate (bkg_vec(tim_len,bkg_len))
 allocate (bkg_pos(tim_len,bkg_len))
@@ -258,7 +268,7 @@ do t=1,tim_len
     bkg_tim(t)=t
     do i=1,bkg_len
         bkg_pos(t,i)=i
-        bkg_vec(t,i)=50.0+50.0*sin((float(i)/10.0)*(3.1416))
+        bkg_vec(t,i)=50.0+50.0*sin(((0.2*float(t-2)+float(i))/10.0)*(pi))
     end do
 end do
 
@@ -268,27 +278,26 @@ end subroutine get_bkg_vec
 ! BJE
 ! GENERATE THE INNOVATION VECTOR (Y-HXb)
 ! USE OBS_VEC TO STORE THE OUTPUT
-subroutine get_ino_vec(bkg_tim,bkg_pos,obs_pos,obs_vec,bkg_vec)
+subroutine get_ino_vec(bkg_tim,bkg_pos,obs_tim,obs_pos,obs_vec,bkg_vec)
 implicit none
 integer, intent(in)         :: bkg_tim(:)
 integer, intent(in)         :: bkg_pos(:,:)
-integer, intent(in)         :: obs_pos(:,:)
-real(KIND=8), intent(inout) :: obs_vec(:,:)
+integer, intent(in)         :: obs_tim(:)
+integer, intent(in)         :: obs_pos(:)
+real(KIND=8), intent(inout) :: obs_vec(:)
 real(KIND=8), intent(in)    :: bkg_vec(:,:)
 integer                     :: tim_len, obs_len, bkg_len
-integer                     :: i,t 
+integer                     :: i 
 print *,"GET_INO_VEC"
 tim_len=size(bkg_vec,1)
-obs_len=size(obs_vec,2)
+obs_len=size(obs_vec)
 bkg_len=size(bkg_vec,2)
 
 40 FORMAT(A8,3I4,2F10.4)
 
-do t=1,tim_len
-    do i=1,obs_len
-        obs_vec(t,i)=obs_vec(t,i)-bkg_vec(t,obs_pos(t,i))
-        write(*,40) "INO ",t,i,obs_pos(t,i),obs_vec(t,i),bkg_vec(t,obs_pos(t,i))
-    end do
+do i=1,obs_len
+    obs_vec(i)=obs_vec(i)-bkg_vec(obs_tim(i),obs_pos(i))
+    write(*,40) "INO ",i,obs_tim(i),obs_pos(i),obs_vec(i),bkg_vec(obs_tim(i),obs_pos(i))
 end do
 
 print *,"GET_INO_VEC COMPLETE"
@@ -305,7 +314,7 @@ implicit none
 real(KIND=8), intent(in)    :: obs_cov(:,:,:) 
 real(KIND=8), intent(in)    :: bkg_cov(:,:,:) 
 real(KIND=8), intent(inout) :: hrh_cov(:,:,:) 
-real(KIND=8), intent(in)    :: obs_vec(:,:) 
+real(KIND=8), intent(in)    :: obs_vec(:) 
 real(KIND=8), intent(in)    :: obs_opr(:,:,:) 
 real(KIND=8), intent(inout) :: bht_ino(:,:,:) 
 real(KIND=8), intent(inout) :: jvc_for(:,:) 
@@ -357,7 +366,7 @@ do t=1,tim_len
     tmp_htr=matmul(tmp_bhh,tim_obc)
     tim_hrh=matmul(tmp_htr,tmp_hhb)
 
-    obs_vvc(:,1)=obs_vec(t,:)
+    obs_vvc(:,1)=obs_vec(:)
     tim_bht=matmul(tmp_htr,obs_vvc)
 
     bht_ino(t,:,:)=tim_bht(:,:) 
@@ -440,8 +449,8 @@ allocate (tim_anv(bkg_len,      1))
 
 allocate (pre_bkg(tim_len,bkg_len,      1))
 allocate (pre_anl(tim_len,bkg_len,      1))
+allocate (pre_dif(        bkg_len,      1))
 
-allocate (pre_dif(bkg_len,      1))
 allocate (pre_tra(      1,bkg_len))
 allocate (tmp_mat(      1,bkg_len))
 allocate (tmp_vec(bkg_len,      1))
@@ -452,10 +461,11 @@ mxit = 500
 jold = 100.0 
 jnew = 0.0
 jthr = 0.0001 
-alph = 0.01       
+alph = 0.01         
 print *,"SOLVER"
 
 40 FORMAT(A8,I4,3F10.4)
+50 FORMAT(2I4,3F10.4)
 
 do t=1,tim_len
 ! DO THE PRE-CONDITIONING OF X and Xb
@@ -478,10 +488,25 @@ do while ( abs(jold-jnew) > jthr)
     if (jnew.lt.0.0) exit
     jold=jnew
     jnew=0.0
+
+!   CALCULATE THE COST FUNCTION - J - FORWARD IN TIME
     do t=1,tim_len
         tim_hrh(:,:)=hrh_cov(t,:,:)
         tim_bht(:,:)=bht_ino(t,:,:)
-  
+
+!   RUN THE FORWARD MODEL FOR ALL STEPS AFTER THE FIRST
+!       if(t.gt.10) then
+        if(t.gt.1) then 
+            tim_bkc(:,:)=bkg_cov(t,:,:)
+!           tim_anv(:,:)=pre_anl(t,:,:)
+            tim_anv(:,:)=pre_anl(t-1,:,:)
+            tmp_vec=matmul(tim_bkc,tim_anv)
+            call forward_model(tmp_vec,t-1,1)
+            call pre_con_dif(tim_bkc,tmp_vec)
+            pre_anl(t,:,1)=tmp_vec(:,1)
+        end if
+
+!   CARRY ON WITH THE MINIMIZATION 
         do i=1,bkg_len
             pre_dif(i,1)=pre_anl(t,i,1)-pre_bkg(t,i,1)
         end do
@@ -498,7 +523,30 @@ do while ( abs(jold-jnew) > jthr)
 !   COST FUNCTION
         jnew = 0.5*(jvc_one(1,1)+jvc_two(1,1)-2.0*jvc_the(1,1)+jvc_for(1,1))
 
-!   SOLVE FOR GRADIENT OF COST FUNCTION
+        tmp_vec=matmul(tim_hrh,pre_dif)
+
+    end do
+
+!   CALCULATE GRAD-J IN REVERSE TEMPORAL ORDER 
+    do t=tim_len,1,-1
+        tim_hrh(:,:)=hrh_cov(t,:,:)
+        tim_bht(:,:)=bht_ino(t,:,:)
+
+!       if(t.lt.0) then
+        if(t.lt.tim_len) then 
+            tim_bkc=bkg_cov(t,:,:)
+            tim_anv(:,:)=pre_anl(t+1,:,:)
+!           tim_anv(:,:)=pre_anl(t,:,:)
+            tmp_vec=matmul(tim_bkc,tim_anv)
+            call bakward_model(tmp_vec,t+1,1)
+            call pre_con_dif(tim_bkc,tmp_vec)
+            pre_anl(t,:,1)=tmp_vec(:,1)
+        end if
+
+        do i=1,bkg_len
+            pre_dif(i,1)=pre_anl(t,i,1)-pre_bkg(t,i,1)
+        end do
+
         tmp_vec=matmul(tim_hrh,pre_dif)
 
         do i=1,bkg_len
@@ -506,13 +554,13 @@ do while ( abs(jold-jnew) > jthr)
         end do
 
         do i=1,bkg_len
-            pre_anl(t,i,1)= pre_anl(t,i,1)-grd_jvc(i,1)*alph
+            pre_anl(t,i,1)= pre_anl(t,i,1)-grd_jvc(  i,1)*alph
         end do
 
-        if (nitr.eq.0) print *,'initial cost = ',jnew
-        nitr = nitr + 1 
-
     end do
+    if (nitr.eq.0) print *,'initial cost = ',jnew
+    nitr = nitr + 1 
+    print *,"Cost at ",nitr,jnew
 end do
  
 print *,'final cost = ',jnew,' after ',nitr,' iterations'
@@ -531,6 +579,7 @@ end do
 print *,"SOLVER COMPLETE"
 end subroutine var_solver
 
+
 ! BJE
 ! OUTPUT THE ANALYSIS VECTOR
 subroutine put_anl_vec(anl_vec,bkg_vec,bkg_tim)
@@ -539,20 +588,66 @@ real(KIND=8), intent(in)    :: bkg_vec(:,:)
 integer, intent(in)         :: bkg_tim(:)
 integer                     :: bkg_len
 integer                     :: i,t
+real(KIND=8)                :: pi
 print *,"PUT_ANL_VEC"
 
-tim_len=size((bkg_tim))
-bkg_len=size((bkg_vec))
+pi=3.14159265359
+tim_len=size(bkg_tim)
+bkg_len=size(bkg_vec,2)
 
 40 FORMAT(A8,2I4,3F10.4)
 do t=1,tim_len
     do i=1,bkg_len
-        write(*,40) "FIN",t,i,anl_vec(t,i),bkg_vec(t,i),50.0+50.0*sin(((0.2+float(i))/10.0)*(3.1416))
+        write(*,40) "FIN",t,i,anl_vec(t,i),bkg_vec(t,i),50.0+50.0*sin(((0.2*float(t-1)+float(i))/10.0)*(pi))
     end do
 end do
 
 print *,"PUT_ANL_VEC COMPLETE"
 end subroutine put_anl_vec
+
+
+! THE FORWARD MODEL FOR MY SINE WAVE
+! MOVE IT 0.2 POINTS EVERY TIME STEP
+subroutine forward_model(mod_vec,t,steps)
+real(KIND=8), intent(inout)     :: mod_vec(:,:)
+integer, intent(in)             :: t,steps
+integer                         :: i
+real(KIND=8)                    :: pi
+print *,"FORWARD MODEL"
+
+pi=3.14159265359
+bkg_len=size(mod_vec,1)
+
+35 FORMAT (A4,3I4,2F10.5)
+do i=1,bkg_len
+    mod_vec(i,1)=mod_vec(i,1)+pi*cos(((0.2*(float(t)-1.5)+float(i))/10.0)*(pi))*float(steps)
+end do
+
+print *,"END FORWARD_MODEL"
+end subroutine forward_model
+
+
+! THE BACKWARD MODEL FOR MY SINE WAVE
+! MOVE IT 0.2 POINTS EVERY TIME STEP
+subroutine bakward_model(mod_vec,t,steps)
+real(KIND=8), intent(inout)     :: mod_vec(:,:)
+real(KIND=8)                    :: pi
+integer, intent(in)             :: t,steps
+integer                         :: i
+
+print *,"BAKWARD_MODEL"
+pi=3.14159265359
+bkg_len=size(mod_vec,1)
+
+35 FORMAT (A4,3I4,2F10.5)
+do i=1,bkg_len
+    mod_vec(i,1)=mod_vec(i,1)-pi*cos(((0.2*(float(t)-2.5)+float(i))/10.0)*(pi))*float(steps)
+end do
+
+print *,"END BAKWARD_MODEL"
+end subroutine bakward_model
+
+
 
 ! THAT IS ALL FOLKS!
 !

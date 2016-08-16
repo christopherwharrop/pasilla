@@ -25,6 +25,7 @@ program adept
 
   ! BJE
   ! INITIALIZE GPTL AND START A TIMER
+  ret = gptlsetutr (gptlnanotime)
   ret = gptlinitialize ()                    
   ret = gptlstart ('adept')                 
 

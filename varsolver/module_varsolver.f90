@@ -527,7 +527,7 @@ contains
     tim_len=size(bkg_tim)
     bkg_len=size(bkg_vec,2)
 
-40  FORMAT(A8,2I4,3F10.4)
+40  FORMAT(A8,2I5,3F10.4)
     do t=1,tim_len
        do i=1,bkg_len
           write(*,40) "FIN",t,i,anl_vec(t,i),bkg_vec(t,i),50.0+50.0*sin(((20.0*float(t-1)+float(i))/1000.0)*(pi))

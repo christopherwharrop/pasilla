@@ -59,7 +59,7 @@ contains
              jj=i+j
              if(jj.gt.bkg_len) jj=jj-bkg_len
              if(jj.lt.1) jj=bkg_len+jj
-             bkg_cov(t,i,jj)=var*exp(-((float(j)*0.5)**2))
+             bkg_cov(t,i,jj)=var*exp(-((float(j)*0.005)**2))
           end do
        end do
     end do
@@ -112,38 +112,31 @@ contains
     integer, intent(inout), allocatable      :: obs_pos(:) 
     real(KIND=8), intent(inout), allocatable :: obs_vec(:) 
     real(KIND=8)                             :: pi
-    integer                                  :: i,t
+    integer                                  :: i,t,x 
     print *,"GET_OBS_VEC"
 
     pi=3.14159265359
     bkg_len=size(bkg_pos,2)
     tim_len=size(bkg_tim)
 
-    obs_len=8
+    obs_len=800 
     allocate(obs_tim(obs_len))
     allocate(obs_pos(obs_len))
     allocate(obs_vec(obs_len))
 
-    obs_pos(1)=1
-    obs_pos(2)=2
-    obs_pos(3)=4
-    obs_pos(4)=8
-    obs_pos(5)=16
-    obs_pos(6)=24
-    obs_pos(7)=26 
-    obs_pos(8)=32 
-
-    obs_tim(1)=1
-    obs_tim(2)=2
-    obs_tim(3)=3
-    obs_tim(4)=2
-    obs_tim(5)=2
-    obs_tim(6)=3
-    obs_tim(7)=2
-    obs_tim(8)=1
-
     do i=1,obs_len
-       obs_vec(i)=50.0+50.0*sin(((0.2*float(obs_tim(i)-1)+float(obs_pos(i)))/10.0)*(pi))
+        x=modulo(i,8)
+        obs_tim(i)=2
+        obs_pos(i)=i*5
+        if(x.gt.3) then
+            obs_tim(i)=1
+            obs_pos(i)=i*5-4
+        end if
+        if(x.gt.5) then
+            obs_tim(i)=3
+            obs_pos(i)=i*5-8 
+        end if 
+        obs_vec(i)=50.0+50.0*sin(((20.0*float(obs_tim(i)-1)+float(obs_pos(i)))/1000.0)*(pi))
     end do
 
     print *,"GET_OBS_VEC COMPLETE" 
@@ -191,7 +184,7 @@ contains
 
     pi=3.14159265359
     tim_len=3
-    bkg_len=40
+    bkg_len=4000
     allocate (bkg_vec(tim_len,bkg_len))
     allocate (bkg_pos(tim_len,bkg_len))
     allocate (bkg_tim(tim_len))
@@ -199,7 +192,7 @@ contains
        bkg_tim(t)=t
        do i=1,bkg_len
           bkg_pos(t,i)=i
-          bkg_vec(t,i)=50.0+50.0*sin(((0.2*float(t-2)+float(i))/10.0)*(pi))
+          bkg_vec(t,i)=50.0+50.0*sin(((20.0*float(t-2)+float(i))/1000.0)*(pi))
        end do
     end do
 
@@ -398,7 +391,7 @@ contains
     jold = 100.0 
     jnew = 0.0
     jthr = 0.0001 
-    alph = 0.01         
+    alph = 0.00001         
     print *,"SOLVER"
 
 40  FORMAT(A8,I4,3F10.4)
@@ -537,7 +530,7 @@ contains
 40  FORMAT(A8,2I4,3F10.4)
     do t=1,tim_len
        do i=1,bkg_len
-          write(*,40) "FIN",t,i,anl_vec(t,i),bkg_vec(t,i),50.0+50.0*sin(((0.2*float(t-1)+float(i))/10.0)*(pi))
+          write(*,40) "FIN",t,i,anl_vec(t,i),bkg_vec(t,i),50.0+50.0*sin(((20.0*float(t-1)+float(i))/1000.0)*(pi))
        end do
     end do
 
@@ -547,7 +540,7 @@ contains
 
 
   ! THE FORWARD MODEL FOR MY SINE WAVE
-  ! MOVE IT 0.2 POINTS EVERY TIME STEP
+  ! MOVE IT 20 POINTS EVERY TIME STEP
   subroutine forward_model(mod_vec,t,steps)
 
     real(KIND=8), intent(inout)     :: mod_vec(:,:)
@@ -561,7 +554,7 @@ contains
 
 35  FORMAT (A4,3I4,2F10.5)
     do i=1,bkg_len
-       mod_vec(i,1)=mod_vec(i,1)+pi*cos(((0.2*(float(t)-1.5)+float(i))/10.0)*(pi))*float(steps)
+       mod_vec(i,1)=mod_vec(i,1)+pi*cos(((20.0*(float(t)-1.5)+float(i))/1000.0)*(pi))*float(steps)
     end do
 
     print *,"END FORWARD_MODEL"
@@ -570,7 +563,7 @@ contains
 
 
   ! THE BACKWARD MODEL FOR MY SINE WAVE
-  ! MOVE IT 0.2 POINTS EVERY TIME STEP
+  ! MOVE IT 20 POINTS EVERY TIME STEP
   subroutine bakward_model(mod_vec,t,steps)
 
     real(KIND=8), intent(inout)     :: mod_vec(:,:)
@@ -584,7 +577,7 @@ contains
 
 35  FORMAT (A4,3I4,2F10.5)
     do i=1,bkg_len
-       mod_vec(i,1)=mod_vec(i,1)-pi*cos(((0.2*(float(t)-2.5)+float(i))/10.0)*(pi))*float(steps)
+       mod_vec(i,1)=mod_vec(i,1)-pi*cos(((20.0*(float(t)-2.5)+float(i))/1000.0)*(pi))*float(steps)
     end do
 
     print *,"END BAKWARD_MODEL"

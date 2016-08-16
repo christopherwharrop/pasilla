@@ -9,7 +9,7 @@ module module_lorenz96
   public :: lorenz96
 
   type lorenz96
-!    private
+      private
       integer  :: size
       real(r8kind) :: forcing
       real(r8kind) :: delta_t
@@ -39,9 +39,9 @@ contains
   !------------------------------------------------------------------
   type(lorenz96) function constructor(size, forcing, delta_t)
 
-    integer      :: size
-    real(r8kind) :: forcing
-    real(r8kind) :: delta_t
+    integer, intent(in)      :: size
+    real(r8kind), intent(in) :: forcing
+    real(r8kind), intent(in) :: delta_t
 
     integer :: j
 
@@ -67,6 +67,7 @@ contains
 
   end function
 
+
   !------------------------------------------------------------------
   ! destructor
   !
@@ -79,6 +80,7 @@ contains
     ! No pointers in lorenz96 object so we do nothing
 
   end subroutine
+
 
   !------------------------------------------------------------------
   ! comp_dt
@@ -366,7 +368,6 @@ contains
   end function nc_read_model_state
 
 
-
   !------------------------------------------------------------------
   ! nc_check
   ! 
@@ -390,8 +391,6 @@ contains
     stop  
 
   end subroutine nc_check
-
-
 
 
 end module module_lorenz96

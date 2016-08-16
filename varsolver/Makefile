@@ -1,18 +1,18 @@
-GPTL=/contrib/gptl/gptl-v5.4.4_impi_noomp
+GPTL=/contrib/gptl/gptl-v5.5_nompi_noomp
 
-FC=mpiifort
+FC=ifort
 FCOPT=-O3
 FCDEBUG=-g -traceback
 FFLAGS=$(FCOPT) -finstrument-functions -mkl=sequential $(FCDEBUG)
-INCLUDES=-I$(NETCDF)/include -I$(GPTL)/include
-LIBS=-L/contrib/gptl/gptl-v5.4.4_impi_noomp/lib -lgptl
+INCLUDES=-I$(GPTL)/include -I.
+LIBS=-L$(GPTL)/lib -lgptl
 
-varsolver.exe: varsolver.o
-	$(FC) -o varsolver.exe varsolver.o $(FFLAGS) $(LIBS)
+varsolver.exe: varsolver.f90 module_varsolver.o
+	$(FC) -o varsolver.exe varsolver.f90 module_varsolver.o $(FFLAGS) $(INCLUDES) $(LIBS)
 
-varsolver.o: varsolver.f90
-	$(FC) -c varsolver.f90 $(FFLAGS) $(INCLUDES)
+module_varsolver.o: module_varsolver.f90
+	$(FC) -c module_varsolver.f90 $(FFLAGS) $(INCLUDES)
 
 clean:
-	rm -f *.exe *.o
+	rm -f *.exe *.o *.mod
 

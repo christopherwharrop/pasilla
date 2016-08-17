@@ -15,7 +15,7 @@ module module_lorenz96
       real(r8kind) :: delta_t
       real(r8kind) :: t
       integer :: step
-      real(r8kind), allocatable :: x(:)
+      real(r8kind), allocatable :: state(:)
       real(r8kind), allocatable :: location(:)
   contains
       final              :: destructor
@@ -53,12 +53,12 @@ contains
     constructor%step = 0
 
     ! Allocate model variables
-    allocate(constructor%x(size))
+    allocate(constructor%state(size))
     allocate(constructor%location(size))
 
     ! Initialize model variables
-    constructor%x = forcing
-    constructor%x(1) = 1.001_r8kind * forcing
+    constructor%state = forcing
+    constructor%state(1) = 1.001_r8kind * forcing
 
     ! Localize the domain
     do j = 1, size
@@ -99,8 +99,10 @@ contains
     do j = 1, this%size
        jp1 = j + 1
        if(jp1 > this%size) jp1 = 1
+
        jm2 = j - 2
        if(jm2 < 1) jm2 = this%size + jm2
+
        jm1 = j - 1
        if(jm1 < 1) jm1 = this%size
 
@@ -116,33 +118,33 @@ contains
   ! Does n time step advances for lorenz 96 model
   ! using four-step rk time step
   !------------------------------------------------------------------
-  subroutine adv_nsteps(this,steps)
+  subroutine adv_nsteps(this,nsteps)
 
     class(lorenz96), intent(inout) :: this
-    integer, intent(in) :: steps
+    integer, intent(in) :: nsteps
 
-    real(r8kind), dimension(size(this%x)) :: x1, x2, x3, x4, dx, inter
+    real(r8kind), dimension(this%size) :: x1, x2, x3, x4, dx, inter
     integer :: step
     
-    do step = 1, steps
+    do step = 1, nsteps
 
-      call this%comp_dt(this%x, dx)   !  Compute the first intermediate step
+      call this%comp_dt(this%state, dx)   !  Compute the first intermediate step
       x1    = this%delta_t * dx
-      inter = this%x + x1 / 2.0_r8kind
+      inter = this%state + x1 / 2.0_r8kind
 
-      call this%comp_dt(inter, dx)    !  Compute the second intermediate step
+      call this%comp_dt(inter, dx)        !  Compute the second intermediate step
       x2    = this%delta_t * dx
-      inter = this%x + x2 / 2.0_r8kind
+      inter = this%state + x2 / 2.0_r8kind
 
-      call this%comp_dt(inter, dx)    !  Compute the third intermediate step
+      call this%comp_dt(inter, dx)        !  Compute the third intermediate step
       x3    = this%delta_t * dx
-      inter = this%x + x3
+      inter = this%state + x3
 
-      call this%comp_dt(inter, dx)    !  Compute fourth intermediate step
+      call this%comp_dt(inter, dx)        !  Compute fourth intermediate step
       x4 = this%delta_t * dx
 
       !  Compute new value for x
-      this%x = this%x + x1/6.0_r8kind + x2/3.0_r8kind + x3/3.0_r8kind + x4/6.0_r8kind
+      this%state = this%state + x1/6.0_r8kind + x2/3.0_r8kind + x3/3.0_r8kind + x4/6.0_r8kind
 
       ! Increment time step
       this%t = this%t + this%delta_t
@@ -156,11 +158,11 @@ contains
   !------------------------------------------------------------------  
   ! Interpolates from state vector x to the location. 
   !------------------------------------------------------------------  
-  subroutine interpolate(this, location, obs_val)
+  subroutine interpolate(this, location, state_val)
 
     class(lorenz96), intent(in) :: this
     real(r8kind), intent(in)    :: location
-    real(r8kind), intent(out)   :: obs_val
+    real(r8kind), intent(out)   :: state_val
 
     integer :: lower_index, upper_index, i
     real(r8kind) :: lctn, lctnfrac
@@ -176,7 +178,7 @@ contains
 
     ! Interpolate model value at the location
     lctnfrac = lctn - int(lctn)
-    obs_val = (1.0_r8kind - lctnfrac) * this%x(lower_index) + lctnfrac * this%x(upper_index)
+    state_val = (1.0_r8kind - lctnfrac) * this%state(lower_index) + lctnfrac * this%state(upper_index)
  
   end subroutine interpolate
 
@@ -277,7 +279,7 @@ contains
     call nc_check(nf90_put_var(ncFileID, LocationVarID, (/ (this%location(i),i=1,this%size) /) ))
 
     ! Fill the state variable
-    call nc_check(nf90_put_var(ncFileID, StateVarID, (/ (this%x(i),i=1,this%size) /) ))
+    call nc_check(nf90_put_var(ncFileID, StateVarID, (/ (this%state(i),i=1,this%size) /) ))
 
     ! Flush buffers
     call nc_check(nf90_sync(ncFileID))
@@ -355,7 +357,7 @@ contains
     call nc_check(nf90_get_var(ncFileID, LocationVarID, this%location))
 
     ! Get the state variable
-    call nc_check(nf90_get_var(ncFileID, StateVarID, this%x))
+    call nc_check(nf90_get_var(ncFileID, StateVarID, this%state))
 
     ! Flush buffers
     call nc_check(nf90_sync(ncFileID))

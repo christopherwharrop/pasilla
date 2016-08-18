@@ -6,3 +6,9 @@
 
 # Executables
 *.exe
+
+# Emacs backup files
+*~
+
+# NetCDF files
+*.nc

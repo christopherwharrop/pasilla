@@ -112,14 +112,14 @@ contains
     integer, intent(inout), allocatable      :: obs_pos(:) 
     real(KIND=8), intent(inout), allocatable :: obs_vec(:) 
     real(KIND=8)                             :: pi
-    integer                                  :: i,t,x 
+    integer                                  :: i,x 
     print *,"GET_OBS_VEC"
 
     pi=3.14159265359
     bkg_len=size(bkg_pos,2)
     tim_len=size(bkg_tim)
 
-    obs_len=800 
+    obs_len=40 
     allocate(obs_tim(obs_len))
     allocate(obs_pos(obs_len))
     allocate(obs_vec(obs_len))
@@ -127,16 +127,18 @@ contains
     do i=1,obs_len
         x=modulo(i,8)
         obs_tim(i)=2
-        obs_pos(i)=i*5
+        obs_pos(i)=i*100 
         if(x.gt.3) then
             obs_tim(i)=1
-            obs_pos(i)=i*5-4
+            obs_pos(i)=i*100-35 
         end if
         if(x.gt.5) then
             obs_tim(i)=3
-            obs_pos(i)=i*5-8 
+            obs_pos(i)=i*100-75 
         end if 
         obs_vec(i)=50.0+50.0*sin(((20.0*float(obs_tim(i)-1)+float(obs_pos(i)))/1000.0)*(pi))
+!       FOR 3DVAR
+!       obs_tim(i)=1
     end do
 
     print *,"GET_OBS_VEC COMPLETE" 
@@ -184,6 +186,8 @@ contains
 
     pi=3.14159265359
     tim_len=3
+!   FOR 3DVAR
+!   tim_len=1
     bkg_len=4000
     allocate (bkg_vec(tim_len,bkg_len))
     allocate (bkg_pos(tim_len,bkg_len))
@@ -367,10 +371,13 @@ contains
     real(KIND=8)                :: bvc_hlf(1,1)
     integer                     :: tim_len,bkg_len
     integer                     :: i,j,t,nitr,mxit
-    real(KIND=8)                :: jold,jnew,jthr,alph 
+    real(KIND=8)                :: jold,jnew,jthr,alph
+    real(KIND=8), allocatable   :: jtim(:) 
 
     tim_len=size(bkg_cov,1)
     bkg_len=size(bkg_cov,2)
+
+    allocate (jtim(tim_len)) 
     allocate (tim_bht(bkg_len,      1))
     allocate (tim_bkc(bkg_len,bkg_len))
     allocate (tim_hrh(bkg_len,bkg_len))
@@ -390,8 +397,8 @@ contains
     mxit = 500
     jold = 100.0 
     jnew = 0.0
-    jthr = 0.0001 
-    alph = 0.00001         
+    jthr = 0.01 
+    alph = 0.0001
     print *,"SOLVER"
 
 40  FORMAT(A8,I4,3F10.4)
@@ -425,10 +432,8 @@ contains
           tim_bht(:,:)=bht_ino(t,:,:)
 
           !   RUN THE FORWARD MODEL FOR ALL STEPS AFTER THE FIRST
-          !       if(t.gt.10) then
           if(t.gt.1) then 
              tim_bkc(:,:)=bkg_cov(t,:,:)
-             !           tim_anv(:,:)=pre_anl(t,:,:)
              tim_anv(:,:)=pre_anl(t-1,:,:)
              tmp_vec=matmul(tim_bkc,tim_anv)
              call forward_model(tmp_vec,t-1,1)
@@ -451,10 +456,12 @@ contains
           !   THIRD TERM
           jvc_the=matmul(pre_tra,tim_bht)
           !   COST FUNCTION
-          jnew = 0.5*(jvc_one(1,1)+jvc_two(1,1)-2.0*jvc_the(1,1)+jvc_for(1,1))
+          jtim(t) = 0.5*(jvc_one(1,1)+jvc_two(1,1)-2.0*jvc_the(1,1)+jvc_for(1,1))
 
-          tmp_vec=matmul(tim_hrh,pre_dif)
+       end do
 
+       do t=1,tim_len
+           jnew=jnew+jtim(t)
        end do
 
        !   CALCULATE GRAD-J IN REVERSE TEMPORAL ORDER 
@@ -462,11 +469,9 @@ contains
           tim_hrh(:,:)=hrh_cov(t,:,:)
           tim_bht(:,:)=bht_ino(t,:,:)
 
-          !       if(t.lt.0) then
           if(t.lt.tim_len) then 
              tim_bkc=bkg_cov(t,:,:)
              tim_anv(:,:)=pre_anl(t+1,:,:)
-             !           tim_anv(:,:)=pre_anl(t,:,:)
              tmp_vec=matmul(tim_bkc,tim_anv)
              call bakward_model(tmp_vec,t+1,1)
              call pre_con_dif(tim_bkc,tmp_vec)
@@ -531,6 +536,8 @@ contains
     do t=1,tim_len
        do i=1,bkg_len
           write(*,40) "FIN",t,i,anl_vec(t,i),bkg_vec(t,i),50.0+50.0*sin(((20.0*float(t-1)+float(i))/1000.0)*(pi))
+!         FOR 3DVAR
+!         write(*,40) "FIN",t,i,anl_vec(t,i),bkg_vec(t,i),50.0+50.0*sin(((20.0*float(2-1)+float(i))/1000.0)*(pi))
        end do
     end do
 

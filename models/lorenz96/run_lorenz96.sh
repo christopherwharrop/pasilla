@@ -1,4 +1,4 @@
 #!/bin/sh
 
-./lorenz96.exe < lorenz96.namelist
+./exe/lorenz96.exe < lorenz96.namelist
 

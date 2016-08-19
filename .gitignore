@@ -1,6 +1,9 @@
 # Object files
 *.o
 
+# Archive files
+*.a
+
 # Module files
 *.mod
 

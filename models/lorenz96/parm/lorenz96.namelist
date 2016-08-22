@@ -2,6 +2,7 @@
  size = 40,
  forcing = 8.0,
  delta_t = 0.05,
+ io_format = 'NETCDF',
 /
 &runtime
  start_step = 0,

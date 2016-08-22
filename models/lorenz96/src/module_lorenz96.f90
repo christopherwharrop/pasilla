@@ -22,8 +22,10 @@ module module_lorenz96
       procedure, private :: comp_dt
       procedure          :: adv_nsteps
       procedure          :: interpolate
-      procedure          :: nc_read_model_state
-      procedure          :: nc_write_model_state
+      procedure          :: read_model_state
+      procedure, private :: nc_read_model_state
+      procedure          :: write_model_state
+      procedure, private :: nc_write_model_state
   end type lorenz96
 
   interface lorenz96
@@ -184,6 +186,29 @@ contains
 
 
   !------------------------------------------------------------------
+  ! write_model_state
+  !------------------------------------------------------------------
+  integer function write_model_state(this, format)
+
+    class(lorenz96), intent(in) :: this
+    character(*), intent(in)    :: format
+
+    integer :: ierr          ! return value of function
+
+    select case (format)
+      case('NETCDF') 
+        ierr = this%nc_write_model_state()
+      case DEFAULT
+        write(*,'(A,A,A)') 'ERROR: IO Format "',format,'" is not supported!'
+        stop
+    end select
+
+    write_model_state = ierr
+
+  end function write_model_state
+
+
+  !------------------------------------------------------------------
   ! nc_write_model_state
   !
   ! Writes model state to NetCDF file
@@ -293,14 +318,38 @@ contains
 
 
   !------------------------------------------------------------------
+  ! read_model_state
+  !------------------------------------------------------------------
+  integer function read_model_state(this, read_step, format)
+
+    class(lorenz96), intent(inout) :: this
+    integer, intent(in)            :: read_step
+    character(*), intent(in)       :: format
+
+    integer :: ierr          ! return value of function
+
+    select case (format)
+      case('NETCDF') 
+        ierr = this%nc_read_model_state(read_step)
+      case DEFAULT
+        write(*,'(A,A,A)') 'ERROR: IO Format "',format,'" is not supported!'
+        stop
+    end select
+
+    read_model_state = ierr
+
+  end function read_model_state
+
+
+  !------------------------------------------------------------------
   ! nc_read_model_state
   !------------------------------------------------------------------
-  integer function nc_read_model_state(this,filename)
+  integer function nc_read_model_state(this,read_step)
 
     use netcdf
 
     class(lorenz96), intent(inout) :: this
-    character(*), intent(in)       :: filename  ! name of input file
+    integer, intent(in) :: read_step ! Read in data for this time step
 
     integer :: ierr  ! return value of function
 
@@ -314,9 +363,13 @@ contains
     integer      :: size
     real(r8kind) :: forcing
     real(r8kind) :: delta_t
+    character(len=21) :: filename
 
     ! assume normal termination
     ierr = 0 
+
+    ! Calculate name of file based on time step requested
+    write(filename,'(A,I0.6,A)') 'lorenz96out_', read_step, '.nc'
 
     ! Open file for read only
     call nc_check(nf90_open(trim(filename), NF90_NOWRITE, ncFileID))

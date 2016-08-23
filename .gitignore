@@ -15,3 +15,9 @@
 
 # NetCDF files
 *.nc
+
+# CSV files
+*.csv
+
+# PNG files
+*.png

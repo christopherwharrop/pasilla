@@ -23,9 +23,10 @@ module module_lorenz96
       procedure          :: adv_nsteps
       procedure          :: interpolate
       procedure          :: read_model_state
-      procedure, private :: nc_read_model_state
+      procedure, private :: netcdf_read_model_state
       procedure          :: write_model_state
-      procedure, private :: nc_write_model_state
+      procedure, private :: netcdf_write_model_state
+      procedure, private :: ascii_write_model_state
   end type lorenz96
 
   interface lorenz96
@@ -197,7 +198,9 @@ contains
 
     select case (format)
       case('NETCDF') 
-        ierr = this%nc_write_model_state()
+        ierr = this%netcdf_write_model_state()
+      case('ASCII')
+        ierr = this%ascii_write_model_state()
       case DEFAULT
         write(*,'(A,A,A)') 'ERROR: IO Format "',format,'" is not supported!'
         stop
@@ -209,7 +212,7 @@ contains
 
 
   !------------------------------------------------------------------
-  ! nc_write_model_state
+  ! netcdf_write_model_state
   !
   ! Writes model state to NetCDF file
   !
@@ -223,7 +226,7 @@ contains
   !    NF90_put_var       ! provide values for variable
   ! NF90_CLOSE            ! close: save updated netCDF dataset
   !------------------------------------------------------------------
-  integer function nc_write_model_state(this)
+  integer function netcdf_write_model_state(this)
 
     use netcdf
 
@@ -243,7 +246,7 @@ contains
     character(len=10)     :: crtime      ! needed by F90 DATE_AND_TIME intrinsic
     character(len=5)      :: crzone      ! needed by F90 DATE_AND_TIME intrinsic
     integer, dimension(8) :: values      ! needed by F90 DATE_AND_TIME intrinsic
-    character(len=NF90_MAX_NAME) :: timestr
+    character(len=19) :: timestr
 
     ! assume normal termination
     ierr = 0 
@@ -312,9 +315,57 @@ contains
     ! Close the NetCDF file
     call nc_check(nf90_close(ncFileID))
 
-    nc_write_model_state = ierr
+    netcdf_write_model_state = ierr
 
-  end function nc_write_model_state
+  end function netcdf_write_model_state
+
+
+  !------------------------------------------------------------------
+  integer function ascii_write_model_state(this)
+
+    class(lorenz96), intent(in) :: this
+
+    integer :: ierr          ! return value of function
+
+    character(len=128)    :: filename    ! name of output file
+    integer :: fileunit
+    integer :: i
+    character(len=8)      :: crdate      ! needed by F90 DATE_AND_TIME intrinsic
+    character(len=10)     :: crtime      ! needed by F90 DATE_AND_TIME intrinsic
+    character(len=5)      :: crzone      ! needed by F90 DATE_AND_TIME intrinsic
+    integer, dimension(8) :: values      ! needed by F90 DATE_AND_TIME intrinsic
+    character(len=19) :: timestr
+
+    ! Construct name of output file
+    write(filename,'(A,I0.6,A)') 'lorenz96out_', this%step, '.csv'
+
+    ! Open the output csv file
+    open(newunit=fileunit, file=filename, form='formatted')
+
+    call DATE_AND_TIME(crdate,crtime,crzone,values)
+    write(timestr,'(i4,2(a,i2.2),1x,i2.2,2(a,i2.2))') &
+          values(1), '/', values(2), '/', values(3), values(5), ':', values(6), ':', values(7)
+
+    ! Write global data
+    write(fileunit,'(11A)') 'creation date',',','model',',','model_forcing',',','model_delta_t',',','model_t',',','model_step'
+    write(fileunit,'(3A,3(A,F12.7),A,I)') timestr,',','lorenz96',',',this%forcing,',',this%delta_t,',',this%t,',',this%step
+
+    ! Write record separator
+    write(fileunit,*)
+    write(fileunit,*)
+
+    ! Write the coordinate, location, and state fields
+    write(fileunit,'(5A)') 'Coordinates',',','Location',',','State'
+    do i=1, size(this%state)
+      write(fileunit,'(I,2(A,F12.7))') i,',',this%location(i),',',this%state(i)
+    end do
+
+    ! Close the file
+    close(fileunit)
+
+    ascii_write_model_state = ierr
+
+  end function ascii_write_model_state
 
 
   !------------------------------------------------------------------
@@ -330,7 +381,7 @@ contains
 
     select case (format)
       case('NETCDF') 
-        ierr = this%nc_read_model_state(read_step)
+        ierr = this%netcdf_read_model_state(read_step)
       case DEFAULT
         write(*,'(A,A,A)') 'ERROR: IO Format "',format,'" is not supported!'
         stop
@@ -342,9 +393,9 @@ contains
 
 
   !------------------------------------------------------------------
-  ! nc_read_model_state
+  ! netcdf_read_model_state
   !------------------------------------------------------------------
-  integer function nc_read_model_state(this,read_step)
+  integer function netcdf_read_model_state(this,read_step)
 
     use netcdf
 
@@ -418,9 +469,9 @@ contains
     ! Close the NetCDF file
     call nc_check(nf90_close(ncFileID))
 
-    nc_read_model_state = ierr
+    netcdf_read_model_state = ierr
 
-  end function nc_read_model_state
+  end function netcdf_read_model_state
 
 
   !------------------------------------------------------------------

@@ -17,12 +17,12 @@ program lorenz96Model
   integer          :: size    = 40
   real(r8kind)     :: forcing = 8.00_r8kind
   real(r8kind)     :: delta_t = 0.05_r8kind
+  namelist /params/  size, forcing, delta_t
+  integer          :: start_step = 0
+  integer          :: run_steps   = 1000
+  integer          :: output_interval_steps = 100
   character(len=6) :: io_format = 'NETCDF'
-  namelist /params/  size, forcing, delta_t, io_format
-  integer         :: start_step = 0
-  integer         :: run_steps   = 1000
-  integer         :: output_interval_steps = 100
-  namelist /runtime/ start_step, run_steps, output_interval_steps
+  namelist /runtime/ start_step, run_steps, output_interval_steps, io_format
 
   integer :: t     ! Loop index
   integer :: ierr  ! Error code 

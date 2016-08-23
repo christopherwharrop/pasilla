@@ -2,10 +2,10 @@
  size = 40,
  forcing = 8.0,
  delta_t = 0.05,
- io_format = 'NETCDF',
 /
 &runtime
  start_step = 0,
  run_steps = 1000,
  output_interval_steps = 100,
+ io_format = 'NETCDF',
 /

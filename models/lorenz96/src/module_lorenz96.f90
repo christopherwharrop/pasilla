@@ -24,6 +24,7 @@ module module_lorenz96
       procedure          :: interpolate
       procedure          :: read_model_state
       procedure, private :: netcdf_read_model_state
+      procedure, private :: ascii_read_model_state
       procedure          :: write_model_state
       procedure, private :: netcdf_write_model_state
       procedure, private :: ascii_write_model_state
@@ -197,7 +198,7 @@ contains
     integer :: ierr          ! return value of function
 
     select case (format)
-      case('NETCDF') 
+      case('NETCDF')
         ierr = this%netcdf_write_model_state()
       case('ASCII')
         ierr = this%ascii_write_model_state()
@@ -321,6 +322,8 @@ contains
 
 
   !------------------------------------------------------------------
+  ! ascii_write_model_state
+  !------------------------------------------------------------------
   integer function ascii_write_model_state(this)
 
     class(lorenz96), intent(in) :: this
@@ -347,8 +350,13 @@ contains
           values(1), '/', values(2), '/', values(3), values(5), ':', values(6), ':', values(7)
 
     ! Write global data
-    write(fileunit,'(11A)') 'creation date',',','model',',','model_forcing',',','model_delta_t',',','model_t',',','model_step'
-    write(fileunit,'(3A,3(A,F12.7),A,I)') timestr,',','lorenz96',',',this%forcing,',',this%delta_t,',',this%t,',',this%step
+    write(fileunit,'(3A)') 'creation_date', ',', timestr
+    write(fileunit,'(3A)') 'model', ',', 'Lorenz_96'
+    write(fileunit,'(2A,F12.7)') 'model_forcing', ',', this%forcing
+    write(fileunit,'(2A,F12.7)') 'model_delta_t', ',', this%delta_t
+    write(fileunit,'(2A,F12.7)') 'model_t', ',', this%t
+    write(fileunit,'(2A,I)') 'model_step', ',', this%step
+    write(fileunit,'(2A,I)') 'StateDim', ',', this%size
 
     ! Write record separator
     write(fileunit,*)
@@ -382,6 +390,8 @@ contains
     select case (format)
       case('NETCDF') 
         ierr = this%netcdf_read_model_state(read_step)
+      case('ASCII')
+        ierr = this%ascii_read_model_state(read_step)
       case DEFAULT
         write(*,'(A,A,A)') 'ERROR: IO Format "',format,'" is not supported!'
         stop
@@ -473,6 +483,107 @@ contains
 
   end function netcdf_read_model_state
 
+
+  !------------------------------------------------------------------
+  ! ascii_read_model_state
+  !------------------------------------------------------------------
+  integer function ascii_read_model_state(this,read_step)
+
+    class(lorenz96), intent(inout) :: this
+    integer, intent(in) :: read_step ! Read in data for this time step
+
+    integer :: ierr                  ! return value of function
+
+    character(len=128) :: filename   ! name of output file
+    integer :: fileunit
+    character(len=80) :: line
+    character(len=16) :: linefmt
+    character(len=64) :: attr_name
+    integer :: position
+    integer :: ignore
+    integer :: i
+    integer      :: size
+    real(r8kind) :: forcing
+    real(r8kind) :: delta_t
+
+    ! assume normal termination
+    ierr = 0
+
+    ! Construct name of input file
+    write(filename, '(A,I0.6,A)') 'lorenz96out_', read_step, '.csv'
+
+    ! Open the output csv file
+    open(newunit=fileunit, file=filename, form='formatted', status='old')
+
+    ! Read global attributes
+    read(fileunit, '(A)') line
+    position = index(line, ',')
+    do while (position /= 0)
+
+      ! Read global attribute name
+      write(linefmt, '(A,I0,A)') '(A', position - 1, ')'
+      read(line, linefmt) attr_name
+
+      ! Read in global attribute value
+      select case (attr_name)
+        case('model_forcing')
+          write(linefmt, '(A2,I0,A3)') '(T', position + 1, ',F)'
+          read(line, linefmt) forcing
+          if (forcing /= this%forcing) then
+            write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
+            write(*,'(A,F7.3,A,F7.3)') '       Input file forcing =',forcing,', expecting ',this%forcing
+            stop
+          end if
+        case('model_delta_t')
+          write(linefmt, '(A2,I0,A3)') '(T', position + 1, ',F)'
+          read(line, linefmt) delta_t
+          if (delta_t /= this%delta_t) then
+            write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
+            write(*,'(A,F7.3,A,F7.3)') '       Input file delta_t =',delta_t,', expecting ',this%delta_t
+            stop
+          end if
+        case('model_t')
+          write(linefmt, '(A2,I0,A3)') '(T', position + 1, ',F)'
+          read(line, linefmt) this%t
+        case('model_step')
+          write(linefmt, '(A2,I0,A3)') '(T', position + 1, ',I)'
+          read(line, linefmt) this%step
+        case('StateDim')
+          write(linefmt, '(A2,I0,A3)') '(T', position + 1, ',I)'
+          read(line, linefmt) size
+          if (size /= this%size) then
+            write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
+            write(*,'(A,I,A,I)') '       Input file size =',size,', expecting ',this%size
+            stop
+          end if
+        case DEFAULT
+          ! Ignore gloval settings we don't need
+          read(line,*)
+      end select
+
+      ! Get the next line and position of the comma
+      read(fileunit, '(A)') line
+      position = index(line, ',')
+
+    end do
+
+    ! Read record separator
+    read(fileunit, '(A)') line
+
+    ! Read field header
+    read(fileunit, '(A)') line
+
+    ! Read the coordinate, location, and state fields
+    do i=1, this%size
+      read(fileunit, *) ignore, this%location(i), this%state(i)
+    end do
+
+    ! Close the file
+    close(fileunit)
+
+    ascii_read_model_state = ierr
+
+  end function ascii_read_model_state
 
   !------------------------------------------------------------------
   ! nc_check

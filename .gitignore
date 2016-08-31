@@ -1,6 +1,9 @@
 # Object files
 *.o
 
+# Archive files
+*.a
+
 # Module files
 *.mod
 
@@ -12,3 +15,9 @@
 
 # NetCDF files
 *.nc
+
+# CSV files
+*.csv
+
+# PNG files
+*.png

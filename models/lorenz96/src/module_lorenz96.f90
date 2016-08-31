@@ -22,8 +22,12 @@ module module_lorenz96
       procedure, private :: comp_dt
       procedure          :: adv_nsteps
       procedure          :: interpolate
-      procedure          :: nc_read_model_state
-      procedure          :: nc_write_model_state
+      procedure          :: read_model_state
+      procedure, private :: netcdf_read_model_state
+      procedure, private :: ascii_read_model_state
+      procedure          :: write_model_state
+      procedure, private :: netcdf_write_model_state
+      procedure, private :: ascii_write_model_state
   end type lorenz96
 
   interface lorenz96
@@ -184,7 +188,32 @@ contains
 
 
   !------------------------------------------------------------------
-  ! nc_write_model_state
+  ! write_model_state
+  !------------------------------------------------------------------
+  integer function write_model_state(this, format)
+
+    class(lorenz96), intent(in) :: this
+    character(*), intent(in)    :: format
+
+    integer :: ierr          ! return value of function
+
+    select case (format)
+      case('NETCDF')
+        ierr = this%netcdf_write_model_state()
+      case('ASCII')
+        ierr = this%ascii_write_model_state()
+      case DEFAULT
+        write(*,'(A,A,A)') 'ERROR: IO Format "',format,'" is not supported!'
+        stop
+    end select
+
+    write_model_state = ierr
+
+  end function write_model_state
+
+
+  !------------------------------------------------------------------
+  ! netcdf_write_model_state
   !
   ! Writes model state to NetCDF file
   !
@@ -198,7 +227,7 @@ contains
   !    NF90_put_var       ! provide values for variable
   ! NF90_CLOSE            ! close: save updated netCDF dataset
   !------------------------------------------------------------------
-  integer function nc_write_model_state(this)
+  integer function netcdf_write_model_state(this)
 
     use netcdf
 
@@ -218,7 +247,7 @@ contains
     character(len=10)     :: crtime      ! needed by F90 DATE_AND_TIME intrinsic
     character(len=5)      :: crzone      ! needed by F90 DATE_AND_TIME intrinsic
     integer, dimension(8) :: values      ! needed by F90 DATE_AND_TIME intrinsic
-    character(len=NF90_MAX_NAME) :: timestr
+    character(len=19) :: timestr
 
     ! assume normal termination
     ierr = 0 
@@ -287,20 +316,101 @@ contains
     ! Close the NetCDF file
     call nc_check(nf90_close(ncFileID))
 
-    nc_write_model_state = ierr
+    netcdf_write_model_state = ierr
 
-  end function nc_write_model_state
+  end function netcdf_write_model_state
 
 
   !------------------------------------------------------------------
-  ! nc_read_model_state
+  ! ascii_write_model_state
   !------------------------------------------------------------------
-  integer function nc_read_model_state(this,filename)
+  integer function ascii_write_model_state(this)
+
+    class(lorenz96), intent(in) :: this
+
+    integer :: ierr          ! return value of function
+
+    character(len=128)    :: filename    ! name of output file
+    integer :: fileunit
+    integer :: i
+    character(len=8)      :: crdate      ! needed by F90 DATE_AND_TIME intrinsic
+    character(len=10)     :: crtime      ! needed by F90 DATE_AND_TIME intrinsic
+    character(len=5)      :: crzone      ! needed by F90 DATE_AND_TIME intrinsic
+    integer, dimension(8) :: values      ! needed by F90 DATE_AND_TIME intrinsic
+    character(len=19) :: timestr
+
+    ! Construct name of output file
+    write(filename,'(A,I0.6,A)') 'lorenz96out_', this%step, '.csv'
+
+    ! Open the output csv file
+    open(newunit=fileunit, file=filename, form='formatted')
+
+    call DATE_AND_TIME(crdate,crtime,crzone,values)
+    write(timestr,'(i4,2(a,i2.2),1x,i2.2,2(a,i2.2))') &
+          values(1), '/', values(2), '/', values(3), values(5), ':', values(6), ':', values(7)
+
+    ! Write global data
+    write(fileunit,'(3A)') 'creation_date', ',', timestr
+    write(fileunit,'(3A)') 'model', ',', 'Lorenz_96'
+    write(fileunit,'(2A,F12.7)') 'model_forcing', ',', this%forcing
+    write(fileunit,'(2A,F12.7)') 'model_delta_t', ',', this%delta_t
+    write(fileunit,'(2A,F12.7)') 'model_t', ',', this%t
+    write(fileunit,'(2A,I)') 'model_step', ',', this%step
+    write(fileunit,'(2A,I)') 'StateDim', ',', this%size
+
+    ! Write record separator
+    write(fileunit,*)
+    write(fileunit,*)
+
+    ! Write the coordinate, location, and state fields
+    write(fileunit,'(5A)') 'Coordinates',',','Location',',','State'
+    do i=1, size(this%state)
+      write(fileunit,'(I,2(A,F12.7))') i,',',this%location(i),',',this%state(i)
+    end do
+
+    ! Close the file
+    close(fileunit)
+
+    ascii_write_model_state = ierr
+
+  end function ascii_write_model_state
+
+
+  !------------------------------------------------------------------
+  ! read_model_state
+  !------------------------------------------------------------------
+  integer function read_model_state(this, read_step, format)
+
+    class(lorenz96), intent(inout) :: this
+    integer, intent(in)            :: read_step
+    character(*), intent(in)       :: format
+
+    integer :: ierr          ! return value of function
+
+    select case (format)
+      case('NETCDF') 
+        ierr = this%netcdf_read_model_state(read_step)
+      case('ASCII')
+        ierr = this%ascii_read_model_state(read_step)
+      case DEFAULT
+        write(*,'(A,A,A)') 'ERROR: IO Format "',format,'" is not supported!'
+        stop
+    end select
+
+    read_model_state = ierr
+
+  end function read_model_state
+
+
+  !------------------------------------------------------------------
+  ! netcdf_read_model_state
+  !------------------------------------------------------------------
+  integer function netcdf_read_model_state(this,read_step)
 
     use netcdf
 
     class(lorenz96), intent(inout) :: this
-    character(*), intent(in)       :: filename  ! name of input file
+    integer, intent(in) :: read_step ! Read in data for this time step
 
     integer :: ierr  ! return value of function
 
@@ -314,9 +424,13 @@ contains
     integer      :: size
     real(r8kind) :: forcing
     real(r8kind) :: delta_t
+    character(len=21) :: filename
 
     ! assume normal termination
     ierr = 0 
+
+    ! Calculate name of file based on time step requested
+    write(filename,'(A,I0.6,A)') 'lorenz96out_', read_step, '.nc'
 
     ! Open file for read only
     call nc_check(nf90_open(trim(filename), NF90_NOWRITE, ncFileID))
@@ -365,10 +479,111 @@ contains
     ! Close the NetCDF file
     call nc_check(nf90_close(ncFileID))
 
-    nc_read_model_state = ierr
+    netcdf_read_model_state = ierr
 
-  end function nc_read_model_state
+  end function netcdf_read_model_state
 
+
+  !------------------------------------------------------------------
+  ! ascii_read_model_state
+  !------------------------------------------------------------------
+  integer function ascii_read_model_state(this,read_step)
+
+    class(lorenz96), intent(inout) :: this
+    integer, intent(in) :: read_step ! Read in data for this time step
+
+    integer :: ierr                  ! return value of function
+
+    character(len=128) :: filename   ! name of output file
+    integer :: fileunit
+    character(len=80) :: line
+    character(len=16) :: linefmt
+    character(len=64) :: attr_name
+    integer :: position
+    integer :: ignore
+    integer :: i
+    integer      :: size
+    real(r8kind) :: forcing
+    real(r8kind) :: delta_t
+
+    ! assume normal termination
+    ierr = 0
+
+    ! Construct name of input file
+    write(filename, '(A,I0.6,A)') 'lorenz96out_', read_step, '.csv'
+
+    ! Open the output csv file
+    open(newunit=fileunit, file=filename, form='formatted', status='old')
+
+    ! Read global attributes
+    read(fileunit, '(A)') line
+    position = index(line, ',')
+    do while (position /= 0)
+
+      ! Read global attribute name
+      write(linefmt, '(A,I0,A)') '(A', position - 1, ')'
+      read(line, linefmt) attr_name
+
+      ! Read in global attribute value
+      select case (attr_name)
+        case('model_forcing')
+          write(linefmt, '(A2,I0,A3)') '(T', position + 1, ',F)'
+          read(line, linefmt) forcing
+          if (forcing /= this%forcing) then
+            write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
+            write(*,'(A,F7.3,A,F7.3)') '       Input file forcing =',forcing,', expecting ',this%forcing
+            stop
+          end if
+        case('model_delta_t')
+          write(linefmt, '(A2,I0,A3)') '(T', position + 1, ',F)'
+          read(line, linefmt) delta_t
+          if (delta_t /= this%delta_t) then
+            write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
+            write(*,'(A,F7.3,A,F7.3)') '       Input file delta_t =',delta_t,', expecting ',this%delta_t
+            stop
+          end if
+        case('model_t')
+          write(linefmt, '(A2,I0,A3)') '(T', position + 1, ',F)'
+          read(line, linefmt) this%t
+        case('model_step')
+          write(linefmt, '(A2,I0,A3)') '(T', position + 1, ',I)'
+          read(line, linefmt) this%step
+        case('StateDim')
+          write(linefmt, '(A2,I0,A3)') '(T', position + 1, ',I)'
+          read(line, linefmt) size
+          if (size /= this%size) then
+            write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
+            write(*,'(A,I,A,I)') '       Input file size =',size,', expecting ',this%size
+            stop
+          end if
+        case DEFAULT
+          ! Ignore gloval settings we don't need
+          read(line,*)
+      end select
+
+      ! Get the next line and position of the comma
+      read(fileunit, '(A)') line
+      position = index(line, ',')
+
+    end do
+
+    ! Read record separator
+    read(fileunit, '(A)') line
+
+    ! Read field header
+    read(fileunit, '(A)') line
+
+    ! Read the coordinate, location, and state fields
+    do i=1, this%size
+      read(fileunit, *) ignore, this%location(i), this%state(i)
+    end do
+
+    ! Close the file
+    close(fileunit)
+
+    ascii_read_model_state = ierr
+
+  end function ascii_read_model_state
 
   !------------------------------------------------------------------
   ! nc_check

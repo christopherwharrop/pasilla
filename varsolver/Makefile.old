@@ -4,7 +4,7 @@ FC=ifort
 FCOPT=-O3
 FCDEBUG=-g -traceback
 GPTLFLAGS=-finstrument-functions 
-FFLAGS=$(FCOPT) -mkl=parallel $(FCDEBUG) -openmp 
+FFLAGS=$(FCOPT) -mkl=sequential $(FCDEBUG)
 
 INCLUDES=-I$(GPTL)/include -I.
 LIBS=-L$(GPTL)/lib -lgptl

@@ -22,6 +22,7 @@ program adept
   real(KIND=8), allocatable    ::      bht_ino(:,:,:)
   real(KIND=8)                 ::      jvc_for(1,1)
   real                         ::      ret 
+  integer                      ::      mthd
 
   ! BJE
   ! INITIALIZE GPTL AND START A TIMER
@@ -30,10 +31,14 @@ program adept
   ret = gptlstart ('adept')                 
 
   ! BJE
+  ! GET THE METHOD TO USE
+  call get_method(mthd)
+
+  ! BJE
   ! FIRST - NEED TO KNOW HOW MANY OBSERVATIONS AND STATE VECTOR
   ! OBTAIN THE OBSERATIONS, Y, AND THE BACKGROUND, Xb 
-  call get_bkg_vec(bkg_tim,bkg_pos,bkg_vec)
-  call get_obs_vec(bkg_tim,bkg_pos,obs_len,obs_tim,obs_pos,obs_vec)
+  call get_bkg_vec(bkg_tim,bkg_pos,bkg_vec,mthd)
+  call get_obs_vec(bkg_tim,bkg_pos,obs_len,obs_tim,obs_pos,obs_vec,mthd)
   tim_len=size(bkg_tim)
   bkg_len=size(bkg_pos,2)
 
@@ -73,11 +78,11 @@ program adept
 
   ! BJE
   ! THE MAIN EVENT - THE SOLVER
-  call var_solver(bkg_cov,hrh_cov,bht_ino,jvc_for,bkg_vec,anl_vec)
+  call var_solver(bkg_cov,hrh_cov,bht_ino,jvc_for,bkg_vec,anl_vec,mthd)
 
   ! BJE
   ! OUTPUT THE NEW ANALYSIS
-  call put_anl_vec(anl_vec,bkg_vec,bkg_tim)
+  call put_anl_vec(anl_vec,bkg_vec,bkg_tim,mthd)
 
   ! BJE
   ! END THE TIMER AND OUTPUT THE GPTL RESULTS

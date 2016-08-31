@@ -11,6 +11,25 @@ module module_varsolver
 
 contains
 
+  ! BJE
+  ! GET THE METHOD TO USE FOR THE DATA ASSIMILATION
+  ! 1 = 3DVAR, BKG AND OBS TIME MISMATCH
+  ! 2 = 3DVAR, BKG AND OBS TIME MATCHED
+  ! 3 = 4DVAR, NOT TIME-PARALLEL
+  ! 4 = 4DVAR, TIME-PARALLEL
+  subroutine get_method(mthd)
+    implicit none
+    integer, intent(inout)      :: mthd
+    print *,"GET_METHOD"
+  
+    OPEN(11,FILE="method.txt",FORM="FORMATTED",STATUS="OLD",ACTION="READ",ACCESS="SEQUENTIAL")
+    READ(11,*) mthd
+    CLOSE(11)
+    print *,"METHOD = ",mthd
+
+    print *,"GET_METHOD COMPLETE"
+
+  end subroutine get_method
 
   ! BJE
   ! GENERATE THE OBSERVATION ERROR COVARIANCE MATRIX, "R"
@@ -102,9 +121,10 @@ contains
 
   ! BJE
   ! GENERATE THE OBSERVATIONS "Y", AND THEIR LOCATIONS - FOR "H"
-  subroutine get_obs_vec(bkg_tim,bkg_pos,obs_len,obs_tim,obs_pos,obs_vec)
+  subroutine get_obs_vec(bkg_tim,bkg_pos,obs_len,obs_tim,obs_pos,obs_vec,mthd)
 
     implicit none
+    integer, intent(in)                      :: mthd
     integer, intent(in)                      :: bkg_tim(:)
     integer, intent(in)                      :: bkg_pos(:,:)
     integer, intent(inout)                   :: obs_len
@@ -119,7 +139,7 @@ contains
     bkg_len=size(bkg_pos,2)
     tim_len=size(bkg_tim)
 
-    obs_len=40 
+    obs_len=20 
     allocate(obs_tim(obs_len))
     allocate(obs_pos(obs_len))
     allocate(obs_vec(obs_len))
@@ -127,18 +147,20 @@ contains
     do i=1,obs_len
         x=modulo(i,8)
         obs_tim(i)=2
-        obs_pos(i)=i*100 
+        obs_pos(i)=i*200 
         if(x.gt.3) then
             obs_tim(i)=1
-            obs_pos(i)=i*100-35 
+            obs_pos(i)=i*200-35 
         end if
         if(x.gt.5) then
             obs_tim(i)=3
-            obs_pos(i)=i*100-75 
+            obs_pos(i)=i*200-75 
         end if 
+!       FOR MATCHED 3DVAR
+        if(mthd.eq.2) obs_tim(i)=2
         obs_vec(i)=50.0+50.0*sin(((20.0*float(obs_tim(i)-1)+float(obs_pos(i)))/1000.0)*(pi))
 !       FOR 3DVAR
-!       obs_tim(i)=1
+        if(mthd.le.2) obs_tim(i)=1
     end do
 
     print *,"GET_OBS_VEC COMPLETE" 
@@ -174,29 +196,34 @@ contains
 
   ! BJE
   ! GENERATE THE FIRST GUESS "Xb" - SHOULD USE A REAL MODEL
-  subroutine get_bkg_vec(bkg_tim,bkg_pos,bkg_vec)
+  subroutine get_bkg_vec(bkg_tim,bkg_pos,bkg_vec,mthd)
 
     implicit none
+    integer,intent(in)                       :: mthd
     real(KIND=8), intent(inout), allocatable :: bkg_vec(:,:)
     integer,intent(inout), allocatable       :: bkg_pos(:,:)
     integer,intent(inout), allocatable       :: bkg_tim(:) 
-    integer                                  :: i,t
+    integer                                  :: i,t,tt
     real(KIND=8)                             :: pi
     print *,"GET_BKG_VEC"
 
     pi=3.14159265359
-    tim_len=3
+
+!   FOR 4DVAR
+    if(mthd.ge.3) tim_len=3
 !   FOR 3DVAR
-!   tim_len=1
+    if(mthd.le.2) tim_len=1
     bkg_len=4000
     allocate (bkg_vec(tim_len,bkg_len))
     allocate (bkg_pos(tim_len,bkg_len))
     allocate (bkg_tim(tim_len))
     do t=1,tim_len
        bkg_tim(t)=t
+       tt=t
+       if(mthd.le.2) tt=2
        do i=1,bkg_len
           bkg_pos(t,i)=i
-          bkg_vec(t,i)=50.0+50.0*sin(((20.0*float(t-2)+float(i))/1000.0)*(pi))
+          bkg_vec(t,i)=50.0+50.0*sin(((20.0*float(tt-2)+float(i))/1000.0)*(pi))
        end do
     end do
 
@@ -223,7 +250,7 @@ contains
     obs_len=size(obs_vec)
     bkg_len=size(bkg_vec,2)
 
-40  FORMAT(A8,3I4,2F10.4)
+40  FORMAT(A8,3I5,2F10.4)
 
     do i=1,obs_len
        obs_vec(i)=obs_vec(i)-bkg_vec(obs_tim(i),obs_pos(i))
@@ -342,7 +369,7 @@ contains
   ! GRADJ =            V
   !       +        HRH*V
   !       - B(1/2)*HTR
-  subroutine var_solver(bkg_cov,hrh_cov,bht_ino,jvc_for,bkg_vec,anl_vec)
+  subroutine var_solver(bkg_cov,hrh_cov,bht_ino,jvc_for,bkg_vec,anl_vec,mthd)
 
     implicit none
     real(KIND=8), intent(in)    :: bht_ino(:,:,:)
@@ -351,6 +378,7 @@ contains
     real(KIND=8), intent(in)    :: bkg_vec(:,:)
     real(KIND=8), intent(inout) :: anl_vec(:,:)
     real(KIND=8), intent(in)    :: jvc_for(:,:)
+    integer,      intent(in)    :: mthd
 
     real(KIND=8), allocatable   :: tim_bht(:,:)
     real(KIND=8), allocatable   :: tim_bkc(:,:)
@@ -361,6 +389,8 @@ contains
     real(KIND=8), allocatable   :: pre_tra(:,:)
     real(KIND=8), allocatable   :: pre_bkg(:,:,:)
     real(KIND=8), allocatable   :: pre_anl(:,:,:)
+    real(KIND=8), allocatable   :: pre_lam(:,:,:)
+    real(KIND=8), allocatable   :: tmp_pra(:,:,:)
     real(KIND=8), allocatable   :: pre_dif(:,:)
     real(KIND=8), allocatable   :: tmp_mat(:,:)
     real(KIND=8), allocatable   :: tmp_vec(:,:)
@@ -368,12 +398,13 @@ contains
     real(KIND=8)                :: jvc_one(1,1)
     real(KIND=8)                :: jvc_two(1,1)
     real(KIND=8)                :: jvc_the(1,1)
-    real(KIND=8)                :: bvc_hlf(1,1)
+    real(KIND=8)                :: jvc_fiv(1,1)
     integer                     :: tim_len,bkg_len
     integer                     :: i,j,t,nitr,mxit
     real(KIND=8)                :: jold,jnew,jthr,alph
     real(KIND=8), allocatable   :: jtim(:) 
-
+    integer                     :: nthreads, tid
+    integer                     :: OMP_GET_NUM_THREADS, OMP_GET_THREAD_NUM
     tim_len=size(bkg_cov,1)
     bkg_len=size(bkg_cov,2)
 
@@ -386,7 +417,9 @@ contains
 
     allocate (pre_bkg(tim_len,bkg_len,      1))
     allocate (pre_anl(tim_len,bkg_len,      1))
+    allocate (pre_lam(tim_len,bkg_len,      1))
     allocate (pre_dif(        bkg_len,      1))
+    allocate (tmp_pra(tim_len,bkg_len,      1))
 
     allocate (pre_tra(      1,bkg_len))
     allocate (tmp_mat(      1,bkg_len))
@@ -394,7 +427,7 @@ contains
     allocate (grd_jvc(bkg_len,      1))
 
     nitr = 0
-    mxit = 500
+    mxit = 25 
     jold = 100.0 
     jnew = 0.0
     jthr = 0.01 
@@ -419,31 +452,44 @@ contains
        end do
     end do
 
-    ! ITERATE TO SOLVE THE COST FUNCTION
+33  FORMAT(A10,3F10.5)
+! ITERATE TO SOLVE THE COST FUNCTION
     do while ( abs(jold-jnew) > jthr)
        if (nitr.gt.mxit) exit
        if (jnew.lt.0.0) exit
        jold=jnew
        jnew=0.0
 
-       !   CALCULATE THE COST FUNCTION - J - FORWARD IN TIME
+       write(*,33) "AFTER IT: ",pre_anl(:,3000,1)
+       do t=2,tim_len
+          tmp_pra(t,:,1)=pre_anl(t-1,:,1)
+       end do
+!$OMP PARALLEL SHARED (bht_ino,hrh_cov,pre_bkg,pre_anl,pre_lam,tmp_pra,bkg_cov,jtim,tim_len,bkg_len,nitr,mthd) DEFAULT(PRIVATE)
+!$OMP DO
+!   CALCULATE THE COST FUNCTION - J - FORWARD IN TIME
        do t=1,tim_len
+          tid=OMP_GET_THREAD_NUM()
           tim_hrh(:,:)=hrh_cov(t,:,:)
           tim_bht(:,:)=bht_ino(t,:,:)
+          tim_bkv(:,1)=pre_bkg(t,:,1)
+          tim_anv(:,1)=pre_anl(t,:,1)
 
           !   RUN THE FORWARD MODEL FOR ALL STEPS AFTER THE FIRST
           if(t.gt.1) then 
              tim_bkc(:,:)=bkg_cov(t,:,:)
-             tim_anv(:,:)=pre_anl(t-1,:,:)
+             tim_anv(:,1)=tmp_pra(t,:,1)
+!            FOR NOT-TIME PARALLEL
+             if (mthd.eq.3) print *,"NOT TIME PARALLEL",mthd 
+             if (mthd.eq.3) tim_anv(:,1)=pre_anl(t-1,:,1)
              tmp_vec=matmul(tim_bkc,tim_anv)
              call forward_model(tmp_vec,t-1,1)
              call pre_con_dif(tim_bkc,tmp_vec)
-             pre_anl(t,:,1)=tmp_vec(:,1)
+             tim_anv=tmp_vec
           end if
 
           !   CARRY ON WITH THE MINIMIZATION 
           do i=1,bkg_len
-             pre_dif(i,1)=pre_anl(t,i,1)-pre_bkg(t,i,1)
+             pre_dif(i,1)=tim_anv(i,1)-tim_bkv(i,1)
           end do
           pre_tra=transpose(pre_dif)   
 
@@ -455,44 +501,72 @@ contains
           jvc_two=matmul(tmp_mat,pre_dif)
           !   THIRD TERM
           jvc_the=matmul(pre_tra,tim_bht)
+
+          !   FIFTH TERM (FOR TIME-PARALLEL)
+          do i=1,bkg_len
+             pre_dif(i,1)=tim_anv(i,1)-pre_anl(t,i,1)
+             pre_lam(t,i,1)=pre_dif(i,1)
+          end do
+          pre_tra=transpose(pre_dif)
+          jvc_fiv=matmul(pre_tra,pre_dif)
+
           !   COST FUNCTION
-          jtim(t) = 0.5*(jvc_one(1,1)+jvc_two(1,1)-2.0*jvc_the(1,1)+jvc_for(1,1))
+          jtim(t) = 0.5*(jvc_one(1,1)+jvc_two(1,1)-2.0*jvc_the(1,1)+jvc_fiv(1,1))
 
+          tid = OMP_GET_THREAD_NUM()
+44        FORMAT(A10,3I4,5F8.3)
+          write(*,44) "JTIM =",nitr,t,tid,jtim(t),jvc_one(1,1),jvc_two(1,1),jvc_the(1,1),jvc_fiv(1,1)
+          pre_anl(t,:,1)=tim_anv(:,1)
        end do
-
+!$OMP END DO
+!$OMP END PARALLEL
+  
+       write(*,33) "AFTER TL: ",pre_anl(:,3000,1)
        do t=1,tim_len
            jnew=jnew+jtim(t)
+           if(t.lt.tim_len) tmp_pra(t,:,1)=pre_anl(t+1,:,1)
        end do
+       jnew=jnew+jvc_for(1,1)
 
+!$OMP PARALLEL SHARED (bht_ino,bkg_cov,hrh_cov,pre_bkg,pre_anl,pre_lam,tmp_pra,tim_len,bkg_len,alph,mthd) DEFAULT(PRIVATE)
+!$OMP DO
        !   CALCULATE GRAD-J IN REVERSE TEMPORAL ORDER 
        do t=tim_len,1,-1
           tim_hrh(:,:)=hrh_cov(t,:,:)
           tim_bht(:,:)=bht_ino(t,:,:)
-
+          tim_anv(:,1)=pre_anl(t,:,1)
+          tim_bkv(:,1)=pre_bkg(t,:,1)
+ 
           if(t.lt.tim_len) then 
              tim_bkc=bkg_cov(t,:,:)
-             tim_anv(:,:)=pre_anl(t+1,:,:)
+             tim_anv(:,1)=tmp_pra(t,:,1)
+!            FOR NON TIME-PARALLEL 4DVAR
+             if(mthd.eq.3) tim_anv(:,1)=pre_anl(t+1,:,1)
              tmp_vec=matmul(tim_bkc,tim_anv)
              call bakward_model(tmp_vec,t+1,1)
              call pre_con_dif(tim_bkc,tmp_vec)
-             pre_anl(t,:,1)=tmp_vec(:,1)
+             tim_anv(:,1)=tmp_vec(:,1)
           end if
 
           do i=1,bkg_len
-             pre_dif(i,1)=pre_anl(t,i,1)-pre_bkg(t,i,1)
+             pre_dif(i,1)=tim_anv(i,1)-tim_bkv(i,1)
           end do
 
           tmp_vec=matmul(tim_hrh,pre_dif)
 
           do i=1,bkg_len
-             grd_jvc(  i,1)= pre_dif(  i,1)+tmp_vec(i,1)-tim_bht(i,1)
+             grd_jvc(  i,1)=pre_dif(i,1)+tmp_vec(i,1)-tim_bht(i,1)
           end do
 
           do i=1,bkg_len
-             pre_anl(t,i,1)= pre_anl(t,i,1)-grd_jvc(  i,1)*alph
+             pre_anl(t,i,1)=tim_anv(i,1)-grd_jvc(i,1)*alph
           end do
 
        end do
+!$OMP END DO
+!$OMP END PARALLEL
+
+       write(*,33) "AFTER AD: ",pre_anl(:,3000,1)
        if (nitr.eq.0) print *,'initial cost = ',jnew
        nitr = nitr + 1 
        print *,"Cost at ",nitr,jnew
@@ -518,8 +592,9 @@ contains
 
   ! BJE
   ! OUTPUT THE ANALYSIS VECTOR
-  subroutine put_anl_vec(anl_vec,bkg_vec,bkg_tim)
+  subroutine put_anl_vec(anl_vec,bkg_vec,bkg_tim,mthd)
 
+    integer, intent(in)         :: mthd
     real(KIND=8), intent(in)    :: anl_vec(:,:) 
     real(KIND=8), intent(in)    :: bkg_vec(:,:) 
     integer, intent(in)         :: bkg_tim(:)
@@ -537,7 +612,7 @@ contains
        do i=1,bkg_len
           write(*,40) "FIN",t,i,anl_vec(t,i),bkg_vec(t,i),50.0+50.0*sin(((20.0*float(t-1)+float(i))/1000.0)*(pi))
 !         FOR 3DVAR
-!         write(*,40) "FIN",t,i,anl_vec(t,i),bkg_vec(t,i),50.0+50.0*sin(((20.0*float(2-1)+float(i))/1000.0)*(pi))
+          if(mthd.le.2) write(*,40) "FIN",2,i,anl_vec(t,i),bkg_vec(t,i),50.0+50.0*sin(((20.0*float(2-1)+float(i))/1000.0)*(pi))
        end do
     end do
 

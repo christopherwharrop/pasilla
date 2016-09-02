@@ -2,6 +2,7 @@ include ../../macros.mk
 
 INCLUDES=-I$(GPTL)/include -I.
 LIBS=-L$(GPTL)/lib -lgptl
+FFLAGS+=-openmp
 
 varsolver.exe: varsolver.f90 module_varsolver.o
 	$(FC) -o varsolver.exe varsolver.f90 module_varsolver.o $(FFLAGS) $(LAPACK) $(INCLUDES) $(LIBS)

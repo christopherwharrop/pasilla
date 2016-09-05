@@ -46,6 +46,8 @@ contains
     tim_len=size(obs_cov,1)
     obs_len=size(obs_cov,2)
 
+    obs_cov(:,:,:)=0.0
+
     do i=1,obs_len
        obs_cov(obs_tim(i),i,i)=1.0
     end do

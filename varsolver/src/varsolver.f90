@@ -37,7 +37,7 @@ program adept
   ! FIRST - NEED TO KNOW HOW MANY OBSERVATIONS AND STATE VECTOR
   ! OBTAIN THE OBSERATIONS, Y, AND THE BACKGROUND, Xb 
   call get_bkg_vec(bkg_tim,bkg_pos,bkg_vec)
-  call get_obs_vec(bkg_tim,bkg_pos,obs_tim,obs_pos,obs_vec)
+  call get_obs_vec(obs_tim,obs_pos,obs_vec)
 
   ! BJE
   ! KNOWING THE NUMBERS, ALLOCATE VECTORS/MATRICIES (ARRAYS) ACCORTINGLY

@@ -127,11 +127,9 @@ contains
 
   ! BJE
   ! GENERATE THE OBSERVATIONS "Y", AND THEIR LOCATIONS - FOR "H"
-  subroutine get_obs_vec(bkg_tim,bkg_pos,obs_tim,obs_pos,obs_vec)
+  subroutine get_obs_vec(obs_tim,obs_pos,obs_vec)
 
     implicit none
-    integer, intent(in)                      :: bkg_tim(:)
-    integer, intent(in)                      :: bkg_pos(:,:)
     integer, intent(inout), allocatable      :: obs_tim(:)
     integer, intent(inout), allocatable      :: obs_pos(:) 
     real(KIND=8), intent(inout), allocatable :: obs_vec(:) 

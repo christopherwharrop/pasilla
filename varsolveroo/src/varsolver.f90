@@ -5,9 +5,13 @@ program adept
 
   use gptl
   use module_varsolver
+  use module_background, only   : Background_Type
+  use module_observations, only : Observations_Type
 
   implicit none
 
+  type(Background_Type)        ::      background
+  type(Observations_Type)      ::      observations
   integer, allocatable         ::      bkg_tim(:)
   integer, allocatable         ::      bkg_pos(:,:)
   integer, allocatable         ::      obs_tim(:)
@@ -30,12 +34,18 @@ program adept
   ret = gptlstart ('adept')                 
 
   ! BJE
+  ! GET THE METHOD TO USE
+  call get_method
+
+  ! BJE
   ! FIRST - NEED TO KNOW HOW MANY OBSERVATIONS AND STATE VECTOR
   ! OBTAIN THE OBSERATIONS, Y, AND THE BACKGROUND, Xb 
-  call get_bkg_vec(bkg_tim,bkg_pos,bkg_vec)
-  call get_obs_vec(bkg_tim,bkg_pos,obs_len,obs_tim,obs_pos,obs_vec)
-  tim_len=size(bkg_tim)
-  bkg_len=size(bkg_pos,2)
+
+  ! Initialize a background object
+  background = Background_Type(bkg_len, tim_len, mthd)
+
+  ! Initialize observations object
+  observations = Observations_Type(obs_len, mthd)
 
   ! BJE
   ! KNOWING THE NUMBERS, ALLOCATE VECTORS/MATRICIES (ARRAYS) ACCORTINGLY
@@ -48,16 +58,16 @@ program adept
 
   ! BJE
   ! GET THE INNOVATION VECTOR - (Y-HXb) - OVERWRITE OBS_VEC
-  call get_ino_vec(bkg_tim,bkg_pos,obs_tim,obs_pos,obs_vec,bkg_vec)
+  call get_ino_vec(background, observations)
 
   ! BJE
   ! KNOWING THE LOCATION OF THE OBS, CREATE OBS OPERATOR, H 
-  call get_obs_opr(obs_tim,obs_pos,obs_opr)
+  call get_obs_opr(observations, obs_opr)
 
   ! BJE   
   ! OBTAIN THE COVARIANCE MATRIX R - OBS ERROR
   ! SOMEDAY WILL COME TO US FROM THE UFO
-  call get_obs_cov(obs_tim,obs_pos,obs_cov)
+  call get_obs_cov(observations, obs_cov)
 
   ! BJE
   ! OBTAIN THE B(1/2) MATRIX - FOR PRE CONDITIONING 
@@ -69,15 +79,15 @@ program adept
   ! B(1/2)      H(T)R(-1)HB(1/2)  = hrh_cov
   ! INPUTS: Y, H, Xb, R(-1)
   ! USE SAME VARIABLE NAME PRE AND POST
-  call pre_sol(obs_opr,obs_cov,bkg_cov,hrh_cov,obs_vec,bht_ino,jvc_for)
+  call pre_sol(obs_opr, obs_cov, bkg_cov, hrh_cov, observations, bht_ino, jvc_for)
 
   ! BJE
   ! THE MAIN EVENT - THE SOLVER
-  call var_solver(bkg_cov,hrh_cov,bht_ino,jvc_for,bkg_vec,anl_vec)
+  call var_solver(bkg_cov, hrh_cov, bht_ino, jvc_for, background, anl_vec)
 
   ! BJE
   ! OUTPUT THE NEW ANALYSIS
-  call put_anl_vec(anl_vec,bkg_vec,bkg_tim)
+  call put_anl_vec(anl_vec, background)
 
   ! BJE
   ! END THE TIMER AND OUTPUT THE GPTL RESULTS

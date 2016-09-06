@@ -21,3 +21,7 @@
 
 # PNG files
 *.png
+
+# Output files
+timing.*
+*.stdout*

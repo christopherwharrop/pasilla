@@ -7,7 +7,7 @@ PARSE_PATH=/home/Christopher.W.Harrop/bin
 
 export OMP_STACKSIZE=1G
 
-../exe/varsolver.exe > varsolver.stdout
+../exe/varsolver.exe < ../parm/varsolver.namelist > varsolver.stdout
 
 ${GPTL_PATH}/hex2name.pl ../exe/varsolver.exe ./timing.0 > ./timing.varsolver.txt
 

@@ -1,6 +1,6 @@
 include ../../macros.mk
 
-INCLUDES=-I$(GPTL)/include -I.
+INCLUDES=-I$(GPTL)/include -I../../utilities/include -I.
 LIBS=-L$(GPTL)/lib -lgptl
 FFLAGS+=-openmp
 

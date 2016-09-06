@@ -4,10 +4,21 @@
 module module_varsolver
 
   use gptl
+  use module_constants
+
+  ! Get unit numbers for stdin, stdout, stderr in a portable way
+  use, intrinsic :: iso_fortran_env, only : stdin=>input_unit, &
+                                            stdout=>output_unit, &
+                                            stderr=>error_unit
 
   implicit none
 
-  integer                      ::      tim_len, obs_len, bkg_len
+  ! Define namelists and default values
+  integer          :: mthd  = 4
+  integer          :: tim_len = 3
+  integer          :: bkg_len = 4000
+  integer          :: obs_len = 20
+  namelist /params/  mthd, bkg_len, tim_len, obs_len
 
 contains
 
@@ -17,15 +28,17 @@ contains
   ! 2 = 3DVAR, BKG AND OBS TIME MATCHED
   ! 3 = 4DVAR, NOT TIME-PARALLEL
   ! 4 = 4DVAR, TIME-PARALLEL
-  subroutine get_method(mthd)
-    implicit none
-    integer, intent(inout)      :: mthd
+  subroutine get_method
+
     print *,"GET_METHOD"
-  
-    OPEN(11,FILE="method.txt",FORM="FORMATTED",STATUS="OLD",ACTION="READ",ACCESS="SEQUENTIAL")
-    READ(11,*) mthd
-    CLOSE(11)
+
+    ! Read namelists from stdin
+    read(stdin,nml=params)
+
     print *,"METHOD = ",mthd
+
+    ! Force tim_len=1 for 3DVAR
+    if(mthd.le.2) tim_len=1
 
     print *,"GET_METHOD COMPLETE"
 
@@ -39,12 +52,8 @@ contains
     integer, intent(in)         :: obs_tim(:)
     integer, intent(in)         :: obs_pos(:)
     real(KIND=8), intent(inout) :: obs_cov(:,:,:)
-    integer                     :: obs_len
     integer                     :: i,t 
     print *,"GET_OBS_COV_MAT"
-
-    tim_len=size(obs_cov,1)
-    obs_len=size(obs_cov,2)
 
     obs_cov(:,:,:)=0.0
 
@@ -64,11 +73,8 @@ contains
     real(KIND=8), intent(inout) :: bkg_cov(:,:,:)
     real(KIND=8)                :: var
     integer                     :: t,i,j,jj,rad 
-    integer                     :: bkg_len, tim_len
-    print *,"GET_BKG_COV_MAT"
 
-    tim_len=size(bkg_cov,1)
-    bkg_len=size(bkg_cov,2)
+    print *,"GET_BKG_COV_MAT"
 
     var=3.61
     bkg_cov(:,:,:)=0.0
@@ -101,12 +107,10 @@ contains
     real(KIND=8), allocatable   :: con_vec(:,:)
     real(KIND=8), allocatable   :: bkg_cpy(:,:)
     integer                     :: i,j,jj,rad,info 
-    integer                     :: bkg_len
     integer, allocatable        :: ipiv(:)
     real(KIND=8)                :: var
     print *,"PRE_CON_DIF"
 
-    bkg_len=size(bkg_cov,1)
     allocate (ipiv(bkg_len))
     allocate (con_vec(bkg_len,1))
     allocate (bkg_cpy(bkg_len,bkg_len))
@@ -123,25 +127,18 @@ contains
 
   ! BJE
   ! GENERATE THE OBSERVATIONS "Y", AND THEIR LOCATIONS - FOR "H"
-  subroutine get_obs_vec(bkg_tim,bkg_pos,obs_len,obs_tim,obs_pos,obs_vec,mthd)
+  subroutine get_obs_vec(bkg_tim,bkg_pos,obs_tim,obs_pos,obs_vec)
 
     implicit none
-    integer, intent(in)                      :: mthd
     integer, intent(in)                      :: bkg_tim(:)
     integer, intent(in)                      :: bkg_pos(:,:)
-    integer, intent(inout)                   :: obs_len
     integer, intent(inout), allocatable      :: obs_tim(:)
     integer, intent(inout), allocatable      :: obs_pos(:) 
     real(KIND=8), intent(inout), allocatable :: obs_vec(:) 
-    real(KIND=8)                             :: pi
     integer                                  :: i,x 
+
     print *,"GET_OBS_VEC"
 
-    pi=3.14159265359
-    bkg_len=size(bkg_pos,2)
-    tim_len=size(bkg_tim)
-
-    obs_len=20 
     allocate(obs_tim(obs_len))
     allocate(obs_pos(obs_len))
     allocate(obs_vec(obs_len))
@@ -160,7 +157,7 @@ contains
         end if 
 !       FOR MATCHED 3DVAR
         if(mthd.eq.2) obs_tim(i)=2
-        obs_vec(i)=50.0+50.0*sin(((20.0*float(obs_tim(i)-1)+float(obs_pos(i)))/1000.0)*(pi))
+        obs_vec(i)=50.0+50.0*sin(((20.0*float(obs_tim(i)-1)+float(obs_pos(i)))/1000.0)*PI)
 !       FOR 3DVAR
         if(mthd.le.2) obs_tim(i)=1
     end do
@@ -178,14 +175,9 @@ contains
     integer, intent(inout)      :: obs_tim(:)
     integer, intent(inout)      :: obs_pos(:)
     real(KIND=8), intent(inout) :: obs_opr(:,:,:)
-    integer                     :: bkg_len
-    integer                     :: obs_len
     integer                     :: i,t 
     print *,"GET_OBS_VEC"
 
-    tim_len=size(obs_opr,1)
-    obs_len=size(obs_opr,2)
-    bkg_len=size(obs_opr,3)
     obs_opr(:,:,:)=0.0
 
     do i=1,obs_len
@@ -198,24 +190,15 @@ contains
 
   ! BJE
   ! GENERATE THE FIRST GUESS "Xb" - SHOULD USE A REAL MODEL
-  subroutine get_bkg_vec(bkg_tim,bkg_pos,bkg_vec,mthd)
+  subroutine get_bkg_vec(bkg_tim,bkg_pos,bkg_vec)
 
     implicit none
-    integer,intent(in)                       :: mthd
     real(KIND=8), intent(inout), allocatable :: bkg_vec(:,:)
     integer,intent(inout), allocatable       :: bkg_pos(:,:)
     integer,intent(inout), allocatable       :: bkg_tim(:) 
     integer                                  :: i,t,tt
-    real(KIND=8)                             :: pi
     print *,"GET_BKG_VEC"
 
-    pi=3.14159265359
-
-!   FOR 4DVAR
-    if(mthd.ge.3) tim_len=3
-!   FOR 3DVAR
-    if(mthd.le.2) tim_len=1
-    bkg_len=4000
     allocate (bkg_vec(tim_len,bkg_len))
     allocate (bkg_pos(tim_len,bkg_len))
     allocate (bkg_tim(tim_len))
@@ -225,7 +208,7 @@ contains
        if(mthd.le.2) tt=2
        do i=1,bkg_len
           bkg_pos(t,i)=i
-          bkg_vec(t,i)=50.0+50.0*sin(((20.0*float(tt-2)+float(i))/1000.0)*(pi))
+          bkg_vec(t,i)=50.0+50.0*sin(((20.0*float(tt-2)+float(i))/1000.0)*PI)
        end do
     end do
 
@@ -245,12 +228,8 @@ contains
     integer, intent(in)         :: obs_pos(:)
     real(KIND=8), intent(inout) :: obs_vec(:)
     real(KIND=8), intent(in)    :: bkg_vec(:,:)
-    integer                     :: tim_len, obs_len, bkg_len
     integer                     :: i 
     print *,"GET_INO_VEC"
-    tim_len=size(bkg_vec,1)
-    obs_len=size(obs_vec)
-    bkg_len=size(bkg_vec,2)
 
 40  FORMAT(A8,3I5,2F10.4)
 
@@ -280,7 +259,6 @@ contains
     real(KIND=8), intent(inout) :: bht_ino(:,:,:) 
     real(KIND=8), intent(inout) :: jvc_for(:,:) 
     integer                     :: i,j,t 
-    integer                     :: obs_len, bkg_len, tim_len
 
     real(KIND=8), allocatable   :: tim_obc(:,:)
     real(KIND=8), allocatable   :: tim_bkc(:,:)
@@ -295,11 +273,6 @@ contains
     real(KIND=8), allocatable   :: tmp_bhh(:,:)
     real(KIND=8), allocatable   :: tmp_hhb(:,:)
     print *, "PRE_SOLVER"
-
-
-    tim_len=size(obs_opr,1)
-    obs_len=size(obs_opr,2)
-    bkg_len=size(obs_opr,3)
 
     allocate (tim_obc(obs_len,obs_len))
     allocate (tim_bkc(bkg_len,bkg_len))
@@ -371,7 +344,7 @@ contains
   ! GRADJ =            V
   !       +        HRH*V
   !       - B(1/2)*HTR
-  subroutine var_solver(bkg_cov,hrh_cov,bht_ino,jvc_for,bkg_vec,anl_vec,mthd)
+  subroutine var_solver(bkg_cov,hrh_cov,bht_ino,jvc_for,bkg_vec,anl_vec)
 
     implicit none
     real(KIND=8), intent(in)    :: bht_ino(:,:,:)
@@ -380,7 +353,6 @@ contains
     real(KIND=8), intent(in)    :: bkg_vec(:,:)
     real(KIND=8), intent(inout) :: anl_vec(:,:)
     real(KIND=8), intent(in)    :: jvc_for(:,:)
-    integer,      intent(in)    :: mthd
 
     real(KIND=8), allocatable   :: tim_bht(:,:)
     real(KIND=8), allocatable   :: tim_bkc(:,:)
@@ -401,14 +373,11 @@ contains
     real(KIND=8)                :: jvc_two(1,1)
     real(KIND=8)                :: jvc_the(1,1)
     real(KIND=8)                :: jvc_fiv(1,1)
-    integer                     :: tim_len,bkg_len
     integer                     :: i,j,t,nitr,mxit
     real(KIND=8)                :: jold,jnew,jthr,alph
     real(KIND=8), allocatable   :: jtim(:) 
     integer                     :: nthreads, tid
     integer                     :: OMP_GET_NUM_THREADS, OMP_GET_THREAD_NUM
-    tim_len=size(bkg_cov,1)
-    bkg_len=size(bkg_cov,2)
 
     allocate (jtim(tim_len)) 
     allocate (tim_bht(bkg_len,      1))
@@ -594,27 +563,21 @@ contains
 
   ! BJE
   ! OUTPUT THE ANALYSIS VECTOR
-  subroutine put_anl_vec(anl_vec,bkg_vec,bkg_tim,mthd)
+  subroutine put_anl_vec(anl_vec,bkg_vec,bkg_tim)
 
-    integer, intent(in)         :: mthd
     real(KIND=8), intent(in)    :: anl_vec(:,:) 
     real(KIND=8), intent(in)    :: bkg_vec(:,:) 
     integer, intent(in)         :: bkg_tim(:)
-    integer                     :: bkg_len
     integer                     :: i,t
-    real(KIND=8)                :: pi
     print *,"PUT_ANL_VEC"
 
-    pi=3.14159265359
-    tim_len=size(bkg_tim)
-    bkg_len=size(bkg_vec,2)
 
 40  FORMAT(A8,2I5,3F10.4)
     do t=1,tim_len
        do i=1,bkg_len
-          write(*,40) "FIN",t,i,anl_vec(t,i),bkg_vec(t,i),50.0+50.0*sin(((20.0*float(t-1)+float(i))/1000.0)*(pi))
+          write(*,40) "FIN",t,i,anl_vec(t,i),bkg_vec(t,i),50.0+50.0*sin(((20.0*float(t-1)+float(i))/1000.0)*PI)
 !         FOR 3DVAR
-          if(mthd.le.2) write(*,40) "FIN",2,i,anl_vec(t,i),bkg_vec(t,i),50.0+50.0*sin(((20.0*float(2-1)+float(i))/1000.0)*(pi))
+          if(mthd.le.2) write(*,40) "FIN",2,i,anl_vec(t,i),bkg_vec(t,i),50.0+50.0*sin(((20.0*float(2-1)+float(i))/1000.0)*PI)
        end do
     end do
 
@@ -630,15 +593,11 @@ contains
     real(KIND=8), intent(inout)     :: mod_vec(:,:)
     integer, intent(in)             :: t,steps
     integer                         :: i
-    real(KIND=8)                    :: pi
     print *,"FORWARD MODEL"
-
-    pi=3.14159265359
-    bkg_len=size(mod_vec,1)
 
 35  FORMAT (A4,3I4,2F10.5)
     do i=1,bkg_len
-       mod_vec(i,1)=mod_vec(i,1)+pi*cos(((20.0*(float(t)-1.5)+float(i))/1000.0)*(pi))*float(steps)
+       mod_vec(i,1)=mod_vec(i,1)+PI*cos(((20.0*(float(t)-1.5)+float(i))/1000.0)*PI)*float(steps)
     end do
 
     print *,"END FORWARD_MODEL"
@@ -651,17 +610,14 @@ contains
   subroutine bakward_model(mod_vec,t,steps)
 
     real(KIND=8), intent(inout)     :: mod_vec(:,:)
-    real(KIND=8)                    :: pi
     integer, intent(in)             :: t,steps
     integer                         :: i
 
     print *,"BAKWARD_MODEL"
-    pi=3.14159265359
-    bkg_len=size(mod_vec,1)
 
 35  FORMAT (A4,3I4,2F10.5)
     do i=1,bkg_len
-       mod_vec(i,1)=mod_vec(i,1)-pi*cos(((20.0*(float(t)-2.5)+float(i))/1000.0)*(pi))*float(steps)
+       mod_vec(i,1)=mod_vec(i,1)-PI*cos(((20.0*(float(t)-2.5)+float(i))/1000.0)*PI)*float(steps)
     end do
 
     print *,"END BAKWARD_MODEL"

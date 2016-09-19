@@ -1,5 +1,5 @@
 FC=ifort
-FCOPT=-O3
+FCOPT=-O2
 FCDEBUG=
 FFLAGS=-g -traceback $(FCOPT) $(FCDEBUG)
 LAPACK=-mkl=parallel

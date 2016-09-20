@@ -1,4 +1,4 @@
-module module_kind
+module kind
 
   implicit none
   private 
@@ -11,5 +11,5 @@ module module_kind
   integer, parameter :: r8kind = SELECTED_REAL_KIND(12)
   integer, parameter :: ckind  = SELECTED_CHAR_KIND('DEFAULT')
 
-end module module_kind
+end module kind
 

@@ -1,14 +1,14 @@
-module module_lorenz96
+module lorenz96
 
-  use module_kind, only : r8kind
+  use kind, only : r8kind
 
   implicit none
 
   private
 
-  public :: lorenz96
+  public :: lorenz96_type
 
-  type lorenz96
+  type lorenz96_type
       private
       integer  :: size
       real(r8kind) :: forcing
@@ -28,9 +28,9 @@ module module_lorenz96
       procedure          :: write_model_state
       procedure, private :: netcdf_write_model_state
       procedure, private :: ascii_write_model_state
-  end type lorenz96
+  end type lorenz96_type
 
-  interface lorenz96
+  interface lorenz96_type
     procedure constructor
   end interface
 
@@ -41,7 +41,7 @@ contains
   !
   ! Returns an initialized lorenz96 object
   !------------------------------------------------------------------
-  type(lorenz96) function constructor(size, forcing, delta_t)
+  type(lorenz96_type) function constructor(size, forcing, delta_t)
 
     integer, intent(in)      :: size
     real(r8kind), intent(in) :: forcing
@@ -79,7 +79,7 @@ contains
   !------------------------------------------------------------------
   elemental subroutine destructor(this)
 
-    type(lorenz96), intent(inout) :: this
+    type(lorenz96_type), intent(inout) :: this
 
     ! No pointers in lorenz96 object so we do nothing
 
@@ -94,7 +94,7 @@ contains
   !------------------------------------------------------------------
   subroutine comp_dt(this, x, dt)
 
-    class(lorenz96), intent(in) :: this
+    class(lorenz96_type), intent(in) :: this
     real(r8kind), intent( in)   :: x(:)
     real(r8kind), intent(out)   :: dt(:)
 
@@ -124,7 +124,7 @@ contains
   !------------------------------------------------------------------
   subroutine adv_nsteps(this,nsteps)
 
-    class(lorenz96), intent(inout) :: this
+    class(lorenz96_type), intent(inout) :: this
     integer, intent(in) :: nsteps
 
     real(r8kind), dimension(this%size) :: x1, x2, x3, x4, dx, inter
@@ -164,7 +164,7 @@ contains
   !------------------------------------------------------------------  
   subroutine interpolate(this, location, state_val)
 
-    class(lorenz96), intent(in) :: this
+    class(lorenz96_type), intent(in) :: this
     real(r8kind), intent(in)    :: location
     real(r8kind), intent(out)   :: state_val
 
@@ -192,7 +192,7 @@ contains
   !------------------------------------------------------------------
   integer function write_model_state(this, format)
 
-    class(lorenz96), intent(in) :: this
+    class(lorenz96_type), intent(in) :: this
     character(*), intent(in)    :: format
 
     integer :: ierr          ! return value of function
@@ -231,7 +231,7 @@ contains
 
     use netcdf
 
-    class(lorenz96), intent(in) :: this
+    class(lorenz96_type), intent(in) :: this
 
     integer :: ierr          ! return value of function
 
@@ -326,7 +326,7 @@ contains
   !------------------------------------------------------------------
   integer function ascii_write_model_state(this)
 
-    class(lorenz96), intent(in) :: this
+    class(lorenz96_type), intent(in) :: this
 
     integer :: ierr          ! return value of function
 
@@ -381,7 +381,7 @@ contains
   !------------------------------------------------------------------
   integer function read_model_state(this, read_step, format)
 
-    class(lorenz96), intent(inout) :: this
+    class(lorenz96_type), intent(inout) :: this
     integer, intent(in)            :: read_step
     character(*), intent(in)       :: format
 
@@ -409,7 +409,7 @@ contains
 
     use netcdf
 
-    class(lorenz96), intent(inout) :: this
+    class(lorenz96_type), intent(inout) :: this
     integer, intent(in) :: read_step ! Read in data for this time step
 
     integer :: ierr  ! return value of function
@@ -489,7 +489,7 @@ contains
   !------------------------------------------------------------------
   integer function ascii_read_model_state(this,read_step)
 
-    class(lorenz96), intent(inout) :: this
+    class(lorenz96_type), intent(inout) :: this
     integer, intent(in) :: read_step ! Read in data for this time step
 
     integer :: ierr                  ! return value of function
@@ -610,4 +610,4 @@ contains
   end subroutine nc_check
 
 
-end module module_lorenz96
+end module lorenz96

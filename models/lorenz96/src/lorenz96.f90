@@ -5,13 +5,13 @@ program lorenz96Model
                                             stdout=>output_unit, &
                                             stderr=>error_unit
 
-  use module_lorenz96, only : lorenz96  
-  use module_kind, only     : r8kind, i8kind
+  use lorenz96, only : lorenz96_type
+  use kind, only     : r8kind, i8kind
 
   implicit none
 
   ! Lorenz96 model object
-  type(lorenz96) :: L96
+  type(lorenz96_type) :: L96
 
   ! Define namelists and default values
   integer          :: size    = 40
@@ -33,7 +33,7 @@ program lorenz96Model
   read(stdin,nml=runtime)
 
   ! Create a Lorenz96 model configured as specified in namelist
-  L96 = lorenz96(size, forcing, delta_t)
+  L96 = lorenz96_type(size, forcing, delta_t)
 
   ! Read initial model state from previous output file if start_t is not 0
   if (start_step /= 0 ) then

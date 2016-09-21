@@ -98,20 +98,21 @@ contains
     real(r8kind), intent( in)   :: x(:)
     real(r8kind), intent(out)   :: dt(:)
 
-    integer :: j, jp1, jm1, jm2
+    integer :: j
 
-    do j = 1, this%size
-       jp1 = j + 1
-       if(jp1 > this%size) jp1 = 1
+    ! compute dt(1)
+    dt(1) = (x(2) - x(this%size - 1)) * x(this%size) - x(1) + this%forcing
 
-       jm2 = j - 2
-       if(jm2 < 1) jm2 = this%size + jm2
+    ! compute dt(2)
+    dt(2) = (x(3) - x(this%size)) * x(1) - x(2) + this%forcing
 
-       jm1 = j - 1
-       if(jm1 < 1) jm1 = this%size
-
-       dt(j) = (x(jp1) - x(jm2)) * x(jm1) - x(j) + this%forcing
+    ! compute dt(3) thru dt(size -1)
+    do j = 3, this%size - 1
+       dt(j) = (x(j + 1) - x(j - 2)) * x(j - 1) - x(j) + this%forcing
     end do
+
+    ! compute dt(size)
+    dt(this%size) = (x(1) - x(this%size - 2)) * x(this%size - 1) - x(this%size) + this%forcing
 
   end subroutine comp_dt
 

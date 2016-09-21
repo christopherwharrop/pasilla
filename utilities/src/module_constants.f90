@@ -1,6 +1,6 @@
 module module_constants
 
-  use module_kind, only : r8kind
+  use kind, only : r8kind
 
   implicit none
   private 

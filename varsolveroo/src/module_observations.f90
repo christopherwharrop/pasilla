@@ -1,6 +1,6 @@
 module module_observations
 
-  use module_kind, only      : r8kind
+  use kind, only      : r8kind
   use module_constants, only : PI
 
   implicit none

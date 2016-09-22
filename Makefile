@@ -4,6 +4,18 @@ all:
 	make -C varsolver
 	make -C varsolveroo
 
+models: utilities
+	make -C models
+
+varsolver: utilities
+	make -C varsolver
+
+varsolveroo: utilities
+	make -C varsolveroo
+
+utilties:
+	make -C utilities
+
 clean:
 	make clean -C utilities
 	make clean -C models

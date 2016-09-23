@@ -245,8 +245,11 @@ contains
   ! BJE
   ! PREPARES MATRICES FOR USE IN THE SOLVER
   ! THERE ARE A NUMBER OF MATRICES THAT ARE REUSED IN THE SOLVER
-  ! SPECIFICLY:  HRH_COV=(H(T)R(-1)H)
-  !              HTR_INO=(H(T)R(-1))*(Y-HXb)
+  ! SPECIFICLY:  HRH_COV=       (H(T)R(-1)H)
+  !              HTR_INO=       (H(T)R(-1))*(Y-HXb)
+  !              BRH_COV=B(1/2)*(H(T)R(-1)H)
+  !              BHT_INO=B(1/2)*(H(T)R(-1))*(Y-HXb)
+
   subroutine pre_sol(obs_opr,obs_cov,bkg_cov,hrh_cov,brh_cov,obs_vec,htr_ino,bht_ino,jvc_for)
 
     implicit none
@@ -387,8 +390,10 @@ contains
     real(KIND=8), allocatable   :: tim_anv(:,:)
     real(KIND=8), allocatable   :: tim_bkv(:,:)
 
+    real(KIND=8), allocatable   :: new_vec(:,:)
     real(KIND=8), allocatable   :: tlm_vec(:,:)
     real(KIND=8), allocatable   :: mdl_vec(:,:)
+    real(KIND=8), allocatable   :: ges_vec(:,:)
     real(KIND=8), allocatable   :: dif_vec(:,:)
     real(KIND=8), allocatable   :: dif_tra(:,:)
 
@@ -415,8 +420,10 @@ contains
     allocate (tim_bkv(bkg_len,      1))
     allocate (tim_anv(bkg_len,      1))
 
+    allocate (new_vec(tim_len,bkg_len))
     allocate (tlm_vec(tim_len,bkg_len))
     allocate (mdl_vec(bkg_len,      1))
+    allocate (ges_vec(bkg_len,      1))
     allocate (dif_vec(bkg_len,      1))
     allocate (dif_tra(      1,bkg_len))
 
@@ -433,17 +440,16 @@ contains
     jold = 100.0 
     jnew = 0.0
     jthr = 0.01 
-    alph = 0.0001
+    alph = 0.00005
+    if(mthd.eq.4) alph=alph*3.8
+    if(mthd.eq.1) alph=alph*4.8
+
 !   PARAMETERS FOR MODEL ERROR - ALSO SHOULD BE FROM NAMELIST
 !   B = RATIO OF B/B = 1.0  
 !   Q = RATIO OF Q/B = 0.2 (OR, PERFECT TL/AD MODEL, Q=0.0) 
     B    = 1.0 
     Q    = 0.0
     print *,"SOLVER"
-
-40  FORMAT(A8,I4,3F10.4)
-50  FORMAT(2I4,3F10.4)
-33  FORMAT(A10,3F10.5)
 
 ! IF 3DVAR - NO Q TERM
     if(mthd.le.2) Q = 0.0
@@ -457,10 +463,10 @@ contains
        if (jnew.lt.0.0) exit
        jold=jnew
        jnew=0.0
-
+ 
+       new_vec(:,:)=0.0
        tlm_vec=anl_vec
-       write(*,33) "AFTER IT: ",anl_vec(:,3000)
-!$OMP PARALLEL SHARED (bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,tim_len,mthd,B,Q) DEFAULT(PRIVATE)
+!$OMP PARALLEL SHARED (bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q) DEFAULT(PRIVATE)
 !$OMP DO
        do t=1,tim_len
           tid=OMP_GET_THREAD_NUM()
@@ -472,11 +478,13 @@ contains
           if(t.eq.1) then
 !            FOR THE FIRST TIME STEP, THERE IS NO PRIOR FIELD TO PROPAGATE
 	     mdl_vec(:,1)=tlm_vec(t,:)
+             if (mthd.eq.4) new_vec(t,:)=mdl_vec(:,1)
           else
 !            RUN THE FORWARD MODEL FOR ALL STEPS AFTER THE FIRST
 	     mdl_vec(:,1)=tlm_vec(t-1,:)
              call forward_model(mdl_vec,t-1,1)
-             tlm_vec(t,:)=mdl_vec(:,1)
+             if (mthd.eq.4) new_vec(t,:)=mdl_vec(:,1)
+             if (mthd.ne.4) tlm_vec(t,:)=mdl_vec(:,1)
           end if
 
           !   CARRY ON WITH THE MINIMIZATION 
@@ -499,23 +507,18 @@ contains
           !   COST FUNCTION
           jtim(t) = 0.5*(jvc_one(1,1)+jvc_two(1,1)-2.0*jvc_the(1,1)) 
 
-          tid = OMP_GET_THREAD_NUM()
-44        FORMAT(A10,2I4,7F8.3)
-          write(*,44) "JTIM =",t,tid,jtim(t),jvc_one(1,1),jvc_two(1,1),jvc_the(1,1),99.999
-	  tlm_vec(t,:)=mdl_vec(:,1)
        end do
 !$OMP END DO
 !$OMP END PARALLEL
- 
-       anl_vec=tlm_vec 
-       write(*,33) "AFTER TL: ",anl_vec(:,3000)
 
+       if(mthd.eq.4) tlm_vec=new_vec 
        do t=1,tim_len
           jnew=jnew+jtim(t)
        end do
        jnew=jnew+jvc_for(1,1)
+       new_vec(:,:)=0.0
 
-!$OMP PARALLEL SHARED (bht_ino,bkg_cov,brh_cov,bkg_vec,tlm_vec,tim_len,alph,mthd,B,Q) DEFAULT(PRIVATE)
+!$OMP PARALLEL SHARED (bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q) DEFAULT(PRIVATE)
 !$OMP DO
        !   CALCULATE GRAD-J IN REVERSE TEMPORAL ORDER 
        do t=tim_len,1,-1
@@ -523,54 +526,45 @@ contains
           tim_hrh(:,:)=brh_cov(t,:,:)
           tim_htr(:,:)=bht_ino(t,:,:)
           tim_bkv(:,1)=bkg_vec(t,:)
-
+         
           if(t.eq.tim_len) then 
 !            FOR THE LAST (OR ONLY) TIME STEP - NO ADJOINT TO RUN
 	     mdl_vec(:,1)=tlm_vec(t,:)
+             if(mthd.eq.4) mdl_vec(:,1)=0.5*(tlm_vec(t,:)+anl_vec(t,:))
           else 			
 !            THIS ONLY RUNS FOR 4DVAR
 !	     FOR ALL OTHER TIME STEPS - ADJOINT NEEDED
-	     mdl_vec(:,1)=tlm_vec(t+1,:)
+             if (mthd.eq.3) mdl_vec(:,1)=tlm_vec(t+1,:)
+             if (mthd.eq.4) mdl_vec(:,1)=anl_vec(t+1,:)
              call bakward_model(mdl_vec,t+1,1)
           end if
 
+!         CHOOSE THE FIRST GUESS FIELD
+          if(mthd.ne.4) ges_vec(:,1)=mdl_vec(:,1)
+          if(mthd.eq.4) ges_vec(:,1)=0.5*(tlm_vec(t,:)+mdl_vec(:,1))
+
 !         CALCULATE THE GRADIENT OF THE COST FUNCTION
 !	  FIRST - DIFFERENCE BETWEEN FIRST GUESS AND BACKGROUND
-	  tmp_vec(:,1)=(mdl_vec(:,1)-tim_bkv(:,1))*(B+Q)
-	  dif_vec(:,1)=(mdl_vec(:,1)-tim_bkv(:,1))*(B+Q)
+	  tmp_vec(:,1)=(ges_vec(:,1)-tim_bkv(:,1))*(B+Q)
+	  dif_vec(:,1)=(ges_vec(:,1)-tim_bkv(:,1))*(B+Q)
 
-	  if(t.lt.tim_len .and. mthd.eq.4) then
-!            TIME PARALLEL 4DVAR - NEED TO PROPAGATE THE INCREMENT FROM T+1 
-!	     FIRST GUESS BECOMES TL OUTPUT
-!            AD USED TO PROPAGATE INCREMENT FROM T+1 TO T 
-  	     tmp_vec(:,1)=( (tlm_vec(t,:)-tim_bkv(:,1)) + (mdl_vec(:  ,1)-tim_bkv(:  ,1)) )*(B+Q) 
-	     tim_htr(:,1)=tim_htr(:,1)+(bht_ino(t+1,:,1))*(B+Q)
-	     mdl_vec(:,1)=tlm_vec(t,:)
-	  end if
-
+!         OBTAIN THE PRE-CONDITIONED DIFFERENCE BETWEEN THE BACKGROUND AND 
+!         THE FIRST GUESS
           call pre_con_dif(tim_bkc,tmp_vec)
           pre_dif(:,1)=tmp_vec(:,1)
-
           tmp_vec=matmul(tim_hrh,dif_vec)
-!	  MORE TIME PARALLEL 4DVAR
-!	  MUST PROPAGATE THE HRH TERM FROM THE PRIOR TIME STEP
-	  if(t.lt.tim_len .and. mthd.eq.4) then
-	      dif_vec(:,1)=(tlm_vec(t+1,:)-bkg_vec(t+1,:))*(B+Q)
-	      tim_hrh(:,:)=brh_cov(t+1,:,:)
-              tmp_vvc=matmul(tim_hrh,dif_vec)
-	      tmp_vec(:,1)=tmp_vec(:,1)+tmp_vvc(:,1)
-	  end if
-    
+
           tmp_vec(:,1)=pre_dif(:,1)+tmp_vec(:,1)-tim_htr(:,1)
 	  grd_jvc=matmul(tim_bkc,tmp_vec)
-          tlm_vec(t,:)=mdl_vec(:,1)-grd_jvc(:,1)*alph
+          new_vec(t,:)=ges_vec(:,1)-grd_jvc(:,1)*alph
 
+          if(mthd.ne.4) tlm_vec(t,:)=new_vec(t,:)
        end do
 !$OMP END DO
 !$OMP END PARALLEL
-
+       
+       if(mthd.eq.4) tlm_vec=new_vec
        anl_vec=tlm_vec
-       write(*,33) "AFTER AN: ",anl_vec(:,3000)
        if (nitr.gt.0 .and. jnew.gt.jold) jnew=jold
        if (nitr.eq.0) print *,'initial cost = ',jnew
        nitr = nitr + 1 

@@ -441,8 +441,8 @@ contains
     jnew = 0.0
     jthr = 0.01 
     alph = 0.00005
-    if(mthd.eq.4) alph=alph*3.8
-    if(mthd.eq.1) alph=alph*4.8
+    if(mthd.eq.4) alph=alph*4.7
+    if(mthd.eq.1) alph=alph*4.7
 
 !   PARAMETERS FOR MODEL ERROR - ALSO SHOULD BE FROM NAMELIST
 !   B = RATIO OF B/B = 1.0  

@@ -1,4 +1,4 @@
-module module_background
+module background
 
   use kind, only      : r8kind
   use module_constants, only : PI
@@ -11,7 +11,7 @@ module module_background
 
   type Background_Type
       private
-      integer                           :: npoints
+      integer, public                   :: npoints
       integer                           :: ntimes
       real(r8kind), allocatable, public :: state(:,:)
       integer, allocatable, public      :: position(:,:)
@@ -76,4 +76,4 @@ contains
   end subroutine
 
 
-end module module_background
+end module background

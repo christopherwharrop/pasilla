@@ -1,6 +1,6 @@
 #!/bin/sh -l
 
-module load intel
+module load intel/16.1.150
 
 GPTL_PATH=/contrib/gptl/gptl-v5.5_nompi_noomp/bin
 PARSE_PATH=/home/Christopher.W.Harrop/bin

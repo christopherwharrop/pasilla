@@ -1,4 +1,4 @@
-module module_observations
+module observations
 
   use kind, only      : r8kind
   use module_constants, only : PI
@@ -88,4 +88,4 @@ contains
   end subroutine
 
 
-end module module_observations
+end module observations

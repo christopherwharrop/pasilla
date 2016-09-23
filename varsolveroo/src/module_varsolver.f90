@@ -1,12 +1,14 @@
 ! BJE = 01 AUG 2016
 ! PROGRAM TO DO VARIATIONAL ASSIMILATION
 
-module module_varsolver
+module varsolver
 
   use gptl
   use module_constants
-  use module_background, only   : Background_Type
-  use module_observations, only : Observations_Type
+  use background, only   : Background_Type
+  use observations, only : Observations_Type
+  use background_covariance, only : Background_Covariance_Type
+  use observation_covariance, only : Observation_Covariance_Type
 
   ! Get unit numbers for stdin, stdout, stderr in a portable way
   use, intrinsic :: iso_fortran_env, only : stdin=>input_unit, &
@@ -45,58 +47,6 @@ contains
     print *,"GET_METHOD COMPLETE"
 
   end subroutine get_method
-
-  ! BJE
-  ! GENERATE THE OBSERVATION ERROR COVARIANCE MATRIX, "R"
-  subroutine get_obs_cov(observations, obs_cov) 
-
-    implicit none
-    class(Observations_Type), intent(in) :: observations
-    real(KIND=8), intent(inout) :: obs_cov(:,:,:)
-
-    integer :: i,t 
-
-    print *,"GET_OBS_COV_MAT"
-
-    obs_cov(:,:,:) = 0.0
-
-    do i = 1, observations%nobs
-       obs_cov(observations%time(i), i, i) = 1.0
-    end do
-
-    print *,"GET_OBS_COV_MAT COMPLETE"
-
-  end subroutine get_obs_cov
-
-  ! BJE
-  ! GENERATE THE BACKGROUND ERROR COVARIANCE MATRIX, "B"
-  subroutine get_bkg_cov(bkg_cov)
-
-    implicit none
-    real(KIND=8), intent(inout) :: bkg_cov(:,:,:)
-    real(KIND=8)                :: var
-    integer                     :: t,i,j,jj,rad 
-
-    print *,"GET_BKG_COV_MAT"
-
-    var=3.61
-    bkg_cov(:,:,:)=0.0
-    rad=bkg_len/10
-
-    do t=1,tim_len
-       do i=1,bkg_len
-          do j=-rad,+rad
-             jj=i+j
-             if(jj.gt.bkg_len) jj=jj-bkg_len
-             if(jj.lt.1) jj=bkg_len+jj
-             bkg_cov(t,i,jj)=var*exp(-((float(j)*0.005)**2))
-          end do
-       end do
-    end do
-
-    print *,"GET_BKG_COV_MAT COMPLETE"
-
-  end subroutine get_bkg_cov
 
 
   ! BJE
@@ -184,8 +134,8 @@ contains
 
     implicit none
     real(KIND=8), intent(in)    :: obs_opr(:,:,:) 
-    real(KIND=8), intent(in)    :: obs_cov(:,:,:) 
-    real(KIND=8), intent(in)    :: bkg_cov(:,:,:) 
+    class(Observation_Covariance_Type), intent(in)   :: obs_cov
+    class(Background_Covariance_Type), intent(in)    :: bkg_cov
     real(KIND=8), intent(inout) :: hrh_cov(:,:,:) 
     class(Observations_Type), intent(in) :: observations
     real(KIND=8), intent(inout) :: bht_ino(:,:,:) 
@@ -223,8 +173,8 @@ contains
     jvc_for(1,1) = 0.0
     do t = 1, tim_len
        tim_opr = obs_opr(t,:,:)
-       tim_bkc = bkg_cov(t,:,:)
-       tim_obc = obs_cov(t,:,:) 
+       tim_bkc = bkg_cov%covariance(t,:,:)
+       tim_obc = obs_cov%covariance(t,:,:)
 
        obs_opt = transpose(tim_opr)
        tmp_bhh = matmul(tim_bkc, obs_opt)
@@ -280,7 +230,8 @@ contains
   subroutine var_solver(bkg_cov,hrh_cov,bht_ino,jvc_for,background,anl_vec)
 
     implicit none
-    real(KIND=8), intent(in)    :: bkg_cov(:,:,:)
+
+    class(Background_Covariance_Type), intent(in)    :: bkg_cov
     real(KIND=8), intent(in)    :: hrh_cov(:,:,:)
     real(KIND=8), intent(in)    :: bht_ino(:,:,:)
     real(KIND=8), intent(in)    :: jvc_for(:,:)
@@ -343,7 +294,7 @@ contains
 
     do t=1,tim_len
        ! DO THE PRE-CONDITIONING OF X and Xb
-       tim_bkc=bkg_cov(t,:,:)
+       tim_bkc=bkg_cov%covariance(t,:,:)
        do i=1,bkg_len
           tim_bkv(i,1)=background%state(t,i) 
           tim_anv(i,1)=background%state(t,i)
@@ -380,7 +331,7 @@ contains
 
           !   RUN THE FORWARD MODEL FOR ALL STEPS AFTER THE FIRST
           if(t.gt.1) then 
-             tim_bkc(:,:)=bkg_cov(t,:,:)
+             tim_bkc(:,:)=bkg_cov%covariance(t,:,:)
              tim_anv(:,1)=tmp_pra(t,:,1)
 !            FOR NOT-TIME PARALLEL
              if (mthd.eq.3) print *,"NOT TIME PARALLEL",mthd 
@@ -442,7 +393,7 @@ contains
           tim_bkv(:,1)=pre_bkg(t,:,1)
  
           if(t.lt.tim_len) then 
-             tim_bkc=bkg_cov(t,:,:)
+             tim_bkc=bkg_cov%covariance(t,:,:)
              tim_anv(:,1)=tmp_pra(t,:,1)
 !            FOR NON TIME-PARALLEL 4DVAR
              if(mthd.eq.3) tim_anv(:,1)=pre_anl(t+1,:,1)
@@ -480,7 +431,7 @@ contains
 
     ! UNDO THE PRE-CONDITIONING X=B(1/2)V
     do t=1,tim_len
-       tim_bkc(:,:)=bkg_cov(t,:,:)
+       tim_bkc(:,:)=bkg_cov%covariance(t,:,:)
        tim_anv(:,:)=pre_anl(t,:,:) 
        tmp_vec=matmul(tim_bkc,tim_anv)
 
@@ -559,4 +510,4 @@ contains
 
   ! THAT IS ALL FOLKS!
   !
-end module module_varsolver
+end module varsolver

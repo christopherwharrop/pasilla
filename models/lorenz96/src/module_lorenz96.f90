@@ -6,7 +6,7 @@ module lorenz96
 
   private
 
-  public :: lorenz96_type
+  public :: lorenz96_type, lorenz96_TL_type, lorenz96_ADJ_type
 
   type lorenz96_type
       private
@@ -14,19 +14,13 @@ module lorenz96
       real(r8kind) :: forcing
       real(r8kind) :: delta_t
       real(r8kind) :: t
-      integer      :: step
-      real(r8kind), allocatable :: state(:)
-      real(r8kind), allocatable :: stated(:)
-      real(r8kind), allocatable :: stateb(:)
+      integer, public      :: step
+      real(r8kind), allocatable, public :: state(:)
       real(r8kind), allocatable :: location(:)
   contains
       final              :: destructor
       procedure, private :: comp_dt
       procedure          :: adv_nsteps
-      procedure, private :: comp_dt_d
-      procedure          :: adv_nsteps_d
-      procedure, private :: comp_dt_b
-      procedure          :: adv_nsteps_b
       procedure          :: interpolate
       procedure          :: read_model_state
       procedure, private :: netcdf_read_model_state
@@ -36,8 +30,37 @@ module lorenz96
       procedure, private :: ascii_write_model_state
   end type lorenz96_type
 
+
+  type, extends(lorenz96_type) :: lorenz96_TL_type
+      private
+      real(r8kind), allocatable, public :: trajectory(:)
+  contains
+      final              :: destructor_TL
+      procedure          :: adv_nsteps => adv_nsteps_d
+      procedure, private :: comp_dt_d
+  end type lorenz96_TL_type
+
+
+  type, extends(lorenz96_type) :: lorenz96_ADJ_type
+      private
+      real(r8kind), allocatable, public :: trajectory(:)
+  contains
+      final              :: destructor_ADJ
+      procedure          :: adv_nsteps => adv_nsteps_b
+      procedure, private :: comp_dt_b
+  end type lorenz96_ADJ_type
+
+
   interface lorenz96_type
     procedure constructor
+  end interface
+
+  interface lorenz96_TL_type
+    procedure constructor_TL
+  end interface
+
+  interface lorenz96_ADJ_type
+    procedure constructor_ADJ
   end interface
 
 contains
@@ -64,20 +87,63 @@ contains
 
     ! Allocate model variables
     allocate(constructor%state(size))
-    allocate(constructor%stated(size))
-    allocate(constructor%stateb(size))
     allocate(constructor%location(size))
 
     ! Initialize model variables
     constructor%state = forcing
     constructor%state(1) = 1.001_r8kind * forcing
-    constructor%stated = constructor%state
-    constructor%stateb = constructor%state
 
     ! Localize the domain
     do j = 1, size
       constructor%location(j) = (j - 1.0_r8kind) / size
     end do
+
+  end function
+
+
+  !------------------------------------------------------------------
+  ! constructor_TL
+  !
+  ! Returns an initialized lorenz96_TL object
+  !------------------------------------------------------------------
+  type(lorenz96_TL_type) function constructor_TL(size, forcing, delta_t)
+
+    integer, intent(in)      :: size
+    real(r8kind), intent(in) :: forcing
+    real(r8kind), intent(in) :: delta_t
+
+    ! Call constructor for superclass
+    constructor_TL%lorenz96_type = lorenz96_type(size, forcing, delta_t)
+
+    ! Allocate model variables
+    allocate(constructor_TL%trajectory(size))
+
+    ! Initialize model variables
+    constructor_TL%trajectory = constructor_TL%state
+
+  end function
+
+
+
+  !------------------------------------------------------------------
+  ! constructor_ADJ
+  !
+  ! Returns an initialized lorenz96_ADJ object
+  !------------------------------------------------------------------
+  type(lorenz96_ADJ_type) function constructor_ADJ(size, forcing, delta_t)
+
+    integer, intent(in)      :: size
+    real(r8kind), intent(in) :: forcing
+    real(r8kind), intent(in) :: delta_t
+
+    ! Call constructor for superclass
+    constructor_ADJ%lorenz96_type = lorenz96_type(size, forcing, delta_t)
+
+    ! Allocate model variables
+    allocate(constructor_ADJ%trajectory(size))
+
+    ! Initialize model variables
+    constructor_ADJ%trajectory = constructor_ADJ%state
 
   end function
 
@@ -97,6 +163,34 @@ contains
 
 
   !------------------------------------------------------------------
+  ! destructor_TL
+  !
+  ! Deallocates pointers used by a lorenz96_TL object (none currently)
+  !------------------------------------------------------------------
+  elemental subroutine destructor_TL(this)
+
+    type(lorenz96_TL_type), intent(inout) :: this
+
+    ! No pointers in lorenz96_TL object so we do nothing
+
+  end subroutine
+
+
+  !------------------------------------------------------------------
+  ! destructor
+  !
+  ! Deallocates pointers used by a lorenz96_ADJ object (none currently)
+  !------------------------------------------------------------------
+  elemental subroutine destructor_ADJ(this)
+
+    type(lorenz96_ADJ_type), intent(inout) :: this
+
+    ! No pointers in lorenz96_ADJ object so we do nothing
+
+  end subroutine
+
+
+  !------------------------------------------------------------------
   ! comp_dt
   !
   ! Private routine to compute the time tendency of a lorenz96_type object 
@@ -105,8 +199,8 @@ contains
   subroutine comp_dt(this, x, dt)
 
     class(lorenz96_type), intent(in) :: this
-    real(r8kind), intent( in)   :: x(:)
-    real(r8kind), intent(out)   :: dt(:)
+    real(r8kind), intent( in) ::  x(:)
+    real(r8kind), intent(out) :: dt(:)
 
     integer :: j, jp1, jm1, jm2
 
@@ -130,6 +224,7 @@ contains
   end subroutine comp_dt
 
 
+  !------------------------------------------------------------------
   !        Generated by TAPENADE     (INRIA, Ecuador team)
   !  Tapenade 3.11 (r6148) - 16 Aug 2016 14:18
   !
@@ -139,36 +234,36 @@ contains
   !------------------------------------------------------------------
   ! comp_dt_d
   !
-  ! Private routine to compute the time tendency of a lorenz96_type object 
+  ! Private routine to compute the time tendency of a lorenz96_TL_type object
   ! given a state, x, and return it in dt.
   !------------------------------------------------------------------
   subroutine comp_dt_d(this, x, xd, dt, dtd)
 
-    class(lorenz96_type), intent(in) :: this
-    real(r8kind), intent(in)    :: x(this%size)
-    real(r8kind), intent(in)    :: xd(this%size)
-    real(r8kind), intent(out)   :: dt(this%size)
-    real(r8kind), intent(out)   :: dtd(this%size)
+    class(lorenz96_TL_type), intent(in) :: this
+    real(r8kind), intent( in) ::   x(this%size)
+    real(r8kind), intent( in) ::  xd(this%size)
+    real(r8kind), intent(out) ::  dt(this%size)
+    real(r8kind), intent(out) :: dtd(this%size)
 
     integer :: j
 
-    ! compute dt(1)
+    ! compute dtd(1)
     dtd(1) = (xd(2) - xd(this%size - 1)) * x(this%size) + (x(2) - x(this%size - 1)) * xd(this%size) - xd(1)
     dt(1) =  ( x(2) -  x(this%size - 1)) * x(this%size) - x(1) + this%forcing
 
-    ! compute dt(2)
+    ! compute dtd(2)
     dtd(2) = (xd(3) - xd(this%size)) * x(1) + (x(3) - x(this%size)) * xd(1) - xd(2)
     dt(2) =  (x(3) -   x(this%size)) * x(1) - x(2) + this%forcing
 
-    ! compute dt(3) thru dt(size -1)
+    ! compute dtd(3) thru dtd(size -1)
     do j = 3, this%size - 1
        dtd(j) = (xd(j + 1) - xd(j - 2)) * x(j - 1) + (x(j + 1) - x(j - 2)) * xd(j - 1) - xd(j)
         dt(j) = ( x(j + 1) -  x(j - 2)) * x(j - 1) - x(j) + this%forcing
     end do
 
-    ! compute dt(size)
-    dtd(this%size) = (xd(1)-xd(this%size-2))*x(this%size-1) + (x(1)-x(this%size-2))*xd(this%size-1) - xd(this%size)
-    dt(this%size) = (x(1)-x(this%size-2))*x(this%size-1) - x(this%size) + this%forcing
+    ! compute dtd(size)
+    dtd(this%size) = (xd(1) - xd(this%size - 2)) * x(this%size - 1) + (x(1) - x(this%size - 2)) * xd(this%size - 1) - xd(this%size)
+    dt(this%size) =   (x(1) -  x(this%size - 2)) * x(this%size - 1) - x(this%size) + this%forcing
 
   end subroutine comp_dt_d
 
@@ -188,38 +283,39 @@ contains
   !------------------------------------------------------------------
   subroutine comp_dt_b(this, x, xb, dt, dtb)
 
-    class(lorenz96_type), intent(in) :: this
-    real(r8kind), intent(   in) :: x(this%size)
-    real(r8kind), intent(inout) :: xb(this%size)
-    real(r8kind), intent(   in) :: dt(this%size)
+    class(lorenz96_ADJ_type), intent(in) :: this
+    real(r8kind), intent(   in) ::   x(this%size)
+    real(r8kind), intent(inout) ::  xb(this%size)
+    real(r8kind), intent(   in) ::  dt(this%size)
     real(r8kind), intent(inout) :: dtb(this%size)
 
     integer :: j
     real(r8kind) :: tempb
 
-    ! compute dt(1)
-    ! compute dt(2)
-    xb(1) = xb(1) + x(this%size-1)*dtb(this%size)
-    xb(this%size-2) = xb(this%size-2) - x(this%size-1)*dtb(this%size)
-    xb(this%size-1) = xb(this%size-1) + (x(1)-x(this%size-2))*dtb(this%size)
+    xb(1) = xb(1) + x(this%size - 1) * dtb(this%size)
+    xb(this%size - 2) = xb(this%size - 2) - x(this%size - 1) * dtb(this%size)
+    xb(this%size - 1) = xb(this%size - 1) + (x(1) - x(this%size - 2)) * dtb(this%size)
     xb(this%size) = xb(this%size) - dtb(this%size)
     dtb(this%size) = 0.0
-    do j=this%size - 1, 3, -1
-      tempb = x(j-1)*dtb(j)
-      xb(j+1) = xb(j+1) + tempb
-      xb(j-2) = xb(j-2) - tempb
-      xb(j-1) = xb(j-1) + (x(j+1)-x(j-2))*dtb(j)
+
+    do j = this%size - 1, 3, -1
+      tempb = x(j-1) * dtb(j)
+      xb(j + 1) = xb(j + 1) + tempb
+      xb(j - 2) = xb(j - 2) - tempb
+      xb(j - 1) = xb(j - 1) + (x(j + 1) - x(j - 2)) * dtb(j)
       xb(j) = xb(j) - dtb(j)
       dtb(j) = 0.0
     end do
-    xb(3) = xb(3) + x(1)*dtb(2)
-    xb(this%size) = xb(this%size) - x(1)*dtb(2)
-    xb(1) = xb(1) + (x(3)-x(this%size))*dtb(2)
+
+    xb(3) = xb(3) + x(1) * dtb(2)
+    xb(this%size) = xb(this%size) - x(1) * dtb(2)
+    xb(1) = xb(1) + (x(3) - x(this%size)) * dtb(2)
     xb(2) = xb(2) - dtb(2)
     dtb(2) = 0.0
-    xb(2) = xb(2) + x(this%size)*dtb(1)
-    xb(this%size-1) = xb(this%size-1) - x(this%size)*dtb(1)
-    xb(this%size) = xb(this%size) + (x(2)-x(this%size-1))*dtb(1)
+
+    xb(2) = xb(2) + x(this%size) * dtb(1)
+    xb(this%size - 1) = xb(this%size - 1) - x(this%size) * dtb(1)
+    xb(this%size) = xb(this%size) + (x(2) - x(this%size - 1)) * dtb(1)
     xb(1) = xb(1) - dtb(1)
     dtb(1) = 0.0
 
@@ -257,7 +353,7 @@ contains
       x4 = this%delta_t * dx
 
       !  Compute new value for state
-      this%state = this%state + x1/6.0_r8kind + x2/3.0_r8kind + x3/3.0_r8kind + x4/6.0_r8kind
+      this%state = this%state + x1 / 6.0_r8kind + x2 / 3.0_r8kind + x3 / 3.0_r8kind + x4 / 6.0_r8kind
 
       ! Increment time step
       this%t = this%t + this%delta_t
@@ -284,7 +380,7 @@ contains
   !------------------------------------------------------------------
   subroutine adv_nsteps_d(this, nsteps)
 
-    class(lorenz96_type), intent(inout) :: this
+    class(lorenz96_TL_type), intent(inout) :: this
     integer, intent(in) :: nsteps
 
     real(r8kind), dimension(this%size) :: x1, x2, x3, x4, dx, inter
@@ -295,31 +391,31 @@ contains
     do step = 1, nsteps
 
        dxd = 0.0
-       call this%comp_dt_d(this%state, this%stated, dx, dxd)  !  Compute the first intermediate step
-       x1d = this%delta_t*dxd
-       x1 = this%delta_t*dx
-       interd = this%stated + x1d/2.0
-       inter = this%state + x1/2.0
+       call this%comp_dt_d(this%trajectory, this%state, dx, dxd)  !  Compute the first intermediate step
+       x1d = this%delta_t * dxd
+       x1 = this%delta_t * dx
+       interd = this%state + x1d / 2.0
+       inter = this%trajectory + x1 / 2.0
 
        call this%comp_dt_d(inter, interd, dx, dxd)            !  Compute the second intermediate step
-       x2d = this%delta_t*dxd
-       x2 = this%delta_t*dx
-       interd = this%stated + x2d/2.0
-       inter = this%state + x2/2.0
+       x2d = this%delta_t * dxd
+       x2 = this%delta_t * dx
+       interd = this%state + x2d / 2.0
+       inter = this%trajectory + x2 / 2.0
 
        call this%comp_dt_d(inter, interd, dx, dxd)            !  Compute the third intermediate step
-       x3d = this%delta_t*dxd
-       x3 = this%delta_t*dx
-       interd = this%stated + x3d
-       inter = this%state + x3
+       x3d = this%delta_t * dxd
+       x3 = this%delta_t * dx
+       interd = this%state + x3d
+       inter = this%trajectory + x3
 
        call this%comp_dt_d(inter, interd, dx, dxd)            !  Compute fourth intermediate step
-       x4d = this%delta_t*dxd
-       x4 = this%delta_t*dx
+       x4d = this%delta_t * dxd
+       x4 = this%delta_t * dx
 
        !  Compute new value for x
-       this%stated = this%stated + x1d/6.0 + x2d/3.0 + x3d/3.0 + x4d/6.0
-       this%state = this%state + x1/6.0 + x2/3.0 + x3/3.0 + x4/6.0
+       this%state = this%state + x1d / 6.0 + x2d / 3.0 + x3d / 3.0 + x4d / 6.0
+       this%trajectory = this%trajectory + x1 / 6.0 + x2 / 3.0 + x3 / 3.0 + x4 / 6.0
 
        ! Increment time step
        this%t = this%t + this%delta_t
@@ -347,7 +443,7 @@ contains
   !------------------------------------------------------------------
   subroutine adv_nsteps_b(this, nsteps)
 
-    class(lorenz96_type), intent(inout) :: this
+    class(lorenz96_ADJ_type), intent(inout) :: this
     integer, intent(in) :: nsteps
 
     real(r8kind), dimension(this%size) :: x1, x2, x3, x4, dx, inter
@@ -357,42 +453,44 @@ contains
 
     do step = 1, nsteps
 
-      call this%comp_dt(this%state, dx)  !  Compute the first intermediate step
-      x1 = this%delta_t*dx
-      inter = this%state + x1/2.0
+      call this%comp_dt(this%trajectory, dx)
+      x1 = this%delta_t * dx
+      inter = this%trajectory + x1 / 2.0
 
-      call this%comp_dt(inter, dx)       !  Compute the second intermediate step
-      x2 = this%delta_t*dx
-      inter = this%state + x2/2.0
+      call this%comp_dt(inter, dx)
+      x2 = this%delta_t * dx
+      inter = this%trajectory + x2 / 2.0
 
-      call this%comp_dt(inter, dx)       !  Compute the third intermediate step
-      x3 = this%delta_t*dx
-      inter = this%state + x3
+      call this%comp_dt(inter, dx)
+      x3 = this%delta_t * dx
+      inter = this%trajectory + x3
 
-      !  Compute fourth intermediate step
-      !  Compute new value for x
-      x1b = this%stateb/6.0
-      x2b = this%stateb/3.0
-      x4b = this%stateb/6.0
-      dxb = this%delta_t*x4b
+      x1b = this%state / 6.0
+      x2b = this%state / 3.0
+      x4b = this%state / 6.0
+      dxb = this%delta_t * x4b
       interb = 0.0
+
       call this%comp_dt_b(inter, interb, dx, dxb)
-      x3b = interb + this%stateb/3.0
-      this%stateb = this%stateb + interb
-      dxb = dxb + this%delta_t*x3b
-      inter = this%state + x2/2.0
+      x3b = interb + this%state / 3.0
+      this%state = this%state + interb
+      dxb = dxb + this%delta_t * x3b
+      inter = this%trajectory + x2 / 2.0
       interb = 0.0
+
       call this%comp_dt_b(inter, interb, dx, dxb)
-      this%stateb = this%stateb + interb
-      x2b = x2b + interb/2.0
-      dxb = dxb + this%delta_t*x2b
-      inter = this%state + x1/2.0
+      this%state = this%state + interb
+      x2b = x2b + interb / 2.0
+      dxb = dxb + this%delta_t * x2b
+      inter = this%trajectory + x1 / 2.0
       interb = 0.0
+
       call this%comp_dt_b(inter, interb, dx, dxb)
-      this%stateb = this%stateb + interb
-      x1b = x1b + interb/2.0
-      dxb = dxb + this%delta_t*x1b
-      call this%comp_dt_b(this%state, this%stateb, dx, dxb)
+      this%state = this%state + interb
+      x1b = x1b + interb / 2.0
+      dxb = dxb + this%delta_t * x1b
+
+      call this%comp_dt_b(this%trajectory, this%state, dx, dxb)
 
       ! Increment time step
       this%t = this%t - this%delta_t
@@ -640,8 +738,16 @@ contains
         write(*,'(A,A,A)') 'ERROR: IO Format "',format,'" is not supported!'
         stop
     end select
-    this%stated = this%state
-    this%stateb = this%state
+
+    ! Initialize trajectories for TL and ADJ
+    select type(this)
+      class is (lorenz96_TL_type)
+        this%trajectory = this%state
+      class is (lorenz96_ADJ_type)
+        this%trajectory = this%state
+      class default
+        ! Do nothing
+    end select
 
     read_model_state = ierr
 

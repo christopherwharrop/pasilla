@@ -1,0 +1,6 @@
+&params
+ mthd = 2,
+ tim_len = 3,     ! Ignored if method < 3
+ bkg_len = 4000, 
+ obs_len = 20
+/

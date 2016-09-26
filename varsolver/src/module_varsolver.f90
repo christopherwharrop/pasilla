@@ -305,24 +305,32 @@ contains
 
        ! CREATE THE OBS BASED MATRICES, FOR USE IN CALCULATING THE COST FUNCTION
        ! tim_hrh=H(T)R(-1)H, tim_htr=R(-1)H
-       tmp_rhh=matmul(tim_obc,tim_opr)       !     R(-1/2)H 
+!      R(-1/2)H 
+       call dgemm("N","N",obs_len,bkg_len,obs_len,1.d0,tim_obc,obs_len,tim_opr,obs_len,0.d0,tmp_rhh,obs_len)
        obs_opt=transpose(tmp_rhh)            ! H(T)R(-1/2)
-       tim_hrh=matmul(obs_opt,tmp_rhh)       ! H(T)R(-1/2)H 
+!      H(T)R(-1)H 
+       call dgemm("N","N",bkg_len,bkg_len,obs_len,1.d0,obs_opt,bkg_len,tmp_rhh,obs_len,0.d0,tim_hrh,bkg_len)
        hrh_cov(t,:,:)=tim_hrh(:,:)
 
-       tmp_hrr=matmul(obs_opt,tim_obc)       ! H(T)R(-1) 
-       tim_htr=matmul(tmp_hrr,obs_vvc)       ! H(T)R(-1)(Y-HXb)
-       htr_ino(t,:,1)=tim_htr(:,1) 
- 
-       ! CREATE COST FUNCTION TERM (Y-HXb)R(-1)(Y-HXb), A CONSTANT
-       tmp_jfo=matmul(tim_obc,obs_vvc)       ! R(-1/2)(Y-HXb)
-       do i=1,obs_len
+      ! CREATE COST FUNCTION TERM (Y-HXb)R(-1)(Y-HXb), A CONSTANT
+       call dgemv("N",obs_len,obs_len,1.d0,tim_obc,obs_len,obs_vvc,1,0.d0,tmp_jfo,1)
+       do i=1,obs_len                        ! CREATE (Y-HXb)(T)R(-1)(Y-HXb) 
           jvc_for(1,1)=jvc_for(1,1)+tmp_jfo(i,1)*tmp_jfo(i,1)
        end do
 
+!      CREATE R(-1) from R(-1/2) 
+       call dgemm("N","N",obs_len,obs_len,obs_len,1.d0,tim_obc,obs_len,tim_obc,obs_len,0.d0,tim_obc,obs_len)
+!      H(T)R(-1) 
+       call dgemm("N","N",bkg_len,obs_len,obs_len,1.d0,obs_opt,bkg_len,tim_obc,obs_len,0.d0,tmp_hrr,bkg_len)
+!      H(T)R(-1)(Y-HXb)
+       call dgemv("N",bkg_len,obs_len,1.d0,tmp_hrr,bkg_len,obs_vvc,1,0.d0,tim_htr,1)
+       htr_ino(t,:,1)=tim_htr(:,1) 
+ 
        ! CREATE THE UNPRECONDITIONED MATRICES, FOR THE GRADIENT OF J
-       tmp_vec=matmul(tim_bkc,tim_htr)
-       tmp_mat=matmul(tim_bkc,tim_hrh)
+!      B(1/2)*H(T)R(-1) 
+       call dgemv("N",bkg_len,bkg_len,1.d0,tim_bkc,bkg_len,tim_htr,1,0.d0,tmp_vec,1)
+!      B(1/2)*H(T)R(-1)H
+       call dgemm("N","N",bkg_len,bkg_len,bkg_len,1.d0,tim_bkc,bkg_len,tim_hrh,bkg_len,0.d0,tmp_mat,bkg_len)
        bht_ino(t,:,1)=tmp_vec(:,1)
        brh_cov(t,:,:)=tmp_mat(:,:)
     end do
@@ -436,7 +444,7 @@ contains
 
 !   PARAMETERS FOR VAR - SHOULD BE FROM NAMELIST
     nitr = 0
-    mxit = 25 
+    mxit = 50
     jold = 100.0 
     jnew = 0.0
     jthr = 0.01 
@@ -503,7 +511,6 @@ contains
           jvc_two=matmul(tmp_mat,dif_vec)
           !   THIRD TERM
           jvc_the=matmul(dif_tra,tim_htr)
-
           !   COST FUNCTION
           jtim(t) = 0.5*(jvc_one(1,1)+jvc_two(1,1)-2.0*jvc_the(1,1)) 
 
@@ -555,7 +562,7 @@ contains
           tmp_vec=matmul(tim_hrh,dif_vec)
 
           tmp_vec(:,1)=pre_dif(:,1)+tmp_vec(:,1)-tim_htr(:,1)
-	  grd_jvc=matmul(tim_bkc,tmp_vec)
+ 	  grd_jvc=matmul(tim_bkc,tmp_vec)
           new_vec(t,:)=ges_vec(:,1)-grd_jvc(:,1)*alph
 
           if(mthd.ne.4) tlm_vec(t,:)=new_vec(t,:)

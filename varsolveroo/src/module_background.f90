@@ -12,7 +12,7 @@ module background
   type Background_Type
       private
       integer, public                   :: npoints
-      integer                           :: ntimes
+      integer, public                   :: ntimes
       real(r8kind), allocatable, public :: state(:,:)
       integer, allocatable, public      :: position(:,:)
       integer, allocatable, public      :: time(:)

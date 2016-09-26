@@ -5,10 +5,12 @@ program adept
 
   use gptl
   use varsolver
-  use background, only   : Background_Type
-  use observations, only : Observations_Type
-  use background_covariance, only : Background_Covariance_Type
+  use background, only             : Background_Type
+  use observations, only           : Observations_Type
+  use background_covariance, only  : Background_Covariance_Type
   use observation_covariance, only : Observation_Covariance_Type
+  use innovation_vector, only      : Innovation_Vector_Type
+  use observation_operator, only   : Observation_Operator_Type
 
   implicit none
 
@@ -16,7 +18,8 @@ program adept
   type(Observations_Type)           :: obs
   type(Background_Covariance_Type)  :: bkg_cov
   type(Observation_Covariance_Type) :: obs_cov
-  real(KIND=8), allocatable    ::      obs_opr(:,:,:)
+  type(Innovation_Vector_Type)      :: inno_vec
+  type(Observation_Operator_Type)   :: obs_opr
   real(KIND=8), allocatable    ::      hrh_cov(:,:,:)
   real(KIND=8), allocatable    ::      anl_vec(:,:)
   real(KIND=8), allocatable    ::      bht_ino(:,:,:)
@@ -50,20 +53,17 @@ program adept
   ! SOMEDAY WILL COME TO US FROM THE UFO
   obs_cov = Observation_Covariance_Type(obs, tim_len)
 
+  ! KNOWING THE LOCATION OF THE OBS, CREATE OBS OPERATOR, H
+  obs_opr = Observation_Operator_Type(bkg, obs)
+
+  ! GET THE INNOVATION VECTOR - (Y-HXb) - DO NOT OVERWRITE OBS
+  inno_vec = Innovation_Vector_Type(bkg, obs)
+
   ! BJE
   ! KNOWING THE NUMBERS, ALLOCATE VECTORS/MATRICIES (ARRAYS) ACCORTINGLY
-  allocate (obs_opr(tim_len,obs_len,bkg_len))
   allocate (hrh_cov(tim_len,bkg_len,bkg_len))
   allocate (anl_vec(tim_len,bkg_len))
   allocate (bht_ino(tim_len,bkg_len,1))
-
-  ! BJE
-  ! GET THE INNOVATION VECTOR - (Y-HXb) - OVERWRITE OBS_VEC
-  call get_ino_vec(bkg, obs)
-
-  ! BJE
-  ! KNOWING THE LOCATION OF THE OBS, CREATE OBS OPERATOR, H 
-  call get_obs_opr(obs, obs_opr)
 
   ! BJE
   ! GET THE NEEDED REUSED MATRIX PRODUCTS:
@@ -71,7 +71,7 @@ program adept
   ! B(1/2)      H(T)R(-1)HB(1/2)  = hrh_cov
   ! INPUTS: Y, H, Xb, R(-1)
   ! USE SAME VARIABLE NAME PRE AND POST
-  call pre_sol(obs_opr, obs_cov, bkg_cov, hrh_cov, obs, bht_ino, jvc_for)
+  call pre_sol(obs_opr, obs_cov, bkg_cov, hrh_cov, inno_vec, bht_ino, jvc_for)
 
   ! BJE
   ! THE MAIN EVENT - THE SOLVER

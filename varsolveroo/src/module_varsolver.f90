@@ -5,10 +5,12 @@ module varsolver
 
   use gptl
   use module_constants
-  use background, only   : Background_Type
-  use observations, only : Observations_Type
-  use background_covariance, only : Background_Covariance_Type
+  use background, only             : Background_Type
+  use observations, only           : Observations_Type
+  use background_covariance, only  : Background_Covariance_Type
   use observation_covariance, only : Observation_Covariance_Type
+  use innovation_vector, only      : Innovation_Vector_Type
+  use observation_operator, only   : Observation_Operator_Type
 
   ! Get unit numbers for stdin, stdout, stderr in a portable way
   use, intrinsic :: iso_fortran_env, only : stdin=>input_unit, &
@@ -79,65 +81,18 @@ contains
 
 
   ! BJE
-  ! GET THE OBSERVATION OPERATOR, H, FROM THE INPUTS
-  subroutine get_obs_opr(observations, obs_opr)
-
-    implicit none
-    class(Observations_Type), intent(in) :: observations
-    real(KIND=8), intent(inout) :: obs_opr(:,:,:)
-
-    integer                     :: i,t 
-
-    print *,"GET_OBS_VEC"
-
-    obs_opr(:,:,:)=0.0
-
-    do i = 1, observations%nobs
-       obs_opr(observations%time(i), i, observations%position(i)) = 1.0
-    end do
-
-    print *,"GET_OBS_OPR COMPLETE"
-
-  end subroutine get_obs_opr
-
-  ! BJE
-  ! GENERATE THE INNOVATION VECTOR (Y-HXb)
-  ! USE OBS_VEC TO STORE THE OUTPUT
-  subroutine get_ino_vec(background, observations)
-
-    implicit none
-    class(Background_Type), intent(in)      :: background
-    class(Observations_Type), intent(inout) :: observations
-
-    integer :: i 
-
-    print *, "GET_INO_VEC"
-
-40  FORMAT(A8,3I5,2F10.4)
-
-    do i = 1, observations%nobs
-       observations%value(i) = observations%value(i) - background%state(observations%time(i), observations%position(i))
-       write(*,40) "INO ", i, observations%time(i), observations%position(i), observations%value(i), background%state(observations%time(i), observations%position(i))
-    end do
-
-    print *, "GET_INO_VEC COMPLETE"
-
-  end subroutine get_ino_vec
-
-
-  ! BJE
   ! PREPARES MATRICES FOR USE IN THE SOLVER
   ! THERE ARE A NUMBER OF MATRICES THAT ARE REUSED IN THE SOLVER
   ! SPECIFICLY:  HRH_COV=(H(T)R(-1)H), HTR_INO=(H(T)R(-1))*(Y-HXb)
   !              BHT_INO=B(1/2)*(H(T)R(-1))*(Y-HXb)
-  subroutine pre_sol(obs_opr, obs_cov, bkg_cov, hrh_cov, observations, bht_ino, jvc_for)
+  subroutine pre_sol(obs_opr, obs_cov, bkg_cov, hrh_cov, inno_vec, bht_ino, jvc_for)
 
     implicit none
-    real(KIND=8), intent(in)    :: obs_opr(:,:,:) 
+    class(Observation_Operator_Type), intent(in)     :: obs_opr
     class(Observation_Covariance_Type), intent(in)   :: obs_cov
     class(Background_Covariance_Type), intent(in)    :: bkg_cov
     real(KIND=8), intent(inout) :: hrh_cov(:,:,:) 
-    class(Observations_Type), intent(in) :: observations
+    class(Innovation_Vector_Type), intent(in) :: inno_vec
     real(KIND=8), intent(inout) :: bht_ino(:,:,:) 
     real(KIND=8), intent(inout) :: jvc_for(:,:) 
 
@@ -172,7 +127,7 @@ contains
 
     jvc_for(1,1) = 0.0
     do t = 1, tim_len
-       tim_opr = obs_opr(t,:,:)
+       tim_opr = obs_opr%operator(t,:,:)
        tim_bkc = bkg_cov%covariance(t,:,:)
        tim_obc = obs_cov%covariance(t,:,:)
 
@@ -183,7 +138,7 @@ contains
        tmp_htr = matmul(tmp_bhh, tim_obc)
        tim_hrh = matmul(tmp_htr, tmp_hhb)
 
-       obs_vvc(:,1) = observations%value(:)
+       obs_vvc(:,1) = inno_vec%value(:)
        tim_bht = matmul(tmp_htr, obs_vvc)
 
        bht_ino(t,:,:) = tim_bht(:,:) 
@@ -191,7 +146,7 @@ contains
        ! CREATE COST FUNCTION TERM (Y-HXb)R(-1)(Y-HXb), A CONSTANT
        tmp_jfo = matmul(tim_obc, obs_vvc)
 
-       do i = 1, observations%nobs
+       do i = 1, inno_vec%nobs
           jvc_for(1,1) = jvc_for(1,1) + obs_vvc(i,1) * tmp_jfo(i,1)
        end do
     end do

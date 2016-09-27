@@ -21,8 +21,10 @@ program adept
   type(Innovation_Vector_Type)      :: inno_vec
   type(Observation_Operator_Type)   :: obs_opr
   real(KIND=8), allocatable    ::      hrh_cov(:,:,:)
+  real(KIND=8), allocatable    ::      brh_cov(:,:,:)
   real(KIND=8), allocatable    ::      anl_vec(:,:)
   real(KIND=8), allocatable    ::      bht_ino(:,:,:)
+  real(KIND=8), allocatable    ::      htr_ino(:,:,:)
   real(KIND=8)                 ::      jvc_for(1,1)
   real                         ::      ret 
 
@@ -61,21 +63,25 @@ program adept
 
   ! BJE
   ! KNOWING THE NUMBERS, ALLOCATE VECTORS/MATRICIES (ARRAYS) ACCORTINGLY
-  allocate (hrh_cov(tim_len,bkg_len,bkg_len))
-  allocate (anl_vec(tim_len,bkg_len))
-  allocate (bht_ino(tim_len,bkg_len,1))
+  allocate (hrh_cov(tim_len, bkg_len, bkg_len))
+  allocate (brh_cov(tim_len, bkg_len, bkg_len))
+  allocate (anl_vec(tim_len, bkg_len))
+  allocate (bht_ino(tim_len, bkg_len, 1))
+  allocate (htr_ino(tim_len, bkg_len, 1))
 
   ! BJE
   ! GET THE NEEDED REUSED MATRIX PRODUCTS:
-  ! B(1/2)(Y-HXb)(T)R(-1)H        = bht_ino
-  ! B(1/2)      H(T)R(-1)HB(1/2)  = hrh_cov
-  ! INPUTS: Y, H, Xb, R(-1)
+  !        H(T)R(-1)(Y-HXb) = htr_ino
+  !        H(T)R(-1)H       = hrh_cov
+  ! B(-1/2)H(T)R(-1)(Y-HXb) = btr_ino
+  ! B(-1/2)H(T)R(-1)H       = brh_cov
+  ! INPUTS: Y, H, Xb, R(-1), B
   ! USE SAME VARIABLE NAME PRE AND POST
-  call pre_sol(obs_opr, obs_cov, bkg_cov, hrh_cov, inno_vec, bht_ino, jvc_for)
+  call pre_sol(obs_opr, obs_cov, bkg_cov, hrh_cov, brh_cov, inno_vec, htr_ino, bht_ino, jvc_for)
 
   ! BJE
   ! THE MAIN EVENT - THE SOLVER
-  call var_solver(bkg_cov, hrh_cov, bht_ino, jvc_for, bkg, anl_vec)
+  call var_solver(bkg_cov, hrh_cov, brh_cov, htr_ino, bht_ino, jvc_for, bkg, anl_vec)
 
   ! BJE
   ! OUTPUT THE NEW ANALYSIS

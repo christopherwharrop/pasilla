@@ -52,9 +52,9 @@ for case in ${cases}; do
 
   # Compare the output against the baseline
   egrep 'FIN|final cost' varsolver.${case}.stdout > varsolver.${case}.answer
-  diff varsolver.${case}.answer baseline/varsolver.${case}.answer
   basetime=`grep adept baseline/timing.varsolver.parse.${case}.txt | awk '{print $3}' `
   thistime=`grep adept timing.varsolver.parse.${case}.txt | awk '{print $3}' `
+  diff varsolver.${case}.answer baseline/varsolver.${case}.answer
   if [ $? -eq 0 ]; then
     echo "PASS in ${thistime} seconds (baseline is ${basetime} seconds)"
   else

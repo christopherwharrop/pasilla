@@ -2,7 +2,7 @@ FC=ifort
 FCOPT=-O2 -fp-model precise
 FCDEBUG=
 FFLAGS=-g -traceback $(FCOPT) $(FCDEBUG)
-LAPACK=-mkl=parallel
+LAPACK=-mkl=sequential
 GPTLFLAGS=-finstrument-functions 
 GPTL=/contrib/gptl/gptl-v5.5_nompi_noomp
 NETCDF_INCLUDES=-I$(NETCDF)/include

@@ -685,7 +685,7 @@ contains
     write(filename,'(A,I0.7,A)') 'lorenz96out_', this%step, '.csv'
 
     ! Open the output csv file
-    open(newunit=fileunit, file=filename, form='formatted')
+    open(newunit=fileunit, file=trim(filename), form='formatted')
 
     call DATE_AND_TIME(crdate,crtime,crzone,values)
     write(timestr,'(i4,2(a,i2.2),1x,i2.2,2(a,i2.2))') &
@@ -696,7 +696,7 @@ contains
     write(fileunit,'(3A)') 'model', ',', 'Lorenz_96'
     write(fileunit,'(2A,F12.7)') 'model_forcing', ',', this%forcing
     write(fileunit,'(2A,F12.7)') 'model_delta_t', ',', this%delta_t
-    write(fileunit,'(2A,F12.7)') 'model_t', ',', this%t
+    write(fileunit,'(2A,F15.7)') 'model_t', ',', this%t
     write(fileunit,'(2A,I)') 'model_step', ',', this%step
     write(fileunit,'(2A,I)') 'StateDim', ',', this%size
 
@@ -776,7 +776,7 @@ contains
     integer      :: size
     real(r8kind) :: forcing
     real(r8kind) :: delta_t
-    character(len=21) :: filename
+    character(len=128) :: filename
 
     ! assume normal termination
     ierr = 0 
@@ -865,7 +865,7 @@ contains
     write(filename, '(A,I0.7,A)') 'lorenz96out_', read_step, '.csv'
 
     ! Open the output csv file
-    open(newunit=fileunit, file=filename, form='formatted', status='old')
+    open(newunit=fileunit, file=trim(filename), form='formatted', status='old')
 
     ! Read global attributes
     read(fileunit, '(A)') line

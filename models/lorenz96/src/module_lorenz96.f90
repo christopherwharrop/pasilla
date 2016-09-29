@@ -595,7 +595,7 @@ contains
     ierr = 0 
 
     ! Construct name of output file
-    write(filename,'(A,I0.6,A)') 'lorenz96out_', this%step, '.nc'
+    write(filename,'(A,I0.7,A)') 'lorenz96out_', this%step, '.nc'
 
     ! Open new file, overwriting previous contents
     call nc_check(nf90_create(trim(filename), NF90_CLOBBER, ncFileID))
@@ -682,7 +682,7 @@ contains
     character(len=19) :: timestr
 
     ! Construct name of output file
-    write(filename,'(A,I0.6,A)') 'lorenz96out_', this%step, '.csv'
+    write(filename,'(A,I0.7,A)') 'lorenz96out_', this%step, '.csv'
 
     ! Open the output csv file
     open(newunit=fileunit, file=filename, form='formatted')
@@ -782,7 +782,7 @@ contains
     ierr = 0 
 
     ! Calculate name of file based on time step requested
-    write(filename,'(A,I0.6,A)') 'lorenz96out_', read_step, '.nc'
+    write(filename,'(A,I0.7,A)') 'lorenz96out_', read_step, '.nc'
 
     ! Open file for read only
     call nc_check(nf90_open(trim(filename), NF90_NOWRITE, ncFileID))
@@ -862,7 +862,7 @@ contains
     ierr = 0
 
     ! Construct name of input file
-    write(filename, '(A,I0.6,A)') 'lorenz96out_', read_step, '.csv'
+    write(filename, '(A,I0.7,A)') 'lorenz96out_', read_step, '.csv'
 
     ! Open the output csv file
     open(newunit=fileunit, file=filename, form='formatted', status='old')

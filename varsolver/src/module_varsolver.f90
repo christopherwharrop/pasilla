@@ -543,7 +543,7 @@ contains
 !	     FOR ALL OTHER TIME STEPS - ADJOINT NEEDED
              if (mthd.eq.3) mdl_vec(:,1)=tlm_vec(t+1,:)
              if (mthd.eq.4) mdl_vec(:,1)=anl_vec(t+1,:)
-             call bakward_model(mdl_vec,t+1,1)
+             call backward_model(mdl_vec,t+1,1)
           end if
 
 !         CHOOSE THE FIRST GUESS FIELD
@@ -633,22 +633,22 @@ contains
 
   ! THE BACKWARD MODEL FOR MY SINE WAVE
   ! MOVE IT 20 POINTS EVERY TIME STEP
-  subroutine bakward_model(mod_vec,t,steps)
+  subroutine backward_model(mod_vec,t,steps)
 
     real(KIND=8), intent(inout)     :: mod_vec(:,:)
     integer, intent(in)             :: t,steps
     integer                         :: i
 
-    print *,"BAKWARD_MODEL"
+    print *,"BACKWARD_MODEL"
 
 35  FORMAT (A4,3I4,2F10.5)
     do i=1,bkg_len
        mod_vec(i,1)=mod_vec(i,1)-PI*cos(((20.0*(float(t)-2.5)+float(i))/1000.0)*PI)*float(steps)
     end do
 
-    print *,"END BAKWARD_MODEL"
+    print *,"END BACKWARD_MODEL"
 
-  end subroutine bakward_model
+  end subroutine backward_model
 
 
   ! THAT IS ALL FOLKS!

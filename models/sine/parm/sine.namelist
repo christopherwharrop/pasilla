@@ -1,0 +1,14 @@
+&params
+ size = 4000
+ amplitude = 50.0
+ phase = -2.0,
+ bias = 50.0
+ frequency = 20,
+ delta_t = 1,
+/
+&runtime
+ start_step = 0,
+ run_steps = 3,
+ output_interval_steps = 1,
+ io_format = 'ASCII',
+/

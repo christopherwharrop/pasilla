@@ -41,7 +41,7 @@ program lorenz96Model
   end if
 
   ! Write out initial model state
-  if (output_interval_steps < run_steps) ierr = L96%write_model_state(io_format)
+  if (output_interval_steps <= run_steps) ierr = L96%write_model_state(io_format)
 
   ! Run the model
   do t = 1, run_steps, output_interval_steps
@@ -50,7 +50,7 @@ program lorenz96Model
     call L96%adv_nsteps(min(output_interval_steps, run_steps))
 
     ! Write out model state if needed
-    if (output_interval_steps < run_steps) ierr = L96%write_model_state(io_format)
+    if (output_interval_steps <= run_steps) ierr = L96%write_model_state(io_format)
 
   end do
 

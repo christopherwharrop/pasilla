@@ -1,7 +1,7 @@
 include ../../macros.mk
 
-INCLUDES=-I$(GPTL)/include -I../../utilities/include -I.
-LIBS=-L$(GPTL)/lib -lgptl
+INCLUDES=-I$(GPTL)/include -I../../utilities/include -I../../models/sine/include -I.
+LIBS=-L$(GPTL)/lib -lgptl -L../../models/sine/lib -lsine -L$(NETCDF)/lib -lnetcdf -lnetcdff
 FFLAGS+=-openmp
 
 varsolver.exe: varsolver.f90 module_varsolver.o

@@ -53,25 +53,28 @@ module sine
 
 
   interface sine_type
-    procedure constructor
+    procedure constructor_parm
+    procedure constructor_file
   end interface
 
   interface sine_TL_type
-    procedure constructor_TL
+    procedure constructor_TL_parm
+    procedure constructor_TL_file
   end interface
 
   interface sine_ADJ_type
-    procedure constructor_ADJ
+    procedure constructor_ADJ_parm
+    procedure constructor_ADJ_file
   end interface
 
 contains
 
   !------------------------------------------------------------------
-  ! constructor
+  ! constructor_parm
   !
   ! Returns an initialized sine object
   !------------------------------------------------------------------
-  type(sine_type) function constructor(size, amplitude, bias, frequency, phase, delta_t)
+  type(sine_type) function constructor_parm(size, amplitude, bias, frequency, phase, delta_t)
 
     integer, intent(in)      :: size
     real(r8kind), intent(in) :: amplitude
@@ -84,66 +87,85 @@ contains
     real(r8kind) :: t
 
     ! Initialize model parameters    
-    constructor%size = size
-    constructor%amplitude = amplitude
-    constructor%bias = bias
-    constructor%frequency = frequency
-    constructor%phase = phase
-    constructor%delta_t = delta_t
-    constructor%t = 0
-    constructor%step = 0
+    constructor_parm%size = size
+    constructor_parm%amplitude = amplitude
+    constructor_parm%bias = bias
+    constructor_parm%frequency = frequency
+    constructor_parm%phase = phase
+    constructor_parm%delta_t = delta_t
+    constructor_parm%t = 0
+    constructor_parm%step = 0
 
     ! Allocate model variables
-    allocate(constructor%state(size))
-    allocate(constructor%location(size))
+    allocate(constructor_parm%state(size))
+    allocate(constructor_parm%location(size))
 
     ! Initialize model variables
     t = 0.0
     do j = 1, size
-      constructor%state(j) = bias + amplitude * sin(((frequency * (t + phase) + float(j)) / size) * PI * 4)
+      constructor_parm%state(j) = bias + amplitude * sin(((frequency * (t + phase) + float(j)) / size) * PI * 4)
     end do
 
     ! Localize the domain
     do j = 1, size
-      constructor%location(j) = (j - 1.0_r8kind) / size
+      constructor_parm%location(j) = (j - 1.0_r8kind) / size
     end do
 
   end function
 
 
   !------------------------------------------------------------------
-  ! constructor_TL
+  ! constructor_file
   !
-  ! Returns an initialized sine_TL object
+  ! Returns an initialized sine object
   !------------------------------------------------------------------
-  type(sine_TL_type) function constructor_TL(size, amplitude, bias, frequency, phase, delta_t)
+  type(sine_type) function constructor_file(read_step, format)
 
-    integer, intent(in)      :: size
-    real(r8kind), intent(in) :: amplitude
-    real(r8kind), intent(in) :: bias
-    real(r8kind), intent(in) :: frequency
-    real(r8kind), intent(in) :: phase
-    real(r8kind), intent(in) :: delta_t
+    integer, intent(in)      :: read_step
+    character(*), intent(in) :: format
 
-    ! Call constructor for superclass
-    constructor_TL%sine_type = sine_type(size, amplitude, bias, frequency, phase, delta_t)
+    integer :: ierr
 
-    ! Allocate model variables
-    allocate(constructor_TL%trajectory(size))
+    select case (format)
+      case('NETCDF')
+        ! Read the header
+        ierr = netcdf_read_model_header(read_step, constructor_file%size, constructor_file%amplitude, &
+                                 & constructor_file%bias, constructor_file%frequency, constructor_file%phase, &
+                                 & constructor_file%delta_t, constructor_file%t, constructor_file%step)
+      case('ASCII')
+        ! Read the header
+        ierr = ascii_read_model_header(read_step, constructor_file%size, constructor_file%amplitude, &
+                                 & constructor_file%bias, constructor_file%frequency, constructor_file%phase, &
+                                 & constructor_file%delta_t, constructor_file%t, constructor_file%step)
+      case DEFAULT
+        write(*,'(A,A,A)') 'ERROR: IO Format "',format,'" is not supported!'
+        stop
+    end select
 
-    ! Initialize model variables
-    constructor_TL%trajectory = constructor_TL%state
+    ! Allocate space for the data
+    allocate(constructor_file%state(constructor_file%size))
+    allocate(constructor_file%location(constructor_file%size))
+
+    ! Read the data
+    select case (format)
+      case('NETCDF')
+        ierr = netcdf_read_model_data(read_step, constructor_file%size, constructor_file%location, constructor_file%state)
+      case('ASCII')
+        ierr = ascii_read_model_data(read_step, constructor_file%size, constructor_file%location, constructor_file%state)
+      case DEFAULT
+        write(*,'(A,A,A)') 'ERROR: IO Format "',format,'" is not supported!'
+        stop
+    end select
 
   end function
 
 
-
   !------------------------------------------------------------------
-  ! constructor_ADJ
+  ! constructor_TL_parm
   !
-  ! Returns an initialized sine_ADJ object
+  ! Returns an initialized sine_TL object
   !------------------------------------------------------------------
-  type(sine_ADJ_type) function constructor_ADJ(size, amplitude, bias, frequency, phase, delta_t)
+  type(sine_TL_type) function constructor_TL_parm(size, amplitude, bias, frequency, phase, delta_t)
 
     integer, intent(in)      :: size
     real(r8kind), intent(in) :: amplitude
@@ -153,13 +175,83 @@ contains
     real(r8kind), intent(in) :: delta_t
 
     ! Call constructor for superclass
-    constructor_ADJ%sine_type = sine_type(size, amplitude, bias, frequency, phase, delta_t)
+    constructor_TL_parm%sine_type = sine_type(size, amplitude, bias, frequency, phase, delta_t)
 
     ! Allocate model variables
-    allocate(constructor_ADJ%trajectory(size))
+    allocate(constructor_TL_parm%trajectory(size))
 
     ! Initialize model variables
-    constructor_ADJ%trajectory = constructor_ADJ%state
+    constructor_TL_parm%trajectory = constructor_TL_parm%state
+
+  end function
+
+
+  !------------------------------------------------------------------
+  ! constructor_TL_file
+  !
+  ! Returns an initialized sine_TL object
+  !------------------------------------------------------------------
+  type(sine_TL_type) function constructor_TL_file(read_step, format)
+
+    integer, intent(in)      :: read_step
+    character(*), intent(in) :: format
+
+    ! Call constructor for superclass
+    constructor_TL_file%sine_type = sine_type(read_step, format)
+
+    ! Allocate model variables
+    allocate(constructor_TL_file%trajectory(constructor_TL_file%size))
+
+    ! Initialize model variables
+    constructor_TL_file%trajectory = constructor_TL_file%state
+
+  end function
+
+
+  !------------------------------------------------------------------
+  ! constructor_ADJ_parm
+  !
+  ! Returns an initialized sine_ADJ object
+  !------------------------------------------------------------------
+  type(sine_ADJ_type) function constructor_ADJ_parm(size, amplitude, bias, frequency, phase, delta_t)
+
+    integer, intent(in)      :: size
+    real(r8kind), intent(in) :: amplitude
+    real(r8kind), intent(in) :: bias
+    real(r8kind), intent(in) :: frequency
+    real(r8kind), intent(in) :: phase
+    real(r8kind), intent(in) :: delta_t
+
+    ! Call constructor for superclass
+    constructor_ADJ_parm%sine_type = sine_type(size, amplitude, bias, frequency, phase, delta_t)
+
+    ! Allocate model variables
+    allocate(constructor_ADJ_parm%trajectory(size))
+
+    ! Initialize model variables
+    constructor_ADJ_parm%trajectory = constructor_ADJ_parm%state
+
+  end function
+
+
+  !------------------------------------------------------------------
+  ! constructor_ADJ_file
+  !
+  ! Returns an initialized sine_ADJ object
+  !------------------------------------------------------------------
+  type(sine_ADJ_type) function constructor_ADJ_file(read_step, format)
+
+    integer, intent(in)      :: read_step
+    character(*), intent(in) :: format
+
+    ! Call constructor for superclass
+    constructor_ADJ_file%sine_type = sine_type(read_step, format)
+
+    ! Allocate model variables
+    allocate(constructor_ADJ_file%trajectory(constructor_ADJ_file%size))
+
+    ! Initialize model variables
+    constructor_ADJ_file%trajectory = constructor_ADJ_file%state
 
   end function
 
@@ -546,6 +638,121 @@ contains
 
 
   !------------------------------------------------------------------
+  ! netcdf_read_model_header
+  !------------------------------------------------------------------
+  integer function netcdf_read_model_header(read_step, size, amplitude, bias, frequency, phase, delta_t, t, step)
+
+    use netcdf
+
+    integer, intent(in)       :: read_step ! Read in data for this time step
+    integer, intent(out)      :: size
+    real(r8kind), intent(out) :: amplitude
+    real(r8kind), intent(out) :: bias
+    real(r8kind), intent(out) :: frequency
+    real(r8kind), intent(out) :: phase
+    real(r8kind), intent(out) :: delta_t
+    real(r8kind), intent(out) :: t
+    integer, intent(out)      :: step
+
+    ! General netCDF variables
+    integer :: ncFileID  ! netCDF file identifier
+    integer :: nDimensions, nVariables, nAttributes, unlimitedDimID
+    integer :: StateVarDimID, CoordinatesVarID, LocationVarID, StateVarID
+
+    ! local variables
+    character(len=128) :: filename
+    integer :: ierr
+
+    ! assume normal termination
+    ierr = 0
+
+    ! Calculate name of file based on time step requested
+    write(filename,'(A,I0.7,A)') 'sineout_', read_step, '.nc'
+
+    ! Open file for read only
+    call nc_check(nf90_open(trim(filename), NF90_NOWRITE, ncFileID))
+    call nc_check(nf90_Inquire(ncFileID, nDimensions, nVariables, nAttributes, unlimitedDimID))
+
+    ! Read Global Attributes
+    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_amplitude", amplitude ))
+    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_bias", bias ))
+    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_frequency", frequency ))
+    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_phase", phase ))
+    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_delta_t", delta_t ))
+    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_t", t ))
+    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_step", step ))
+
+    ! Read the model size
+    call nc_check(nf90_inq_dimid(ncFileID, "StateDim", StateVarDimID))
+    call nc_check(nf90_inquire_dimension(ncFileID, StateVarDimID, len=size))
+
+    ! Flush buffers
+    call nc_check(nf90_sync(ncFileID))
+
+    ! Close the NetCDF file
+    call nc_check(nf90_close(ncFileID))
+
+    netcdf_read_model_header = ierr
+
+  end function netcdf_read_model_header
+
+
+  !------------------------------------------------------------------
+  ! netcdf_read_model_data
+  !------------------------------------------------------------------
+  integer function netcdf_read_model_data(read_step, size, location, state)
+
+    use netcdf
+
+    integer, intent(in) :: read_step ! Read in data for this time step
+    integer, intent(in)         :: size
+    real(r8kind), intent(inout) :: location(:)
+    real(r8kind), intent(inout) :: state(:)
+
+    integer :: ierr  ! return value of function
+
+    ! General netCDF variables
+    integer :: ncFileID  ! netCDF file identifier
+    integer :: nDimensions, nVariables, nAttributes, unlimitedDimID
+    integer :: StateVarDimID, CoordinatesVarID, LocationVarID, StateVarID
+
+    ! local variables
+    character(len=128) :: filename
+
+    ! assume normal termination
+    ierr = 0
+
+    ! Calculate name of file based on time step requested
+    write(filename,'(A,I0.7,A)') 'sineout_', read_step, '.nc'
+
+    ! Open file for read only
+    call nc_check(nf90_open(trim(filename), NF90_NOWRITE, ncFileID))
+    call nc_check(nf90_Inquire(ncFileID, nDimensions, nVariables, nAttributes, unlimitedDimID))
+
+    ! Get the state vector location ID
+     call nc_check(nf90_inq_varid(ncFileID, "Location", LocationVarID))
+
+    ! Get the actual state vector ID
+    call nc_check(nf90_inq_varid(ncFileID, "State", StateVarID))
+
+    ! Get the location variable
+    call nc_check(nf90_get_var(ncFileID, LocationVarID, location))
+
+    ! Get the state variable
+    call nc_check(nf90_get_var(ncFileID, StateVarID, state))
+
+    ! Flush buffers
+    call nc_check(nf90_sync(ncFileID))
+
+    ! Close the NetCDF file
+    call nc_check(nf90_close(ncFileID))
+
+    netcdf_read_model_data = ierr
+
+  end function netcdf_read_model_data
+
+
+  !------------------------------------------------------------------
   ! netcdf_read_model_state
   !------------------------------------------------------------------
   integer function netcdf_read_model_state(this,read_step)
@@ -557,19 +764,15 @@ contains
 
     integer :: ierr  ! return value of function
 
-    ! General netCDF variables
-    integer :: ncFileID  ! netCDF file identifier
-    integer :: nDimensions, nVariables, nAttributes, unlimitedDimID
-    integer :: StateVarDimID, CoordinatesVarID, LocationVarID, StateVarID
-
     ! local variables
-    integer      :: i  ! loop index variable
     integer      :: size
     real(r8kind) :: amplitude
     real(r8kind) :: bias
     real(r8kind) :: frequency
     real(r8kind) :: phase
     real(r8kind) :: delta_t
+    real(r8kind) :: t
+    integer      :: step
     character(len=128) :: filename
 
     ! assume normal termination
@@ -578,70 +781,42 @@ contains
     ! Calculate name of file based on time step requested
     write(filename,'(A,I0.7,A)') 'sineout_', read_step, '.nc'
 
-    ! Open file for read only
-    call nc_check(nf90_open(trim(filename), NF90_NOWRITE, ncFileID))
-    call nc_check(nf90_Inquire(ncFileID, nDimensions, nVariables, nAttributes, unlimitedDimID))
+    ! Read the model header
+    ierr = netcdf_read_model_header(read_step, size, amplitude, bias, frequency, phase, delta_t, t, step)
 
-    ! Read Global Attributes 
-    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_amplitude", amplitude ))
+    ! Validate the input
     if (amplitude /= this%amplitude) then
       write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
       write(*,'(A,F7.3,A,F7.3)') '       Input file amplitude =',amplitude,', expecting ',this%amplitude
       stop
     end if
-    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_bias", bias ))
     if (bias /= this%bias) then
       write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
       write(*,'(A,F7.3,A,F7.3)') '       Input file bias =',bias,', expecting ',this%bias
       stop
     end if
-    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_frequency", frequency ))
     if (frequency /= this%frequency) then
       write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
       write(*,'(A,F7.3,A,F7.3)') '       Input file frequency =',frequency,', expecting ',this%frequency
       stop
     end if
-    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_phase", phase ))
     if (phase /= this%phase) then
       write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
       write(*,'(A,F7.3,A,F7.3)') '       Input file phase =',phase,', expecting ',this%phase
       stop
     end if
-    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_delta_t", delta_t ))
     if (delta_t /= this%delta_t) then
-!      write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
-!      write(*,'(A,F7.3,A,F7.3)') '       Input file delta_t =',delta_t,', expecting ',this%delta_t
-!      stop
-    end if
-    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_t", this%t ))
-    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_step", this%step ))
-
-    ! Read the model size
-    call nc_check(nf90_inq_dimid(ncFileID, "StateDim", StateVarDimID))
-    call nc_check(nf90_inquire_dimension(ncFileID, StateVarDimID, len=size))
-    if (size /= this%size) then
       write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
-      write(*,'(A,I,A,I)') '       Input file size =',size,', expecting ',this%size
+      write(*,'(A,F7.3,A,F7.3)') '       Input file delta_t =',delta_t,', expecting ',this%delta_t
       stop
     end if
 
-    ! Get the state vector location ID
-     call nc_check(nf90_inq_varid(ncFileID, "Location", LocationVarID))
+    ! Set the time and the step
+    this%t = t
+    this%step = step
 
-    ! Get the actual state vector ID
-    call nc_check(nf90_inq_varid(ncFileID, "State", StateVarID))
-
-    ! Get the location variable
-    call nc_check(nf90_get_var(ncFileID, LocationVarID, this%location))
-
-    ! Get the state variable
-    call nc_check(nf90_get_var(ncFileID, StateVarID, this%state))
-
-    ! Flush buffers
-    call nc_check(nf90_sync(ncFileID))
-
-    ! Close the NetCDF file
-    call nc_check(nf90_close(ncFileID))
+    ! Read the model data
+    ierr = netcdf_read_model_data(read_step, this%size, this%location, this%state)
 
     netcdf_read_model_state = ierr
 
@@ -649,12 +824,19 @@ contains
 
 
   !------------------------------------------------------------------
-  ! ascii_read_model_state
+  ! ascii_read_model_header
   !------------------------------------------------------------------
-  integer function ascii_read_model_state(this,read_step)
+  integer function ascii_read_model_header(read_step, size, amplitude, bias, frequency, phase, delta_t, t, step)
 
-    class(sine_type), intent(inout) :: this
-    integer, intent(in) :: read_step ! Read in data for this time step
+    integer, intent(in)       :: read_step ! Read in data for this time step
+    integer, intent(out)      :: size
+    real(r8kind), intent(out) :: amplitude
+    real(r8kind), intent(out) :: bias
+    real(r8kind), intent(out) :: frequency
+    real(r8kind), intent(out) :: phase
+    real(r8kind), intent(out) :: delta_t
+    real(r8kind), intent(out) :: t
+    integer, intent(out)      :: step
 
     integer :: ierr                  ! return value of function
 
@@ -666,12 +848,6 @@ contains
     integer :: position
     integer :: ignore
     integer :: i
-    integer      :: size
-    real(r8kind) :: amplitude
-    real(r8kind) :: bias
-    real(r8kind) :: frequency
-    real(r8kind) :: phase
-    real(r8kind) :: delta_t
 
     ! assume normal termination
     ierr = 0
@@ -696,61 +872,76 @@ contains
         case('model_amplitude')
           write(linefmt, '(A2,I0,A3)') '(T', position + 1, ',F)'
           read(line, linefmt) amplitude
-          if (amplitude /= this%amplitude) then
-            write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
-            write(*,'(A,F7.3,A,F7.3)') '       Input file amplitude =',amplitude,', expecting ',this%amplitude
-            stop
-          end if
         case('model_bias')
           write(linefmt, '(A2,I0,A3)') '(T', position + 1, ',F)'
           read(line, linefmt) bias
-          if (bias /= this%bias) then
-            write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
-            write(*,'(A,F7.3,A,F7.3)') '       Input file bias =',bias,', expecting ',this%bias
-            stop
-          end if
         case('model_frequency')
           write(linefmt, '(A2,I0,A3)') '(T', position + 1, ',F)'
           read(line, linefmt) frequency
-          if (frequency /= this%frequency) then
-            write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
-            write(*,'(A,F7.3,A,F7.3)') '       Input file frequency =',frequency,', expecting ',this%frequency
-            stop
-          end if
         case('model_phase')
           write(linefmt, '(A2,I0,A3)') '(T', position + 1, ',F)'
           read(line, linefmt) phase
-          if (phase /= this%phase) then
-            write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
-            write(*,'(A,F7.3,A,F7.3)') '       Input file phase =',phase,', expecting ',this%phase
-            stop
-          end if
         case('model_delta_t')
           write(linefmt, '(A2,I0,A3)') '(T', position + 1, ',F)'
           read(line, linefmt) delta_t
-          if (delta_t /= this%delta_t) then
-            write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
-            write(*,'(A,F7.3,A,F7.3)') '       Input file delta_t =',delta_t,', expecting ',this%delta_t
-            stop
-          end if
         case('model_t')
           write(linefmt, '(A2,I0,A3)') '(T', position + 1, ',F)'
-          read(line, linefmt) this%t
+          read(line, linefmt) t
         case('model_step')
           write(linefmt, '(A2,I0,A3)') '(T', position + 1, ',I)'
-          read(line, linefmt) this%step
+          read(line, linefmt) step
         case('StateDim')
           write(linefmt, '(A2,I0,A3)') '(T', position + 1, ',I)'
           read(line, linefmt) size
-          if (size /= this%size) then
-            write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
-            write(*,'(A,I,A,I)') '       Input file size =',size,', expecting ',this%size
-            stop
-          end if
         case DEFAULT
-          ! Ignore gloval settings we don't need
+          ! Ignore global settings we don't need
           read(line,*)
       end select
+
+      ! Get the next line and position of the comma
+      read(fileunit, '(A)') line
+      position = index(line, ',')
+
+    end do
+
+    ! Close the file
+    close(fileunit)
+
+    ascii_read_model_header = ierr
+
+  end function ascii_read_model_header
+
+
+  !------------------------------------------------------------------
+  ! ascii_read_model_data
+  !------------------------------------------------------------------
+  integer function ascii_read_model_data(read_step, size, location, state)
+
+    integer, intent(in)         :: read_step ! Read in data for this time step
+    integer, intent(in)         :: size
+    real(r8kind), intent(inout) :: location(:)
+    real(r8kind), intent(inout) :: state(:)
+
+    integer :: ierr                  ! return value of function
+
+    character(len=128) :: filename   ! name of output file
+    integer :: fileunit
+    character(len=80) :: line
+    character(len=64) :: attr_name
+    integer :: position
+    integer :: ignore
+    integer :: i
+
+    ! Construct name of input file
+    write(filename, '(A,I0.7,A)') 'sineout_', read_step, '.csv'
+
+    ! Open the output csv file
+    open(newunit=fileunit, file=trim(filename), form='formatted', status='old')
+
+    ! Read past the global attributes
+    read(fileunit, '(A)') line
+    position = index(line, ',')
+    do while (position /= 0)
 
       ! Get the next line and position of the comma
       read(fileunit, '(A)') line
@@ -765,12 +956,85 @@ contains
     read(fileunit, '(A)') line
 
     ! Read the coordinate, location, and state fields
-    do i=1, this%size
-      read(fileunit, *) ignore, this%location(i), this%state(i)
+    do i=1, size
+      read(fileunit, *) ignore, location(i), state(i)
     end do
 
     ! Close the file
     close(fileunit)
+
+    ascii_read_model_data = ierr
+
+  end function ascii_read_model_data
+
+
+  !------------------------------------------------------------------
+  ! ascii_read_model_state
+  !------------------------------------------------------------------
+  integer function ascii_read_model_state(this,read_step)
+
+    class(sine_type), intent(inout) :: this
+    integer, intent(in) :: read_step ! Read in data for this time step
+
+    integer :: ierr                  ! return value of function
+
+    character(len=128) :: filename   ! name of output file
+    integer      :: size
+    real(r8kind) :: amplitude
+    real(r8kind) :: bias
+    real(r8kind) :: frequency
+    real(r8kind) :: phase
+    real(r8kind) :: delta_t
+    real(r8kind) :: t
+    integer      :: step
+
+    ! assume normal termination
+    ierr = 0
+
+    ! Construct name of input file
+    write(filename, '(A,I0.7,A)') 'sineout_', read_step, '.csv'
+
+    ! Read the header data
+    ierr = ascii_read_model_header(read_step, size, amplitude, bias, frequency, phase, delta_t, t, step)
+
+    ! Validate the input
+    if (amplitude /= this%amplitude) then
+      write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
+      write(*,'(A,F7.3,A,F7.3)') '       Input file amplitude =',amplitude,', expecting ',this%amplitude
+      stop
+    end if
+    if (bias /= this%bias) then
+      write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
+      write(*,'(A,F7.3,A,F7.3)') '       Input file bias =',bias,', expecting ',this%bias
+      stop
+    end if
+    if (frequency /= this%frequency) then
+      write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
+      write(*,'(A,F7.3,A,F7.3)') '       Input file frequency =',frequency,', expecting ',this%frequency
+      stop
+    end if
+    if (phase /= this%phase) then
+      write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
+      write(*,'(A,F7.3,A,F7.3)') '       Input file phase =',phase,', expecting ',this%phase
+      stop
+    end if
+    if (delta_t /= this%delta_t) then
+      write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
+      write(*,'(A,F7.3,A,F7.3)') '       Input file delta_t =',delta_t,', expecting ',this%delta_t
+      stop
+    end if
+    if (size /= this%size) then
+      write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
+      write(*,'(A,I,A,I)') '       Input file size =',size,', expecting ',this%size
+      stop
+    end if
+
+    ! Set the time and the step
+    this%t = t
+    this%step = step
+
+    ! Read the model data
+    ierr = ascii_read_model_data(read_step, this%size, this%location, this%state)
 
     ascii_read_model_state = ierr
 

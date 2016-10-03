@@ -5,7 +5,10 @@ UTILITIES=../../../utilities
 INCLUDES=-I$(UTILITIES)/include $(NETCDF_INCLUDES)
 LIBS=-L$(UTILITIES)/lib -lpasilla_util $(NETCDF_LIBS)
 
-all: lorenz96.exe lorenz96TL_test.exe lorenz96ADJ_test.exe
+all: lorenz96.exe lorenz96TL_test.exe lorenz96ADJ_test.exe liblorenz96.a
+
+liblorenz96.a: $(OBJS)
+	ar rcs liblorenz96.a module_lorenz96.o
 
 lorenz96.exe: module_lorenz96.o lorenz96.f90
 	$(FC) $(FFLAGS) -o lorenz96.exe lorenz96.f90 module_lorenz96.o $(INCLUDES) $(LIBS)

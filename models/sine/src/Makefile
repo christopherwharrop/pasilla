@@ -5,7 +5,10 @@ UTILITIES=../../../utilities
 INCLUDES=-I$(UTILITIES)/include $(NETCDF_INCLUDES)
 LIBS=-L$(UTILITIES)/lib -lpasilla_util $(NETCDF_LIBS)
 
-all: sine.exe sineTL_test.exe sineADJ_test.exe
+all: sine.exe sineTL_test.exe sineADJ_test.exe libsine.a
+
+libsine.a: $(OBJS)
+	ar rcs libsine.a module_sine.o
 
 sine.exe: module_sine.o sine.f90
 	$(FC) $(FFLAGS) -o sine.exe sine.f90 module_sine.o $(INCLUDES) $(LIBS)

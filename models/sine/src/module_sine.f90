@@ -11,16 +11,16 @@ module sine
 
   type sine_type
       private
-      integer      :: size
+      integer, public :: size
       real(r8kind) :: amplitude
       real(r8kind) :: bias
       real(r8kind) :: frequency
       real(r8kind) :: phase
       real(r8kind) :: delta_t
       real(r8kind) :: t
-      integer, public      :: step
+      integer, public :: step
       real(r8kind), allocatable, public :: state(:)
-      real(r8kind), allocatable :: location(:)
+      real(r8kind), allocatable, public :: location(:)
   contains
       final              :: destructor
       procedure          :: adv_nsteps

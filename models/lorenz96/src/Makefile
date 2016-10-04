@@ -23,5 +23,5 @@ module_lorenz96.o: module_lorenz96.f90
 	$(FC) $(FFLAGS) -c module_lorenz96.f90 $(INCLUDES)
 
 clean:
-	rm -f *.exe *.o *.mod
+	rm -f *.exe *.o *.mod *.a
 

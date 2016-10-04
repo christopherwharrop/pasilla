@@ -23,5 +23,5 @@ module_sine.o: module_sine.f90
 	$(FC) $(FFLAGS) -c module_sine.f90 $(INCLUDES)
 
 clean:
-	rm -f *.exe *.o *.mod
+	rm -f *.exe *.o *.mod *.a
 

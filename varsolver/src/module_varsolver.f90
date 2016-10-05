@@ -206,14 +206,14 @@ contains
        bkg_tim(t)=t
        tt=t
        if(mthd.le.2) tt=2
-         model = sine_type(tt, "NETCDF")
+       model = sine_type(tt, "NETCDF")
+       if (t == 1) then
          bkg_len = model%size
-         if (t == 1) then
-           allocate (bkg_vec(tim_len, bkg_len))
-           allocate (bkg_pos(tim_len, bkg_len))
-         end if
-         bkg_pos(t,:) = model%location(:)
-         bkg_vec(t,:) = model%state(:)
+         allocate (bkg_vec(tim_len, bkg_len))
+         allocate (bkg_pos(tim_len, bkg_len))
+       end if
+       bkg_pos(t,:) = model%location(:)
+       bkg_vec(t,:) = model%state(:)
     end do
 
     print *,"GET_BKG_VEC COMPLETE"
@@ -498,14 +498,14 @@ contains
              if (mthd.eq.4) new_vec(t,:)=mdl_vec(:,1)
           else
 !            RUN THE FORWARD MODEL FOR ALL STEPS AFTER THE FIRST
-!	     mdl_vec(:,1)=tlm_vec(t-1,:)
-!            call forward_model(mdl_vec,t-1,1)
-
+	     mdl_vec(:,1)=tlm_vec(t-1,:)
+             print *, "FORWARD MODEL"
              model_TL = sine_TL_type(t-1, "NETCDF")
-             model_TL%state(:) = tlm_vec(t-1,:)
-             model_TL%trajectory(:) = tlm_vec(t-1,:)
+             model_TL%state(:) = mdl_vec(:,1)
+             model_TL%trajectory(:) = mdl_vec(:,1)
              call model_TL%adv_nsteps(1)
              mdl_vec(:,1) = model_TL%state
+             print *, "END FORWARD_MODEL"
 
              if (mthd.eq.4) new_vec(t,:)=mdl_vec(:,1)
              if (mthd.ne.4) tlm_vec(t,:)=mdl_vec(:,1)
@@ -559,13 +559,14 @@ contains
 !	     FOR ALL OTHER TIME STEPS - ADJOINT NEEDED
              if (mthd.eq.3) mdl_vec(:,1)=tlm_vec(t+1,:)
              if (mthd.eq.4) mdl_vec(:,1)=anl_vec(t+1,:)
-!            call backward_model(mdl_vec,t+1,1)
 
+             print *,"BACKWARD_MODEL"
              model_ADJ = sine_ADJ_type(t+1, "NETCDF")
              model_ADJ%state(:) = mdl_vec(:,1)
              model_ADJ%trajectory(:) = mdl_vec(:,1)
              call model_ADJ%adv_nsteps(1)
              mdl_vec(:,1) = model_ADJ%state
+             print *,"END BACKWARD_MODEL"
           end if
 
 !         CHOOSE THE FIRST GUESS FIELD

@@ -483,8 +483,8 @@ contains
  
        new_vec(:,:)=0.0
        tlm_vec=anl_vec
-!$OMP PARALLEL SHARED (bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q) DEFAULT(PRIVATE)
-!$OMP DO
+!!$OMP PARALLEL SHARED (bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q) DEFAULT(PRIVATE)
+!!$OMP DO
        do t=1,tim_len
           tid=OMP_GET_THREAD_NUM()
           tim_bkc(:,:)=bkg_cov(t,:,:)
@@ -531,8 +531,8 @@ contains
           jtim(t) = 0.5*(jvc_one(1,1)+jvc_two(1,1)-2.0*jvc_the(1,1)) 
 
        end do
-!$OMP END DO
-!$OMP END PARALLEL
+!!$OMP END DO
+!!$OMP END PARALLEL
 
        if(mthd.eq.4) tlm_vec=new_vec 
        do t=1,tim_len
@@ -541,8 +541,8 @@ contains
        jnew=jnew+jvc_for(1,1)
        new_vec(:,:)=0.0
 
-!$OMP PARALLEL SHARED (bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q) DEFAULT(PRIVATE)
-!$OMP DO
+!!$OMP PARALLEL SHARED (bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q) DEFAULT(PRIVATE)
+!!$OMP DO
        !   CALCULATE GRAD-J IN REVERSE TEMPORAL ORDER 
        do t=tim_len,1,-1
           tim_bkc(:,:)=bkg_cov(t,:,:)
@@ -559,14 +559,13 @@ contains
 !	     FOR ALL OTHER TIME STEPS - ADJOINT NEEDED
              if (mthd.eq.3) mdl_vec(:,1)=tlm_vec(t+1,:)
              if (mthd.eq.4) mdl_vec(:,1)=anl_vec(t+1,:)
-
-             print *,"BACKWARD_MODEL"
+             print *, "BACKWARD_MODEL"
              model_ADJ = sine_ADJ_type(t+1, "NETCDF")
              model_ADJ%state(:) = mdl_vec(:,1)
              model_ADJ%trajectory(:) = mdl_vec(:,1)
              call model_ADJ%adv_nsteps(1)
              mdl_vec(:,1) = model_ADJ%state
-             print *,"END BACKWARD_MODEL"
+             print *, "END BACKWARD_MODEL"
           end if
 
 !         CHOOSE THE FIRST GUESS FIELD
@@ -590,8 +589,8 @@ contains
 
           if(mthd.ne.4) tlm_vec(t,:)=new_vec(t,:)
        end do
-!$OMP END DO
-!$OMP END PARALLEL
+!!$OMP END DO
+!!$OMP END PARALLEL
        
        if(mthd.eq.4) tlm_vec=new_vec
        anl_vec=tlm_vec

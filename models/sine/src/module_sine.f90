@@ -307,8 +307,7 @@ contains
     integer, intent(in) :: nsteps
 
     integer :: step, j
-    real(r8kind) :: phaset, phasedt
-    
+
     do step = 1, nsteps
 
       ! Increment time step
@@ -338,12 +337,15 @@ contains
     do step = 1, nsteps
 
       ! Increment time step
+      do j=1, this%size
+        this%state(j) = this%trajectory(j) + ((this%amplitude * PI * 4 * this%frequency) / this%size) * cos((this%frequency * (this%t + 0.5 + this%phase) + float(j)) / this%size * PI * 4)
+      end do
+
       this%t = this%t + this%delta_t
       this%step = this%step + 1
 
       do j=1, this%size
-        this%state(j) = this%trajectory(j) + ((this%amplitude * PI * 4 * this%frequency) / this%size) * cos((this%frequency * (this%t + this%phase) + float(j)) / this%size * PI * 4)
-        this%trajectory(j) = this%bias + this%amplitude * sin((this%frequency * (this%t + this%phase) + float(j)) / this%size * PI * 4)
+        this%trajectory(j) = this%bias + this%amplitude * sin((this%frequency * (this%t + 0.5 + this%phase) + float(j)) / this%size * PI * 4)
       end do
 
     end do
@@ -364,13 +366,16 @@ contains
 
     do step = 1, nsteps
 
+      do j = 1, this%size
+        this%state(j) = this%trajectory(j) - ((this%amplitude * PI * 4 * this%frequency) / this%size) * cos((this%frequency * (this%t - 0.5 + this%phase) + float(j)) / this%size * PI * 4)
+      end do
+
       ! Increment time step
       this%t = this%t - this%delta_t
       this%step = this%step - 1
 
       do j = 1, this%size
-        this%state(j) = this%trajectory(j) - ((this%amplitude * PI * 4 * this%frequency) / this%size) * cos((this%frequency * (this%t + this%phase) + float(j)) / this%size * PI * 4)
-        this%trajectory(j) = this%bias + this%amplitude * sin((this%frequency * (this%t + this%phase) + float(j)) / this%size * PI * 4)
+        this%trajectory(j) = this%bias + this%amplitude * sin((this%frequency * (this%t - 0.5 + this%phase) + float(j)) / this%size * PI * 4)
       end do
 
     end do

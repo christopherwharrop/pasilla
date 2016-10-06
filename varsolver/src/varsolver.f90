@@ -5,6 +5,7 @@ program adept
 
   use gptl
   use module_varsolver
+  use sine, only : sine_TL_type, sine_ADJ_type
 
   implicit none
 
@@ -19,6 +20,8 @@ program adept
   real(KIND=8), allocatable    ::      brh_cov(:,:,:)
   real(KIND=8), allocatable    ::      obs_vec(:)
   real(KIND=8), allocatable    ::      bkg_vec(:,:)
+  type(sine_TL_type), allocatable  ::  fwmod_vec(:)
+  type(sine_ADJ_type), allocatable ::  bwmod_vec(:)
   real(KIND=8), allocatable    ::      anl_vec(:,:)
   real(KIND=8), allocatable    ::      htr_ino(:,:,:)
   real(KIND=8), allocatable    ::      bht_ino(:,:,:)
@@ -40,6 +43,10 @@ program adept
   ! OBTAIN THE OBSERATIONS, Y, AND THE BACKGROUND, Xb 
   call get_bkg_vec(bkg_tim,bkg_pos,bkg_vec)
   call get_obs_vec(obs_tim,obs_pos,obs_vec)
+
+  ! CWH
+  ! Initialize fw and bw models (if we are doing 4DVar)
+  call get_fwbwmod_vec(fwmod_vec, bwmod_vec)
 
   ! BJE
   ! KNOWING THE NUMBERS, ALLOCATE VECTORS/MATRICIES (ARRAYS) ACCORTINGLY
@@ -81,7 +88,7 @@ program adept
 
   ! BJE
   ! THE MAIN EVENT - THE SOLVER
-  call var_solver(bkg_cov,hrh_cov,brh_cov,htr_ino,bht_ino,jvc_for,bkg_vec,anl_vec)
+  call var_solver(bkg_cov,hrh_cov,brh_cov,htr_ino,bht_ino,jvc_for,bkg_vec,anl_vec, fwmod_vec, bwmod_vec)
 
   ! BJE
   ! OUTPUT THE NEW ANALYSIS

@@ -7,7 +7,7 @@ all:
 models: utilities
 	make -C models
 
-varsolver: utilities
+varsolver: utilities models
 	make -C varsolver
 
 varsolveroo: utilities

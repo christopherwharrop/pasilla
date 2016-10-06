@@ -191,29 +191,68 @@ contains
   ! GENERATE THE FIRST GUESS "Xb" - SHOULD USE A REAL MODEL
   subroutine get_bkg_vec(bkg_tim,bkg_pos,bkg_vec)
 
+    use sine, only : sine_type
+
     implicit none
     real(KIND=8), intent(inout), allocatable :: bkg_vec(:,:)
     integer,intent(inout), allocatable       :: bkg_pos(:,:)
     integer,intent(inout), allocatable       :: bkg_tim(:) 
     integer                                  :: i,t,tt
+    type(sine_type)                          :: model
     print *,"GET_BKG_VEC"
 
-    allocate (bkg_vec(tim_len,bkg_len))
-    allocate (bkg_pos(tim_len,bkg_len))
     allocate (bkg_tim(tim_len))
     do t=1,tim_len
        bkg_tim(t)=t
        tt=t
        if(mthd.le.2) tt=2
-       do i=1,bkg_len
-          bkg_pos(t,i)=i
-          bkg_vec(t,i)=50.0+50.0*sin(((20.0*float(tt-2)+float(i))/1000.0)*PI)
-       end do
+       model = sine_type(tt, "NETCDF")
+       if (t == 1) then
+         bkg_len = model%size
+         allocate (bkg_vec(tim_len, bkg_len))
+         allocate (bkg_pos(tim_len, bkg_len))
+       end if
+       bkg_pos(t,:) = model%location(:)
+       bkg_vec(t,:) = model%state(:)
     end do
 
     print *,"GET_BKG_VEC COMPLETE"
 
   end subroutine get_bkg_vec
+
+  ! CWH
+  ! Initialize vectors of forward/backward models at various times
+  subroutine get_fwbwmod_vec(fwmod_vec, bwmod_vec)
+
+    use sine, only : sine_TL_type, sine_ADJ_type
+
+    implicit none
+    type(sine_TL_type), intent(inout), allocatable  :: fwmod_vec(:)
+    type(sine_ADJ_type), intent(inout), allocatable :: bwmod_vec(:)
+    integer :: t
+
+    print *,"GET_FWBWMOD_VEC"
+
+    ! Only allocate/initialize for 4DVar
+    if (mthd >= 3) then
+      ! Allocate the arrays to hold fw and bw models
+      allocate (fwmod_vec(2:tim_len))
+      allocate (bwmod_vec(1:tim_len-1))
+
+      ! Load fw models
+      do t=2,tim_len
+         fwmod_vec(t) = sine_TL_type(t-1, "NETCDF")
+      end do
+
+      ! Load bw models
+      do t=1,tim_len-1
+         bwmod_vec(t) = sine_ADJ_type(t+1, "NETCDF")
+      end do
+    end if
+
+    print *,"GET_FWBWMOD_VEC COMPLETE"
+
+  end subroutine get_fwbwmod_vec
 
   ! BJE
   ! GENERATE THE INNOVATION VECTOR (Y-HXb)
@@ -380,7 +419,9 @@ contains
   ! GRADJ = D(1/2)* [   V
   !                  + BRH*(X-Xb) 
   !                  - BHT        ] 
-  subroutine var_solver(bkg_cov,hrh_cov,brh_cov,htr_ino,bht_ino,jvc_for,bkg_vec,anl_vec)
+  subroutine var_solver(bkg_cov,hrh_cov,brh_cov,htr_ino,bht_ino,jvc_for,bkg_vec,anl_vec,fwmod_vec,bwmod_vec)
+
+    use sine
 
     implicit none
     real(KIND=8), intent(in)    :: htr_ino(:,:,:)
@@ -391,6 +432,8 @@ contains
     real(KIND=8), intent(in)    :: bkg_vec(:,:)
     real(KIND=8), intent(inout) :: anl_vec(:,:)
     real(KIND=8), intent(in)    :: jvc_for(:,:)
+    type(sine_TL_type), intent(in), allocatable  :: fwmod_vec(:)
+    type(sine_ADJ_type), intent(in), allocatable :: bwmod_vec(:)
 
     real(KIND=8), allocatable   :: tim_htr(:,:)
     real(KIND=8), allocatable   :: tim_bkc(:,:)
@@ -420,6 +463,8 @@ contains
     real(KIND=8), allocatable   :: jtim(:) 
     integer                     :: nthreads, tid
     integer                     :: OMP_GET_NUM_THREADS, OMP_GET_THREAD_NUM
+    type(sine_TL_type)          :: model_TL
+    type(sine_ADJ_type)         :: model_ADJ
 
     allocate (jtim(tim_len)) 
     allocate (tim_htr(bkg_len,      1)) 
@@ -474,7 +519,7 @@ contains
  
        new_vec(:,:)=0.0
        tlm_vec=anl_vec
-!$OMP PARALLEL SHARED (bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q) DEFAULT(PRIVATE)
+!$OMP PARALLEL SHARED (bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,fwmod_vec) DEFAULT(PRIVATE)
 !$OMP DO
        do t=1,tim_len
           tid=OMP_GET_THREAD_NUM()
@@ -490,7 +535,14 @@ contains
           else
 !            RUN THE FORWARD MODEL FOR ALL STEPS AFTER THE FIRST
 	     mdl_vec(:,1)=tlm_vec(t-1,:)
-             call forward_model(mdl_vec,t-1,1)
+             print *, "FORWARD MODEL"
+             model_TL=fwmod_vec(t)
+             model_TL%state(:) = mdl_vec(:,1)
+             model_TL%trajectory(:) = mdl_vec(:,1)
+             call model_TL%adv_nsteps(1)
+             mdl_vec(:,1) = model_TL%state
+             print *, "END FORWARD_MODEL"
+
              if (mthd.eq.4) new_vec(t,:)=mdl_vec(:,1)
              if (mthd.ne.4) tlm_vec(t,:)=mdl_vec(:,1)
           end if
@@ -525,7 +577,7 @@ contains
        jnew=jnew+jvc_for(1,1)
        new_vec(:,:)=0.0
 
-!$OMP PARALLEL SHARED (bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q) DEFAULT(PRIVATE)
+!$OMP PARALLEL SHARED (bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q,bwmod_vec) DEFAULT(PRIVATE)
 !$OMP DO
        !   CALCULATE GRAD-J IN REVERSE TEMPORAL ORDER 
        do t=tim_len,1,-1
@@ -543,7 +595,13 @@ contains
 !	     FOR ALL OTHER TIME STEPS - ADJOINT NEEDED
              if (mthd.eq.3) mdl_vec(:,1)=tlm_vec(t+1,:)
              if (mthd.eq.4) mdl_vec(:,1)=anl_vec(t+1,:)
-             call backward_model(mdl_vec,t+1,1)
+             print *, "BACKWARD_MODEL"
+             model_ADJ = bwmod_vec(t)
+             model_ADJ%state(:) = mdl_vec(:,1)
+             model_ADJ%trajectory(:) = mdl_vec(:,1)
+             call model_ADJ%adv_nsteps(1)
+             mdl_vec(:,1) = model_ADJ%state
+             print *, "END BACKWARD_MODEL"
           end if
 
 !         CHOOSE THE FIRST GUESS FIELD

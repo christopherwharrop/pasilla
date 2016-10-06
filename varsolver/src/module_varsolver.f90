@@ -16,9 +16,9 @@ module module_varsolver
   ! Define namelists and default values
   integer          :: mthd  = 4
   integer          :: tim_len = 3
-  integer          :: bkg_len = 4000
+  integer          :: bkg_len
   integer          :: obs_len = 20
-  namelist /params/  mthd, bkg_len, tim_len, obs_len
+  namelist /params/  mthd, tim_len, obs_len
 
 contains
 

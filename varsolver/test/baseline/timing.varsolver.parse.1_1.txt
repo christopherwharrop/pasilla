@@ -1,5 +1,5 @@
 Routine                                  Calls Walltime  % of Tot
-  adept                                      1    130.1    100.0%
-    module_varsolver_mp_pre_sol_             1      3.3      2.5%
-    module_varsolver_mp_var_solver_          1    126.7     97.4%
-      module_varsolver_mp_pre_con_dif_     102    117.9     90.6%
+  adept                                      1    147.3    100.0%
+    module_varsolver_mp_pre_sol_             1      3.2      2.2%
+    module_varsolver_mp_var_solver_          1    144.0     97.7%
+      module_varsolver_mp_pre_con_dif_     102    134.1     91.0%

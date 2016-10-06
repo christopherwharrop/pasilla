@@ -1,7 +1,7 @@
 #!/bin/sh -l
 
 # Load required modules
-module load intel
+module load intel/16.1.150
 
 # Set paths for GPTL and tools
 GPTL_PATH=/contrib/gptl/gptl-v5.5_nompi_noomp/bin
@@ -26,6 +26,9 @@ cp ../exe/varsolver.exe .
 # Copy the namelist
 rm -f varsolver.namelist
 cp ../parm/varsolver.namelist .
+
+# Copy the input files
+cp input/* .
 
 # Test each solver method
 fail=0

@@ -427,8 +427,10 @@ contains
     real(KIND=8), allocatable   :: jtim(:) 
     integer                     :: nthreads, tid
     integer                     :: OMP_GET_NUM_THREADS, OMP_GET_THREAD_NUM
-    type(sine_TL_type)          :: model_TL
-    type(sine_ADJ_type)         :: model_ADJ
+    type(sine_TL_type), allocatable  :: model_TLarr(:)
+    type(sine_ADJ_type), allocatable :: model_ADJarr(:)
+    type(sine_TL_type)  :: model_TL
+    type(sine_ADJ_type) :: model_ADJ
 
     allocate (jtim(tim_len)) 
     allocate (tim_htr(bkg_len,      1)) 
@@ -450,6 +452,9 @@ contains
     allocate (tmp_vec(bkg_len,      1))
     allocate (tmp_vvc(bkg_len,      1))
     allocate (grd_jvc(bkg_len,      1))
+
+    allocate (model_TLarr(2:tim_len))
+    allocate (model_ADJarr(1:tim_len-1))
 
 !   PARAMETERS FOR VAR - SHOULD BE FROM NAMELIST
     nitr = 0
@@ -474,6 +479,16 @@ contains
 ! FIRST GUESS IS THE BACKGROUND
     anl_vec=bkg_vec
 
+! INITIALIZE model_TL
+    do t=2,tim_len
+       model_TLarr(t) = sine_TL_type(t-1, "NETCDF")
+    end do
+
+! INITIALIZE model_ADJ
+    do t=1,tim_len-1
+       model_ADJarr(t) = sine_ADJ_type(t+1, "NETCDF")
+    end do
+
 ! ITERATE TO SOLVE THE COST FUNCTION
     do while ( abs(jold-jnew) > jthr)
        if (nitr.gt.mxit) exit
@@ -483,8 +498,8 @@ contains
  
        new_vec(:,:)=0.0
        tlm_vec=anl_vec
-!!$OMP PARALLEL SHARED (bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q) DEFAULT(PRIVATE)
-!!$OMP DO
+!$OMP PARALLEL SHARED (bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,model_TLarr) DEFAULT(PRIVATE)
+!$OMP DO
        do t=1,tim_len
           tid=OMP_GET_THREAD_NUM()
           tim_bkc(:,:)=bkg_cov(t,:,:)
@@ -500,7 +515,7 @@ contains
 !            RUN THE FORWARD MODEL FOR ALL STEPS AFTER THE FIRST
 	     mdl_vec(:,1)=tlm_vec(t-1,:)
              print *, "FORWARD MODEL"
-             model_TL = sine_TL_type(t-1, "NETCDF")
+             model_TL=model_TLarr(t)
              model_TL%state(:) = mdl_vec(:,1)
              model_TL%trajectory(:) = mdl_vec(:,1)
              call model_TL%adv_nsteps(1)
@@ -531,8 +546,8 @@ contains
           jtim(t) = 0.5*(jvc_one(1,1)+jvc_two(1,1)-2.0*jvc_the(1,1)) 
 
        end do
-!!$OMP END DO
-!!$OMP END PARALLEL
+!$OMP END DO
+!$OMP END PARALLEL
 
        if(mthd.eq.4) tlm_vec=new_vec 
        do t=1,tim_len
@@ -541,8 +556,8 @@ contains
        jnew=jnew+jvc_for(1,1)
        new_vec(:,:)=0.0
 
-!!$OMP PARALLEL SHARED (bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q) DEFAULT(PRIVATE)
-!!$OMP DO
+!$OMP PARALLEL SHARED (bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q,model_ADJarr) DEFAULT(PRIVATE)
+!$OMP DO
        !   CALCULATE GRAD-J IN REVERSE TEMPORAL ORDER 
        do t=tim_len,1,-1
           tim_bkc(:,:)=bkg_cov(t,:,:)
@@ -560,7 +575,7 @@ contains
              if (mthd.eq.3) mdl_vec(:,1)=tlm_vec(t+1,:)
              if (mthd.eq.4) mdl_vec(:,1)=anl_vec(t+1,:)
              print *, "BACKWARD_MODEL"
-             model_ADJ = sine_ADJ_type(t+1, "NETCDF")
+             model_ADJ = model_ADJarr(t)
              model_ADJ%state(:) = mdl_vec(:,1)
              model_ADJ%trajectory(:) = mdl_vec(:,1)
              call model_ADJ%adv_nsteps(1)
@@ -589,8 +604,8 @@ contains
 
           if(mthd.ne.4) tlm_vec(t,:)=new_vec(t,:)
        end do
-!!$OMP END DO
-!!$OMP END PARALLEL
+!$OMP END DO
+!$OMP END PARALLEL
        
        if(mthd.eq.4) tlm_vec=new_vec
        anl_vec=tlm_vec

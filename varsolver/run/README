@@ -1,0 +1,6 @@
+In order to run varsolver the background and observation 
+input files must exist in the current directory.
+
+Sample background and observation files can be found in 
+the ../test directory.  Copy all those files here before
+running the run_varsolver.sh script.

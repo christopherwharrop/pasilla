@@ -1,5 +1,4 @@
 &params
  mthd = 4,
  tim_len = 3,     ! Ignored if method < 3
- obs_len = 20
 /

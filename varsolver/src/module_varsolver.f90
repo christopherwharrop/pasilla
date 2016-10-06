@@ -17,8 +17,8 @@ module module_varsolver
   integer          :: mthd  = 4
   integer          :: tim_len = 3
   integer          :: bkg_len
-  integer          :: obs_len = 20
-  namelist /params/  mthd, tim_len, obs_len
+  integer          :: obs_len
+  namelist /params/  mthd, tim_len
 
 contains
 
@@ -134,32 +134,54 @@ contains
     integer, intent(inout), allocatable      :: obs_tim(:)
     integer, intent(inout), allocatable      :: obs_pos(:) 
     real(KIND=8), intent(inout), allocatable :: obs_vec(:) 
-    integer                                  :: i,x 
+
+    integer            :: i
+    character(len=128) :: filename   ! name of output file
+    integer            :: fileunit
 
     print *,"GET_OBS_VEC"
 
+    ! Construct name of obs input file
+    write(filename, '(A,I1,A)') 'sineobs_', mthd, '.txt'
+
+    ! Open the output csv file
+    open(newunit=fileunit, file=trim(filename), form='formatted', status='old')
+
+    ! Read the number of obs
+    read(fileunit, '(I)') obs_len
+
+    ! Allocate space for obs arrays
     allocate(obs_tim(obs_len))
     allocate(obs_pos(obs_len))
     allocate(obs_vec(obs_len))
 
     do i=1,obs_len
-        x=modulo(i,8)
-        obs_tim(i)=2
-        obs_pos(i)=i*200 
-        if(x.gt.3) then
-            obs_tim(i)=1
-            obs_pos(i)=i*200-35 
-        end if
-        if(x.gt.5) then
-            obs_tim(i)=3
-            obs_pos(i)=i*200-75 
-        end if 
-!       FOR MATCHED 3DVAR
-        if(mthd.eq.2) obs_tim(i)=2
-        obs_vec(i)=50.0+50.0*sin(((20.0*float(obs_tim(i)-1)+float(obs_pos(i)))/1000.0)*PI)
-!       FOR 3DVAR
-        if(mthd.le.2) obs_tim(i)=1
+      read(fileunit, '(2I,F)') obs_tim(i), obs_pos(i), obs_vec(i) 
     end do
+
+    close(fileunit)
+
+! THIS IS HOW THE OBS FILES FOR SINE WERE CREATED
+!
+!    do i=1,obs_len
+!        x=modulo(i,8)
+!        obs_tim(i)=2
+!        obs_pos(i)=i*200 
+!        if(x.gt.3) then
+!            obs_tim(i)=1
+!            obs_pos(i)=i*200-35 
+!        end if
+!        if(x.gt.5) then
+!            obs_tim(i)=3
+!            obs_pos(i)=i*200-75 
+!        end if 
+!!       FOR MATCHED 3DVAR
+!        if(mthd.eq.2) obs_tim(i)=2
+!        obs_vec(i)=50.0+50.0*sin(((20.0*float(obs_tim(i)-1)+float(obs_pos(i)))/1000.0)*PI)
+!!       FOR 3DVAR
+!        if(mthd.le.2) obs_tim(i)=1
+!        write(*,'(2I,F)') obs_tim(i), obs_pos(i), obs_vec(i)
+!    end do
 
     print *,"GET_OBS_VEC COMPLETE" 
 

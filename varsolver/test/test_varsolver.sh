@@ -27,8 +27,11 @@ cp ../exe/varsolver.exe .
 rm -f varsolver.namelist
 cp ../parm/varsolver.namelist .
 
-# Copy the input files
-cp input/* .
+# Copy the background input files
+cp background/* .
+
+# Copy the observation files
+cp obs/* .
 
 # Test each solver method
 fail=0

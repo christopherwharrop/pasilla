@@ -6,6 +6,7 @@ program adept
   use gptl
   use module_varsolver
   use sine, only : sine_TL_type, sine_ADJ_type
+  use model, only : model_type
 
   implicit none
 
@@ -20,6 +21,8 @@ program adept
   real(KIND=8), allocatable    ::      brh_cov(:,:,:)
   real(KIND=8), allocatable    ::      obs_vec(:)
   real(KIND=8), allocatable    ::      bkg_vec(:,:)
+!  class(model_type), allocatable  ::  fwmod_vec(:)
+!  class(model_type), allocatable ::  bwmod_vec(:)
   type(sine_TL_type), allocatable  ::  fwmod_vec(:)
   type(sine_ADJ_type), allocatable ::  bwmod_vec(:)
   real(KIND=8), allocatable    ::      anl_vec(:,:)

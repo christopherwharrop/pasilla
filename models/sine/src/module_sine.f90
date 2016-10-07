@@ -2,6 +2,7 @@ module sine
 
   use kind, only : r8kind
   use module_constants, only : PI
+  use model, only : model_type
 
   implicit none
 
@@ -9,7 +10,7 @@ module sine
 
   public :: sine_type, sine_TL_type, sine_ADJ_type
 
-  type sine_type
+  type, extends(model_type) :: sine_type
       private
       integer, public :: size
       real(r8kind) :: amplitude

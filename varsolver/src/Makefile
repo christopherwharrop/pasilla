@@ -1,6 +1,6 @@
 include ../../macros.mk
 
-INCLUDES=-I$(GPTL)/include -I../../utilities/include -I../../models/sine/include -I.
+INCLUDES=-I$(GPTL)/include -I../../utilities/include -I../../models/abstract/include -I../../models/sine/include -I.
 LIBS=-L$(GPTL)/lib -lgptl -L../../models/sine/lib -lsine -L$(NETCDF)/lib -lnetcdf -lnetcdff
 FFLAGS+=-openmp
 

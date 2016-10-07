@@ -5,6 +5,8 @@ module module_varsolver
 
   use gptl
   use module_constants
+  use model, only : model_type
+  use sine, only  : sine_type, sine_TL_type, sine_ADJ_type
 
   ! Get unit numbers for stdin, stdout, stderr in a portable way
   use, intrinsic :: iso_fortran_env, only : stdin=>input_unit, &
@@ -213,8 +215,6 @@ contains
   ! GENERATE THE FIRST GUESS "Xb" - SHOULD USE A REAL MODEL
   subroutine get_bkg_vec(bkg_tim,bkg_pos,bkg_vec)
 
-    use sine, only : sine_type
-
     implicit none
     real(KIND=8), intent(inout), allocatable :: bkg_vec(:,:)
     integer,intent(inout), allocatable       :: bkg_pos(:,:)
@@ -246,11 +246,11 @@ contains
   ! Initialize vectors of forward/backward models at various times
   subroutine get_fwbwmod_vec(fwmod_vec, bwmod_vec)
 
-    use sine, only : sine_TL_type, sine_ADJ_type
-
     implicit none
     type(sine_TL_type), intent(inout), allocatable  :: fwmod_vec(:)
     type(sine_ADJ_type), intent(inout), allocatable :: bwmod_vec(:)
+!    class(model_type), intent(inout), allocatable  :: fwmod_vec(:)
+!    class(model_type), intent(inout), allocatable :: bwmod_vec(:)
     integer :: t
 
     print *,"GET_FWBWMOD_VEC"
@@ -443,8 +443,6 @@ contains
   !                  - BHT        ] 
   subroutine var_solver(bkg_cov,hrh_cov,brh_cov,htr_ino,bht_ino,jvc_for,bkg_vec,anl_vec,fwmod_vec,bwmod_vec)
 
-    use sine
-
     implicit none
     real(KIND=8), intent(in)    :: htr_ino(:,:,:)
     real(KIND=8), intent(in)    :: bht_ino(:,:,:)
@@ -456,6 +454,8 @@ contains
     real(KIND=8), intent(in)    :: jvc_for(:,:)
     type(sine_TL_type), intent(in), allocatable  :: fwmod_vec(:)
     type(sine_ADJ_type), intent(in), allocatable :: bwmod_vec(:)
+!    class(model_type), intent(in), allocatable  :: fwmod_vec(:)
+!    class(model_type), intent(in), allocatable  :: bwmod_vec(:)
 
     real(KIND=8), allocatable   :: tim_htr(:,:)
     real(KIND=8), allocatable   :: tim_bkc(:,:)
@@ -487,6 +487,8 @@ contains
     integer                     :: OMP_GET_NUM_THREADS, OMP_GET_THREAD_NUM
     type(sine_TL_type)          :: model_TL
     type(sine_ADJ_type)         :: model_ADJ
+!    class(model_type), allocatable :: model_TL
+!    class(model_type), allocatable :: model_ADJ
 
     allocate (jtim(tim_len)) 
     allocate (tim_htr(bkg_len,      1)) 
@@ -508,6 +510,9 @@ contains
     allocate (tmp_vec(bkg_len,      1))
     allocate (tmp_vvc(bkg_len,      1))
     allocate (grd_jvc(bkg_len,      1))
+
+!    allocate(model_TL,MOLD=fwmod_vec(1))
+!    allocate(model_ADJ,MOLD=bwmod_vec(1))
 
 !   PARAMETERS FOR VAR - SHOULD BE FROM NAMELIST
     nitr = 0

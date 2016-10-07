@@ -11,13 +11,13 @@ module lorenz96
 
   type, extends(model_type) :: lorenz96_type
       private
-      integer      :: size
+      integer, public      :: size
       real(r8kind) :: forcing
       real(r8kind) :: delta_t
       real(r8kind) :: t
       integer, public      :: step
       real(r8kind), allocatable, public :: state(:)
-      real(r8kind), allocatable :: location(:)
+      real(r8kind), allocatable, public :: location(:)
   contains
       final              :: destructor
       procedure, private :: comp_dt
@@ -53,25 +53,28 @@ module lorenz96
 
 
   interface lorenz96_type
-    procedure constructor
+    procedure constructor_parm
+    procedure constructor_file
   end interface
 
   interface lorenz96_TL_type
-    procedure constructor_TL
+     procedure constructor_TL_parm
+     procedure constructor_TL_file
   end interface
 
   interface lorenz96_ADJ_type
-    procedure constructor_ADJ
+    procedure constructor_ADJ_parm
+    procedure constructor_ADJ_file
   end interface
 
 contains
 
   !------------------------------------------------------------------
-  ! constructor
+  ! constructor_parm
   !
   ! Returns an initialized lorenz96 object
   !------------------------------------------------------------------
-  type(lorenz96_type) function constructor(size, forcing, delta_t)
+  type(lorenz96_type) function constructor_parm(size, forcing, delta_t)
 
     integer, intent(in)      :: size
     real(r8kind), intent(in) :: forcing
@@ -80,71 +83,160 @@ contains
     integer :: j
 
     ! Initialize model parameters    
-    constructor%size = size
-    constructor%forcing = forcing
-    constructor%delta_t = delta_t
-    constructor%t = 0
-    constructor%step = 0
+    constructor_parm%size = size
+    constructor_parm%forcing = forcing
+    constructor_parm%delta_t = delta_t
+    constructor_parm%t = 0
+    constructor_parm%step = 0
 
     ! Allocate model variables
-    allocate(constructor%state(size))
-    allocate(constructor%location(size))
+    allocate(constructor_parm%state(size))
+    allocate(constructor_parm%location(size))
 
     ! Initialize model variables
-    constructor%state = forcing
-    constructor%state(1) = 1.001_r8kind * forcing
+    constructor_parm%state = forcing
+    constructor_parm%state(1) = 1.001_r8kind * forcing
 
     ! Localize the domain
     do j = 1, size
-      constructor%location(j) = (j - 1.0_r8kind) / size
+      constructor_parm%location(j) = (j - 1.0_r8kind) / size
     end do
 
   end function
 
 
   !------------------------------------------------------------------
-  ! constructor_TL
+  ! constructor_file
   !
-  ! Returns an initialized lorenz96_TL object
+  ! Returns an initialized lorenz96 object
   !------------------------------------------------------------------
-  type(lorenz96_TL_type) function constructor_TL(size, forcing, delta_t)
+  type(lorenz96_type) function constructor_file(read_step, format)
 
-    integer, intent(in)      :: size
-    real(r8kind), intent(in) :: forcing
-    real(r8kind), intent(in) :: delta_t
+    integer, intent(in)      :: read_step
+    character(*), intent(in) :: format
 
-    ! Call constructor for superclass
-    constructor_TL%lorenz96_type = lorenz96_type(size, forcing, delta_t)
+    integer :: ierr
 
-    ! Allocate model variables
-    allocate(constructor_TL%trajectory(size))
+    select case (format)
+      case('NETCDF')
+        ! Read the header
+        ierr = netcdf_read_model_header(read_step, constructor_file%size, constructor_file%forcing, &
+                                 & constructor_file%delta_t, constructor_file%t, constructor_file%step)
+      case('ASCII')
+        ! Read the header
+        ierr = ascii_read_model_header(read_step, constructor_file%size, constructor_file%forcing, &
+                                 & constructor_file%delta_t, constructor_file%t, constructor_file%step)
+      case DEFAULT
+        write(*,'(A,A,A)') 'ERROR: IO Format "',format,'" is not supported!'
+        stop
+    end select
 
-    ! Initialize model variables
-    constructor_TL%trajectory = constructor_TL%state
+    ! Allocate space for the data
+    allocate(constructor_file%state(constructor_file%size))
+    allocate(constructor_file%location(constructor_file%size))
+
+    ! Read the data
+    select case (format)
+      case('NETCDF')
+        ierr = netcdf_read_model_data(read_step, constructor_file%size, constructor_file%location, constructor_file%state)
+      case('ASCII')
+        ierr = ascii_read_model_data(read_step, constructor_file%size, constructor_file%location, constructor_file%state)
+      case DEFAULT
+        write(*,'(A,A,A)') 'ERROR: IO Format "',format,'" is not supported!'
+        stop
+    end select
+
 
   end function
 
 
-
   !------------------------------------------------------------------
-  ! constructor_ADJ
+  ! constructor_TL_parm
   !
-  ! Returns an initialized lorenz96_ADJ object
+  ! Returns an initialized lorenz96_TL object
   !------------------------------------------------------------------
-  type(lorenz96_ADJ_type) function constructor_ADJ(size, forcing, delta_t)
+  type(lorenz96_TL_type) function constructor_TL_parm(size, forcing, delta_t)
 
     integer, intent(in)      :: size
     real(r8kind), intent(in) :: forcing
     real(r8kind), intent(in) :: delta_t
 
     ! Call constructor for superclass
-    constructor_ADJ%lorenz96_type = lorenz96_type(size, forcing, delta_t)
+    constructor_TL_parm%lorenz96_type = lorenz96_type(size, forcing, delta_t)
 
     ! Allocate model variables
-    allocate(constructor_ADJ%trajectory(size))
+    allocate(constructor_TL_parm%trajectory(size))
 
     ! Initialize model variables
-    constructor_ADJ%trajectory = constructor_ADJ%state
+    constructor_TL_parm%trajectory = constructor_TL_parm%state
+
+  end function
+
+
+  !------------------------------------------------------------------
+  ! constructor_TL_file
+  !
+  ! Returns an initialized lorenz96 object
+  !------------------------------------------------------------------
+  type(lorenz96_TL_type) function constructor_TL_file(read_step, format)
+
+    integer, intent(in)      :: read_step
+    character(*), intent(in) :: format
+
+    ! Call constructor for superclass
+    constructor_TL_file%lorenz96_type = lorenz96_type(read_step, format)
+
+    ! Allocate model variables
+    allocate(constructor_TL_file%trajectory(constructor_TL_file%size))
+
+    ! Initialize model variables
+    constructor_TL_file%trajectory = constructor_TL_file%state
+
+
+  end function
+
+
+  !------------------------------------------------------------------
+  ! constructor_ADJ_parm
+  !
+  ! Returns an initialized lorenz96_ADJ object
+  !------------------------------------------------------------------
+  type(lorenz96_ADJ_type) function constructor_ADJ_parm(size, forcing, delta_t)
+
+    integer, intent(in)      :: size
+    real(r8kind), intent(in) :: forcing
+    real(r8kind), intent(in) :: delta_t
+
+    ! Call constructor for superclass
+    constructor_ADJ_parm%lorenz96_type = lorenz96_type(size, forcing, delta_t)
+
+    ! Allocate model variables
+    allocate(constructor_ADJ_parm%trajectory(size))
+
+    ! Initialize model variables
+    constructor_ADJ_parm%trajectory = constructor_ADJ_parm%state
+
+  end function
+
+
+  !------------------------------------------------------------------
+  ! constructor_ADJ_file
+  !
+  ! Returns an initialized lorenz96_ADJ object
+  !------------------------------------------------------------------
+  type(lorenz96_ADJ_type) function constructor_ADJ_file(read_step, format)
+
+    integer, intent(in)      :: read_step
+    character(*), intent(in) :: format
+
+    ! Call constructor for superclass
+    constructor_ADJ_file%lorenz96_type = lorenz96_type(read_step, format)
+
+    ! Allocate model variables
+    allocate(constructor_ADJ_file%trajectory(constructor_ADJ_file%size))
+
+    ! Initialize model variables
+    constructor_ADJ_file%trajectory = constructor_ADJ_file%state
 
   end function
 
@@ -756,14 +848,18 @@ contains
 
 
   !------------------------------------------------------------------
-  ! netcdf_read_model_state
+  ! netcdf_read_model_header
   !------------------------------------------------------------------
-  integer function netcdf_read_model_state(this,read_step)
+  integer function netcdf_read_model_header(read_step, size, forcing, delta_t, t, step)
 
     use netcdf
 
-    class(lorenz96_type), intent(inout) :: this
-    integer, intent(in) :: read_step ! Read in data for this time step
+    integer, intent(in)       :: read_step ! Read in data for this time step
+    integer, intent(out)      :: size
+    real(r8kind), intent(out) :: forcing
+    real(r8kind), intent(out) :: delta_t
+    real(r8kind), intent(out) :: t
+    integer, intent(out)      :: step
 
     integer :: ierr  ! return value of function
 
@@ -773,10 +869,6 @@ contains
     integer :: StateVarDimID, CoordinatesVarID, LocationVarID, StateVarID
 
     ! local variables
-    integer      :: i  ! loop index variable
-    integer      :: size
-    real(r8kind) :: forcing
-    real(r8kind) :: delta_t
     character(len=128) :: filename
 
     ! assume normal termination
@@ -791,28 +883,59 @@ contains
 
     ! Read Global Attributes 
     call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_forcing", forcing ))
-    if (forcing /= this%forcing) then
-      write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
-      write(*,'(A,F7.3,A,F7.3)') '       Input file forcing =',forcing,', expecting ',this%forcing
-      stop
-    end if
     call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_delta_t", delta_t ))
-    if (delta_t /= this%delta_t) then
-!      write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
-!      write(*,'(A,F7.3,A,F7.3)') '       Input file delta_t =',delta_t,', expecting ',this%delta_t
-!      stop
-    end if
-    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_t", this%t ))
-    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_step", this%step ))
+    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_t", t ))
+    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_step", step ))
 
     ! Read the model size
     call nc_check(nf90_inq_dimid(ncFileID, "StateDim", StateVarDimID))
     call nc_check(nf90_inquire_dimension(ncFileID, StateVarDimID, len=size))
-    if (size /= this%size) then
-      write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
-      write(*,'(A,I,A,I)') '       Input file size =',size,', expecting ',this%size
-      stop
-    end if
+
+    ! Flush buffers
+    call nc_check(nf90_sync(ncFileID))
+
+    ! Close the NetCDF file
+    call nc_check(nf90_close(ncFileID))
+
+    netcdf_read_model_header = ierr
+
+
+  end function netcdf_read_model_header
+
+
+  !------------------------------------------------------------------
+  ! netcdf_read_model_data
+  !------------------------------------------------------------------
+  integer function netcdf_read_model_data(read_step, size, location, state)
+
+    use netcdf
+
+    integer, intent(in) :: read_step ! Read in data for this time step
+    integer, intent(in)         :: size
+    real(r8kind), intent(inout) :: location(:)
+    real(r8kind), intent(inout) :: state(:)
+
+
+    integer :: ierr  ! return value of function
+
+    ! General netCDF variables
+    integer :: ncFileID  ! netCDF file identifier
+    integer :: nDimensions, nVariables, nAttributes, unlimitedDimID
+    integer :: StateVarDimID, CoordinatesVarID, LocationVarID, StateVarID
+
+    ! local variables
+    integer      :: i  ! loop index variable
+    character(len=128) :: filename
+
+    ! assume normal termination
+    ierr = 0
+
+    ! Calculate name of file based on time step requested
+    write(filename,'(A,I0.7,A)') 'lorenz96out_', read_step, '.nc'
+
+    ! Open file for read only
+    call nc_check(nf90_open(trim(filename), NF90_NOWRITE, ncFileID))
+    call nc_check(nf90_Inquire(ncFileID, nDimensions, nVariables, nAttributes, unlimitedDimID))
 
     ! Get the state vector location ID
      call nc_check(nf90_inq_varid(ncFileID, "Location", LocationVarID))
@@ -821,10 +944,10 @@ contains
     call nc_check(nf90_inq_varid(ncFileID, "State", StateVarID))
 
     ! Get the location variable
-    call nc_check(nf90_get_var(ncFileID, LocationVarID, this%location))
+    call nc_check(nf90_get_var(ncFileID, LocationVarID, location))
 
     ! Get the state variable
-    call nc_check(nf90_get_var(ncFileID, StateVarID, this%state))
+    call nc_check(nf90_get_var(ncFileID, StateVarID, state))
 
     ! Flush buffers
     call nc_check(nf90_sync(ncFileID))
@@ -832,9 +955,201 @@ contains
     ! Close the NetCDF file
     call nc_check(nf90_close(ncFileID))
 
+    netcdf_read_model_data = ierr
+
+  end function netcdf_read_model_data
+
+  !------------------------------------------------------------------
+  ! netcdf_read_model_state
+  !------------------------------------------------------------------
+  integer function netcdf_read_model_state(this,read_step)
+
+    use netcdf
+
+    class(lorenz96_type), intent(inout) :: this
+    integer, intent(in) :: read_step ! Read in data for this time step
+
+    integer :: ierr  ! return value of function
+
+    ! local variables
+    integer      :: size
+    real(r8kind) :: forcing
+    real(r8kind) :: delta_t
+    real(r8kind) :: t
+    integer      :: step
+    character(len=128) :: filename
+
+    ! assume normal termination
+    ierr = 0
+
+    ! Calculate name of file based on time step requested
+    write(filename,'(A,I0.7,A)') 'sineout_', read_step, '.nc'
+
+    ! Read the model header
+    ierr = netcdf_read_model_header(read_step, size, forcing, delta_t, t, step)
+
+    ! Validate the input
+    if (forcing /= this%forcing) then
+      write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
+      write(*,'(A,F7.3,A,F7.3)') '       Input file forcing =',forcing,', expecting ',this%forcing
+      stop
+    end if
+    if (delta_t /= this%delta_t) then
+      write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
+      write(*,'(A,F7.3,A,F7.3)') '       Input file delta_t =',delta_t,', expecting ',this%delta_t
+      stop
+    end if
+    if (size /= this%size) then
+      write(*,'(A,A)') 'ERROR: Incompatible input file: ', filename
+      write(*,'(A,I,A,I)') '       Input file size =',size,', expecting ',this%size
+      stop
+    end if
+
+    ! Set the time and the step
+    this%t = t
+    this%step = step
+
+    ! Read the model data
+    ierr = netcdf_read_model_data(read_step, this%size, this%location, this%state)
+
     netcdf_read_model_state = ierr
 
   end function netcdf_read_model_state
+
+
+  !------------------------------------------------------------------
+  ! ascii_read_model_header
+  !------------------------------------------------------------------
+  integer function ascii_read_model_header(read_step, size, forcing, delta_t, t, step)
+
+    integer, intent(in)       :: read_step ! Read in data for this time step
+    integer, intent(out)      :: size
+    real(r8kind), intent(out) :: forcing
+    real(r8kind), intent(out) :: delta_t
+    real(r8kind), intent(out) :: t
+    integer, intent(out)      :: step
+
+    integer :: ierr                  ! return value of function
+
+    character(len=128) :: filename   ! name of output file
+    integer :: fileunit
+    character(len=80) :: line
+    character(len=16) :: linefmt
+    character(len=64) :: attr_name
+    integer :: position
+    integer :: ignore
+    integer :: i
+
+    ! assume normal termination
+    ierr = 0
+
+    ! Construct name of input file
+    write(filename, '(A,I0.7,A)') 'lorenz96out_', read_step, '.csv'
+
+    ! Open the output csv file
+    open(newunit=fileunit, file=trim(filename), form='formatted', status='old')
+
+    ! Read global attributes
+    read(fileunit, '(A)') line
+    position = index(line, ',')
+    do while (position /= 0)
+
+      ! Read global attribute name
+      write(linefmt, '(A,I0,A)') '(A', position - 1, ')'
+      read(line, linefmt) attr_name
+
+      ! Read in global attribute value
+      select case (attr_name)
+        case('model_forcing')
+          write(linefmt, '(A2,I0,A3)') '(T', position + 1, ',F)'
+          read(line, linefmt) forcing
+        case('model_delta_t')
+          write(linefmt, '(A2,I0,A3)') '(T', position + 1, ',F)'
+          read(line, linefmt) delta_t
+        case('model_t')
+          write(linefmt, '(A2,I0,A3)') '(T', position + 1, ',F)'
+          read(line, linefmt) t
+        case('model_step')
+          write(linefmt, '(A2,I0,A3)') '(T', position + 1, ',I)'
+          read(line, linefmt) step
+        case('StateDim')
+          write(linefmt, '(A2,I0,A3)') '(T', position + 1, ',I)'
+          read(line, linefmt) size
+        case DEFAULT
+          ! Ignore gloval settings we don't need
+          read(line,*)
+      end select
+
+      ! Get the next line and position of the comma
+      read(fileunit, '(A)') line
+      position = index(line, ',')
+
+    end do
+
+    ! Close the file
+    close(fileunit)
+
+    ascii_read_model_header = ierr
+
+  end function ascii_read_model_header
+
+
+  !------------------------------------------------------------------
+  ! ascii_read_model_data
+  !------------------------------------------------------------------
+  integer function ascii_read_model_data(read_step, size, location, state)
+
+    integer, intent(in)         :: read_step ! Read in data for this time step
+    integer, intent(in)         :: size
+    real(r8kind), intent(inout) :: location(:)
+    real(r8kind), intent(inout) :: state(:)
+
+    integer :: ierr                  ! return value of function
+
+    character(len=128) :: filename   ! name of output file
+    integer :: fileunit
+    character(len=80) :: line
+    integer :: position
+    integer :: ignore
+    integer :: i
+
+    ! assume normal termination
+    ierr = 0
+
+    ! Construct name of input file
+    write(filename, '(A,I0.7,A)') 'lorenz96out_', read_step, '.csv'
+
+    ! Open the output csv file
+    open(newunit=fileunit, file=trim(filename), form='formatted', status='old')
+
+    ! Read global attributes
+    read(fileunit, '(A)') line
+    position = index(line, ',')
+    do while (position /= 0)
+
+      ! Get the next line and position of the comma
+      read(fileunit, '(A)') line
+      position = index(line, ',')
+
+    end do
+
+    ! Read record separator
+    read(fileunit, '(A)') line
+
+    ! Read field header
+    read(fileunit, '(A)') line
+
+    ! Read the coordinate, location, and state fields
+    do i=1, size
+      read(fileunit, *) ignore, location(i), state(i)
+    end do
+
+    ! Close the file
+    close(fileunit)
+
+    ascii_read_model_data = ierr
+
+  end function ascii_read_model_data
 
 
   !------------------------------------------------------------------

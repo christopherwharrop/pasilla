@@ -1,6 +1,7 @@
 module lorenz96
 
   use kind, only : r8kind
+  use model, only : model_type
 
   implicit none
 
@@ -8,7 +9,7 @@ module lorenz96
 
   public :: lorenz96_type, lorenz96_TL_type, lorenz96_ADJ_type
 
-  type lorenz96_type
+  type, extends(model_type) :: lorenz96_type
       private
       integer      :: size
       real(r8kind) :: forcing

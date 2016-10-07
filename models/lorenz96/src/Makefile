@@ -2,7 +2,7 @@ include ../../../macros.mk
 
 UTILITIES=../../../utilities
 
-INCLUDES=-I$(UTILITIES)/include $(NETCDF_INCLUDES)
+INCLUDES=-I$(UTILITIES)/include $(NETCDF_INCLUDES) -I../../abstract/include
 LIBS=-L$(UTILITIES)/lib -lpasilla_util $(NETCDF_LIBS)
 
 all: lorenz96.exe lorenz96TL_test.exe lorenz96ADJ_test.exe liblorenz96.a

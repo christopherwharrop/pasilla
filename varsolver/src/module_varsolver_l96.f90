@@ -566,7 +566,7 @@ contains
              model_TL=fwmod_vec(t)
              model_TL%state(:) = mdl_vec(:,1)
              model_TL%trajectory(:) = mdl_vec(:,1)
-             call model_TL%adv_nsteps(1)
+             call model_TL%adv_nsteps(10)
              mdl_vec(:,1) = model_TL%state
              print *, "END FORWARD_MODEL"
 
@@ -626,7 +626,7 @@ contains
              model_ADJ = bwmod_vec(t)
              model_ADJ%state(:) = mdl_vec(:,1)
              model_ADJ%trajectory(:) = mdl_vec(:,1)
-             call model_ADJ%adv_nsteps(1)
+             call model_ADJ%adv_nsteps(10)
              mdl_vec(:,1) = model_ADJ%state
              print *, "END BACKWARD_MODEL"
           end if

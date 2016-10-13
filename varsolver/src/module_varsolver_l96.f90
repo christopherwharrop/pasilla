@@ -21,11 +21,12 @@ module module_varsolver_l96
   integer          :: bkg_len
   integer          :: obs_len
   real(KIND=8)     :: alph
+  real(KIND=8)     :: sigma
   namelist /control/ mthd, tim_len
-  namelist /method1/  alph
-  namelist /method2/  alph
-  namelist /method3/  alph
-  namelist /method4/  alph
+  namelist /method1/  alph, sigma
+  namelist /method2/  alph, sigma
+  namelist /method3/  alph, sigma
+  namelist /method4/  alph, sigma
 
 contains
 
@@ -58,6 +59,7 @@ contains
 
     print *,"METHOD = ",mthd
     print *,"ALPH = ",alph
+    print *,"SIGMA = ",sigma
 
     ! Force tim_len=1 for 3DVAR
     if(mthd.le.2) tim_len=1
@@ -109,7 +111,7 @@ contains
              jj=i+j
              if(jj.gt.bkg_len) jj=jj-bkg_len
              if(jj.lt.1) jj=bkg_len+jj
-             bkg_cov(t,i,jj)=var*exp(-((float(j)*1.200)**2))
+             bkg_cov(t,i,jj)=var*exp(-((float(j)*sigma)**2))
           end do
        end do
     end do

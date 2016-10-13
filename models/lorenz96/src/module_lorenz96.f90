@@ -478,46 +478,58 @@ contains
 
     real(r8kind), dimension(this%size) :: x1, x2, x3, x4, dx, inter
     real(r8kind), dimension(this%size) :: x1d, x2d, x3d, x4d, dxd, interd
+    real(r8kind), dimension(this%size,this%size) :: mprime
 
     integer :: step
 
     do step = 1, nsteps
 
-       dxd = 0.0
-       call this%comp_dt_d(this%trajectory, this%state, dx, dxd)  !  Compute the first intermediate step
-       x1d = this%delta_t * dxd
-       x1 = this%delta_t * dx
-       interd = this%state + x1d / 2.0
-       inter = this%trajectory + x1 / 2.0
+! TAPENADE
+!       dxd = 0.0
+!       call this%comp_dt_d(this%trajectory, this%state, dx, dxd)  !  Compute the first intermediate step
+!       x1d = this%delta_t * dxd
+!       x1 = this%delta_t * dx
+!       interd = this%state + x1d / 2.0
+!       inter = this%trajectory + x1 / 2.0
+!
+!       call this%comp_dt_d(inter, interd, dx, dxd)            !  Compute the second intermediate step
+!       x2d = this%delta_t * dxd
+!       x2 = this%delta_t * dx
+!       interd = this%state + x2d / 2.0
+!       inter = this%trajectory + x2 / 2.0
+!
+!       call this%comp_dt_d(inter, interd, dx, dxd)            !  Compute the third intermediate step
+!       x3d = this%delta_t * dxd
+!       x3 = this%delta_t * dx
+!       interd = this%state + x3d
+!       inter = this%trajectory + x3
+!
+!       call this%comp_dt_d(inter, interd, dx, dxd)            !  Compute fourth intermediate step
+!       x4d = this%delta_t * dxd
+!       x4 = this%delta_t * dx
+!
+!       !  Compute new value for x
+!       this%state = this%state + x1d / 6.0 + x2d / 3.0 + x3d / 3.0 + x4d / 6.0
+!       this%trajectory = this%trajectory + x1 / 6.0 + x2 / 3.0 + x3 / 3.0 + x4 / 6.0
+!
 
-       call this%comp_dt_d(inter, interd, dx, dxd)            !  Compute the second intermediate step
-       x2d = this%delta_t * dxd
-       x2 = this%delta_t * dx
-       interd = this%state + x2d / 2.0
-       inter = this%trajectory + x2 / 2.0
+! Lidia's matrix formulation with wrong trajectory
+!      call buildMprime(this%trajectory,mprime)
+!      this%state = this%trajectory + (this%delta_t * matmul(mprime, this%trajectory))
+!      this%trajectory = this%state
 
-       call this%comp_dt_d(inter, interd, dx, dxd)            !  Compute the third intermediate step
-       x3d = this%delta_t * dxd
-       x3 = this%delta_t * dx
-       interd = this%state + x3d
-       inter = this%trajectory + x3
+! Lidia's matrix formulation with correct trajectory
+      call buildMprime(this%state,mprime)
+      this%trajectory = this%trajectory + this%delta_t*matmul(mprime,this%trajectory)
+      this%state=this%state+this%trajectory
 
-       call this%comp_dt_d(inter, interd, dx, dxd)            !  Compute fourth intermediate step
-       x4d = this%delta_t * dxd
-       x4 = this%delta_t * dx
-
-       !  Compute new value for x
-       this%state = this%state + x1d / 6.0 + x2d / 3.0 + x3d / 3.0 + x4d / 6.0
-       this%trajectory = this%trajectory + x1 / 6.0 + x2 / 3.0 + x3 / 3.0 + x4 / 6.0
-
-       ! Increment time step
-       this%t = this%t + this%delta_t
-       this%step = this%step + 1
+      ! Increment time step
+      this%t = this%t + this%delta_t
+      this%step = this%step + 1
 
     end do
 
   end subroutine adv_nsteps_d
-
 
 
   !------------------------------------------------------------------
@@ -543,47 +555,60 @@ contains
     real(r8kind), dimension(this%size) :: x1b, x2b, x3b, x4b, dxb, interb
 
     integer :: step
+    real(r8kind), dimension(this%size,this%size) :: mprime
 
     do step = 1, nsteps
 
-      call this%comp_dt(this%trajectory, dx)
-      x1 = this%delta_t * dx
-      inter = this%trajectory + x1 / 2.0
+! TAPENADE code
+!      call this%comp_dt(this%trajectory, dx)
+!      x1 = this%delta_t * dx
+!      inter = this%trajectory + x1 / 2.0
+!
+!      call this%comp_dt(inter, dx)
+!      x2 = this%delta_t * dx
+!      inter = this%trajectory + x2 / 2.0
+!
+!      call this%comp_dt(inter, dx)
+!      x3 = this%delta_t * dx
+!      inter = this%trajectory + x3
+!
+!      x1b = this%state / 6.0
+!      x2b = this%state / 3.0
+!      x4b = this%state / 6.0
+!      dxb = this%delta_t * x4b
+!      interb = 0.0
+!
+!      call this%comp_dt_b(inter, interb, dx, dxb)
+!      x3b = interb + this%state / 3.0
+!      this%state = this%state + interb
+!      dxb = dxb + this%delta_t * x3b
+!      inter = this%trajectory + x2 / 2.0
+!      interb = 0.0
+!
+!      call this%comp_dt_b(inter, interb, dx, dxb)
+!      this%state = this%state + interb
+!      x2b = x2b + interb / 2.0
+!      dxb = dxb + this%delta_t * x2b
+!      inter = this%trajectory + x1 / 2.0
+!      interb = 0.0
+!
+!      call this%comp_dt_b(inter, interb, dx, dxb)
+!      this%state = this%state + interb
+!      x1b = x1b + interb / 2.0
+!      dxb = dxb + this%delta_t * x1b
+!
+!      call this%comp_dt_b(this%trajectory, this%state, dx, dxb)
+!
 
-      call this%comp_dt(inter, dx)
-      x2 = this%delta_t * dx
-      inter = this%trajectory + x2 / 2.0
+! Lidia's MATRIX formulation with incorrect trajectory
+!       call buildMprime(this%trajectory,mprime)
+!       this%state = this%trajectory + (this%delta_t * matmul(transpose(mprime), this%trajectory))
+!       this%trajectory = this%state
 
-      call this%comp_dt(inter, dx)
-      x3 = this%delta_t * dx
-      inter = this%trajectory + x3
-
-      x1b = this%state / 6.0
-      x2b = this%state / 3.0
-      x4b = this%state / 6.0
-      dxb = this%delta_t * x4b
-      interb = 0.0
-
-      call this%comp_dt_b(inter, interb, dx, dxb)
-      x3b = interb + this%state / 3.0
-      this%state = this%state + interb
-      dxb = dxb + this%delta_t * x3b
-      inter = this%trajectory + x2 / 2.0
-      interb = 0.0
-
-      call this%comp_dt_b(inter, interb, dx, dxb)
-      this%state = this%state + interb
-      x2b = x2b + interb / 2.0
-      dxb = dxb + this%delta_t * x2b
-      inter = this%trajectory + x1 / 2.0
-      interb = 0.0
-
-      call this%comp_dt_b(inter, interb, dx, dxb)
-      this%state = this%state + interb
-      x1b = x1b + interb / 2.0
-      dxb = dxb + this%delta_t * x1b
-
-      call this%comp_dt_b(this%trajectory, this%state, dx, dxb)
+! Lidia's MATRIX formulation with correct trajectory
+      call buildMprime(this%state,mprime)
+      this%trajectory = this%trajectory + this%delta_t*matmul(transpose(mprime),this%trajectory)
+      this%state=this%state+this%trajectory
 
       ! Increment time step
       this%t = this%t - this%delta_t
@@ -592,6 +617,52 @@ contains
     end do
 
   end subroutine adv_nsteps_b
+
+
+  !------------------------------------------------------------------
+  ! buildMprime
+  !
+  ! Constructs matrix for computing lorenz96 derivatives.
+  ! Used to advance the TL and ADJ models.
+  !------------------------------------------------------------------
+  subroutine buildMprime(x,mm)
+
+    real(r8kind) :: x(:)
+    real(r8kind) :: mm(:,:)
+
+    real(r8kind), allocatable :: tmp(:)
+
+    integer :: n,i
+
+    n=size(x)
+    allocate(tmp(n))
+    mm(:,:)=0.0
+    do i=1,n
+      tmp = 0.0
+      tmp(1) = -1.0
+      tmp(2) = x(mmod(i-1, n))
+      tmp(n-1) = -x(mmod(i-1,n))
+      tmp(n) = x(mmod(i+1,n))-x(mmod(i-2,n))
+      tmp =cshift(tmp,-1*(i-1))
+      mm(i,:) = tmp
+    end do
+
+  end subroutine buildMprime
+
+
+  !------------------------------------------------------------------
+  ! mmod
+  !
+  ! Helper function used by buildMprime to compute modified mod function
+  !------------------------------------------------------------------
+  integer function mmod(x,n)
+
+    integer :: x,n
+
+    mmod=mod(x,n)
+    if (mmod==0) mmod=n
+
+  end function mmod
 
 
   !------------------------------------------------------------------  

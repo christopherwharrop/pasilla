@@ -1,1 +1,1 @@
-lorenz96out_0040060
+lorenz96out_0040060.nc

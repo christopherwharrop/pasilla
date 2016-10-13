@@ -89,7 +89,7 @@ contains
              jj=i+j
              if(jj.gt.bkg_len) jj=jj-bkg_len
              if(jj.lt.1) jj=bkg_len+jj
-             bkg_cov(t,i,jj)=var*exp(-((float(j)*0.005)**2))
+             bkg_cov(t,i,jj)=var*exp(-((float(j)*1.000)**2))
           end do
        end do
     end do
@@ -485,8 +485,9 @@ contains
     real(KIND=8), allocatable   :: jtim(:) 
     integer                     :: nthreads, tid
     integer                     :: OMP_GET_NUM_THREADS, OMP_GET_THREAD_NUM
-    type(lorenz96_TL_type)          :: model_TL
-    type(lorenz96_ADJ_type)         :: model_ADJ
+    type(lorenz96_type), allocatable :: model(:)
+    type(lorenz96_TL_type)           :: model_TL
+    type(lorenz96_ADJ_type)          :: model_ADJ
 !    class(model_type), allocatable :: model_TL
 !    class(model_type), allocatable :: model_ADJ
 
@@ -511,6 +512,7 @@ contains
     allocate (tmp_vvc(bkg_len,      1))
     allocate (grd_jvc(bkg_len,      1))
 
+    allocate(model(tim_len))
 !    allocate(model_TL,MOLD=fwmod_vec(1))
 !    allocate(model_ADJ,MOLD=bwmod_vec(1))
 
@@ -520,9 +522,9 @@ contains
     jold = 100.0 
     jnew = 0.0
     jthr = 0.01 
-    alph = 0.00005
-    if(mthd.eq.4) alph=alph*4.7
-    if(mthd.eq.1) alph=alph*4.7
+    alph = 0.003
+    if(mthd.eq.2) alph=alph*4.7
+    if(mthd.eq.4) alph=alph*5.7
 
 !   PARAMETERS FOR MODEL ERROR - ALSO SHOULD BE FROM NAMELIST
 !   B = RATIO OF B/B = 1.0  
@@ -537,6 +539,11 @@ contains
 ! FIRST GUESS IS THE BACKGROUND
     anl_vec=bkg_vec
 
+! INITIALIZE A REAL MODEL FOR USE IN CALCULATING TRAJECTORIES
+    do t=1,tim_len
+      model(t) = lorenz96_type(t,'NETCDF')
+    end do
+
 ! ITERATE TO SOLVE THE COST FUNCTION
     do while ( abs(jold-jnew) > jthr)
        if (nitr.gt.mxit) exit
@@ -546,7 +553,7 @@ contains
  
        new_vec(:,:)=0.0
        tlm_vec=anl_vec
-!$OMP PARALLEL SHARED (bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,fwmod_vec) DEFAULT(PRIVATE)
+!$OMP PARALLEL SHARED (bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,fwmod_vec,model) DEFAULT(PRIVATE)
 !$OMP DO
        do t=1,tim_len
           tid=OMP_GET_THREAD_NUM()
@@ -565,7 +572,9 @@ contains
              print *, "FORWARD MODEL"
              model_TL=fwmod_vec(t)
              model_TL%state(:) = mdl_vec(:,1)
-             model_TL%trajectory(:) = mdl_vec(:,1)
+             model(t)%state = model_TL%state
+             call model(t)%adv_nsteps(1)
+             model_TL%trajectory = model(t)%state - model_TL%state
              call model_TL%adv_nsteps(10)
              mdl_vec(:,1) = model_TL%state
              print *, "END FORWARD_MODEL"
@@ -604,7 +613,7 @@ contains
        jnew=jnew+jvc_for(1,1)
        new_vec(:,:)=0.0
 
-!$OMP PARALLEL SHARED (bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q,bwmod_vec) DEFAULT(PRIVATE)
+!$OMP PARALLEL SHARED (bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q,bwmod_vec,model) DEFAULT(PRIVATE)
 !$OMP DO
        !   CALCULATE GRAD-J IN REVERSE TEMPORAL ORDER 
        do t=tim_len,1,-1
@@ -625,7 +634,9 @@ contains
              print *, "BACKWARD_MODEL"
              model_ADJ = bwmod_vec(t)
              model_ADJ%state(:) = mdl_vec(:,1)
-             model_ADJ%trajectory(:) = mdl_vec(:,1)
+             model(t)%state = model_ADJ%state
+             call model(t)%adv_nsteps(1)
+             model_ADJ%trajectory(:) = -(model(t)%state - model_ADJ%state)
              call model_ADJ%adv_nsteps(10)
              mdl_vec(:,1) = model_ADJ%state
              print *, "END BACKWARD_MODEL"

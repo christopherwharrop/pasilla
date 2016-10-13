@@ -519,9 +519,9 @@ contains
 !      this%trajectory = this%state
 
 ! Lidia's matrix formulation with correct trajectory
-      call buildMprime(this%state,mprime)
-      this%trajectory = this%trajectory + this%delta_t*matmul(mprime,this%trajectory)
-      this%state=this%state+this%trajectory
+      call buildMprime(this%state, mprime)
+      this%trajectory = this%trajectory + this%delta_t * matmul(mprime, this%trajectory)
+      this%state = this%state + this%trajectory
 
       ! Increment time step
       this%t = this%t + this%delta_t
@@ -606,9 +606,9 @@ contains
 !       this%trajectory = this%state
 
 ! Lidia's MATRIX formulation with correct trajectory
-      call buildMprime(this%state,mprime)
-      this%trajectory = this%trajectory + this%delta_t*matmul(transpose(mprime),this%trajectory)
-      this%state=this%state+this%trajectory
+      call buildMprime(this%state, mprime)
+      this%trajectory = this%trajectory + this%delta_t * matmul(transpose(mprime), this%trajectory)
+      this%state = this%state + this%trajectory
 
       ! Increment time step
       this%t = this%t - this%delta_t

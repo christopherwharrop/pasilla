@@ -1,4 +1,8 @@
-&params
+&control
  mthd = 4,
  tim_len = 3,     ! Ignored if method < 3
+/
+
+&parms
+ alph = 0.003,
 /

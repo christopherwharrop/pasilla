@@ -20,7 +20,9 @@ module module_varsolver_l96
   integer          :: tim_len = 3
   integer          :: bkg_len
   integer          :: obs_len
-  namelist /params/  mthd, tim_len
+  real(KIND=8)     :: alph
+  namelist /control/ mthd, tim_len
+  namelist /parms/  alph
 
 contains
 
@@ -35,7 +37,8 @@ contains
     print *,"GET_METHOD"
 
     ! Read namelists from stdin
-    read(stdin,nml=params)
+    read(stdin,nml=control)
+    read(stdin,nml=parms)
 
     print *,"METHOD = ",mthd
 
@@ -481,7 +484,7 @@ contains
     real(KIND=8)                :: jvc_two(1,1)
     real(KIND=8)                :: jvc_the(1,1)
     integer                     :: i,j,t,nitr,mxit
-    real(KIND=8)                :: jold,jnew,jthr,alph,B,Q 
+    real(KIND=8)                :: jold,jnew,jthr,B,Q 
     real(KIND=8), allocatable   :: jtim(:) 
     integer                     :: nthreads, tid
     integer                     :: OMP_GET_NUM_THREADS, OMP_GET_THREAD_NUM
@@ -522,7 +525,6 @@ contains
     jold = 100.0 
     jnew = 0.0
     jthr = 0.01 
-    alph = 0.003
     if(mthd.eq.2) alph=alph*4.7
     if(mthd.eq.4) alph=alph*5.7
 

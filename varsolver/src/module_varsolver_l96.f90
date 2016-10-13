@@ -22,7 +22,10 @@ module module_varsolver_l96
   integer          :: obs_len
   real(KIND=8)     :: alph
   namelist /control/ mthd, tim_len
-  namelist /parms/  alph
+  namelist /method1/  alph
+  namelist /method2/  alph
+  namelist /method3/  alph
+  namelist /method4/  alph
 
 contains
 
@@ -38,9 +41,23 @@ contains
 
     ! Read namelists from stdin
     read(stdin,nml=control)
-    read(stdin,nml=parms)
+
+    select case (mthd)
+      case(1)
+        read(stdin,nml=method1)
+      case(2)
+        read(stdin,nml=method2)
+      case(3)
+        read(stdin,nml=method3)
+      case(4)
+        read(stdin,nml=method4)
+      case DEFAULT
+        write(*,'(A,A,A)') 'ERROR: method "',mthd,'" is not supported!'
+        stop
+    end select
 
     print *,"METHOD = ",mthd
+    print *,"ALPH = ",alph
 
     ! Force tim_len=1 for 3DVAR
     if(mthd.le.2) tim_len=1
@@ -92,7 +109,7 @@ contains
              jj=i+j
              if(jj.gt.bkg_len) jj=jj-bkg_len
              if(jj.lt.1) jj=bkg_len+jj
-             bkg_cov(t,i,jj)=var*exp(-((float(j)*1.000)**2))
+             bkg_cov(t,i,jj)=var*exp(-((float(j)*1.200)**2))
           end do
        end do
     end do
@@ -525,8 +542,6 @@ contains
     jold = 100.0 
     jnew = 0.0
     jthr = 0.01 
-    if(mthd.eq.2) alph=alph*4.7
-    if(mthd.eq.4) alph=alph*5.7
 
 !   PARAMETERS FOR MODEL ERROR - ALSO SHOULD BE FROM NAMELIST
 !   B = RATIO OF B/B = 1.0  

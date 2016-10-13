@@ -3,6 +3,18 @@
  tim_len = 3,     ! Ignored if method < 3
 /
 
-&parms
- alph = 0.003,
+&method1
+ alph = 0.020
+/
+
+&method2
+ alph = 0.015,
+/
+
+&method3
+ alph = 0.006,
+/
+
+&method4
+ alph = 0.028,
 /

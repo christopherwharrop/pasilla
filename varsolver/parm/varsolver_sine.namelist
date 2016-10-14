@@ -1,0 +1,24 @@
+&control
+ mthd = 3,
+ tim_len = 3,     ! Ignored if method < 3
+/
+
+&method1
+ alph = 0.000235,
+ sigma = 0.005,
+/
+
+&method2
+ alph = 0.00005,
+ sigma = 0.005,
+/
+
+&method3
+ alph = 0.00005,
+ sigma = 0.005,
+/
+
+&method4
+ alph = 0.000235,
+ sigma = 0.005,
+/

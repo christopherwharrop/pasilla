@@ -706,9 +706,15 @@ contains
     real(KIND=8), intent(in)    :: anl_vec(:,:) 
     real(KIND=8), intent(in)    :: bkg_vec(:,:) 
     integer, intent(in)         :: bkg_tim(:)
-    integer                     :: i,t
+    integer                     :: i,t,ierr
+    type(lorenz96_type)         :: model
+
     print *,"PUT_ANL_VEC"
 
+    ! Write new analysis to model output file
+    model=lorenz96_type(2,"NETCDF")
+    model%state = anl_vec(2,:)
+    ierr = model%write_model_state("NETCDF")
 
 40  FORMAT(A8,2I5,3F10.4)
     do t=1,tim_len

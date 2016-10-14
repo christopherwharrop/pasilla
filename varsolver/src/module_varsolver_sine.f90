@@ -20,7 +20,13 @@ module module_varsolver
   integer          :: tim_len = 3
   integer          :: bkg_len
   integer          :: obs_len
-  namelist /params/  mthd, tim_len
+  real(KIND=8)     :: alph
+  real(KIND=8)     :: sigma
+  namelist /control/ mthd, tim_len
+  namelist /method1/  alph, sigma
+  namelist /method2/  alph, sigma
+  namelist /method3/  alph, sigma
+  namelist /method4/  alph, sigma
 
 contains
 
@@ -35,9 +41,25 @@ contains
     print *,"GET_METHOD"
 
     ! Read namelists from stdin
-    read(stdin,nml=params)
+    read(stdin,nml=control)
+
+    select case (mthd)
+      case(1)
+        read(stdin,nml=method1)
+      case(2)
+        read(stdin,nml=method2)
+      case(3)
+        read(stdin,nml=method3)
+      case(4)
+        read(stdin,nml=method4)
+      case DEFAULT
+        write(*,'(A,A,A)') 'ERROR: method "',mthd,'" is not supported!'
+        stop
+    end select
 
     print *,"METHOD = ",mthd
+    print *,"ALPH = ",alph
+    print *,"SIGMA = ",sigma
 
     ! Force tim_len=1 for 3DVAR
     if(mthd.le.2) tim_len=1
@@ -89,7 +111,7 @@ contains
              jj=i+j
              if(jj.gt.bkg_len) jj=jj-bkg_len
              if(jj.lt.1) jj=bkg_len+jj
-             bkg_cov(t,i,jj)=var*exp(-((float(j)*0.005)**2))
+             bkg_cov(t,i,jj)=var*exp(-((float(j)*sigma)**2))
           end do
        end do
     end do
@@ -481,7 +503,7 @@ contains
     real(KIND=8)                :: jvc_two(1,1)
     real(KIND=8)                :: jvc_the(1,1)
     integer                     :: i,j,t,nitr,mxit
-    real(KIND=8)                :: jold,jnew,jthr,alph,B,Q 
+    real(KIND=8)                :: jold,jnew,jthr,B,Q 
     real(KIND=8), allocatable   :: jtim(:) 
     integer                     :: nthreads, tid
     integer                     :: OMP_GET_NUM_THREADS, OMP_GET_THREAD_NUM
@@ -520,9 +542,6 @@ contains
     jold = 100.0 
     jnew = 0.0
     jthr = 0.01 
-    alph = 0.00005
-    if(mthd.eq.4) alph=alph*4.7
-    if(mthd.eq.1) alph=alph*4.7
 
 !   PARAMETERS FOR MODEL ERROR - ALSO SHOULD BE FROM NAMELIST
 !   B = RATIO OF B/B = 1.0  
@@ -676,9 +695,15 @@ contains
     real(KIND=8), intent(in)    :: anl_vec(:,:) 
     real(KIND=8), intent(in)    :: bkg_vec(:,:) 
     integer, intent(in)         :: bkg_tim(:)
-    integer                     :: i,t
+    integer                     :: i,t,ierr
+    type(sine_type)             :: model
+
     print *,"PUT_ANL_VEC"
 
+    ! Write new analysis to model output file
+    model=sine_type(2,"NETCDF")
+    model%state = anl_vec(2,:)
+    ierr = model%write_model_state("NETCDF")
 
 40  FORMAT(A8,2I5,3F10.4)
     do t=1,tim_len

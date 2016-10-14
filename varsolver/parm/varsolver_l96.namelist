@@ -1,5 +1,5 @@
 &control
- mthd = 4,
+ mthd = 3,
  tim_len = 3,     ! Ignored if method < 3
 /
 

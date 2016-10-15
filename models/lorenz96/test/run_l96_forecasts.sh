@@ -142,9 +142,9 @@ while [ $f -le $end_fcst ]; do
   done # for method
 
   # Testing/debugging exit
-  if [ $f -gt $start_fcst ]; then
-    exit
-  fi
+#  if [ $f -gt $start_fcst ]; then
+#    exit
+#  fi
 
   # Increment forecast analysis time
   (( f = $f + $fcst_interval ))

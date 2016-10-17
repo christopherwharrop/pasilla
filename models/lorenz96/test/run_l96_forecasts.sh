@@ -22,7 +22,9 @@ BASE_DIR=/scratch4/BMC/nim/Christopher.W.Harrop/pasilla.dev/models/lorenz96/test
 
 # Set model parameters
 lorenz96_forcing=8.1
+lorenz96_delta_t=0.000833
 start_offset=30
+
 
 one_hour=10                      # There are 10 steps in one "hour"
 (( fcst_length=78*$one_hour ))   # Forecast lead time = 78 "hours"
@@ -131,6 +133,7 @@ while [ $f -le $end_fcst ]; do
     # Copy the namelist and set it up
     cp $LORENZ96_DIR/parm/lorenz96.namelist .    
     sed -i "s/forcing = [^[:blank:]]*,/forcing = ${lorenz96_forcing},/" lorenz96.namelist
+    sed -i "s/delta_t = [^[:blank:]]*,/delta_t = ${lorenz96_delta_t},/" lorenz96.namelist
     sed -i "s/start_step = [^[:blank:]]*,/start_step = ${f},/" lorenz96.namelist
     sed -i "s/run_steps = [^[:blank:]]*,/run_steps = ${fcst_length},/" lorenz96.namelist
     sed -i "s/output_interval_steps = [^[:blank:]]*,/output_interval_steps = 10,/" lorenz96.namelist

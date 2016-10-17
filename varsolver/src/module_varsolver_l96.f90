@@ -713,7 +713,11 @@ contains
 
     ! Write new analysis to model output file
     model=lorenz96_type(2,"NETCDF")
-    model%state = anl_vec(2,:)
+    if (mthd.le.2) then
+      model%state = anl_vec(1,:)
+    else
+      model%state = anl_vec(2,:)
+    end if
     ierr = model%write_model_state("NETCDF")
 
 40  FORMAT(A8,2I5,3F10.4)

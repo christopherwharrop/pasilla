@@ -1054,7 +1054,7 @@ contains
     ierr = 0
 
     ! Calculate name of file based on time step requested
-    write(filename,'(A,I0.7,A)') 'sineout_', read_step, '.nc'
+    write(filename,'(A,I0.7,A)') 'lorenz96out_', read_step, '.nc'
 
     ! Read the model header
     ierr = netcdf_read_model_header(read_step, size, forcing, delta_t, t, step)

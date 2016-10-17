@@ -37,7 +37,8 @@ program lorenz96Model
 
   ! Read initial model state from previous output file if start_t is not 0
   if (start_step /= 0 ) then
-    ierr = L96%read_model_state(start_step, io_format)
+!    ierr = L96%read_model_state(start_step, io_format)
+    L96 = lorenz96_type(start_step, io_format)
   end if
 
   ! Write out initial model state

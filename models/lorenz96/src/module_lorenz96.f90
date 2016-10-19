@@ -659,7 +659,7 @@ contains
 
     integer :: x,n
 
-    mmod=mod(x,n)
+    mmod=modulo(x,n)
     if (mmod==0) mmod=n
 
   end function mmod

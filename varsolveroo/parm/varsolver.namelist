@@ -1,6 +1,24 @@
-&params
- mthd = 4,
+&control
+ mthd = 3,
  tim_len = 3,     ! Ignored if method < 3
- bkg_len = 4000, 
- obs_len = 20
+/
+
+&method1
+ alph = 0.020,
+ sigma = 1.20,
+/
+
+&method2
+ alph = 0.015,
+ sigma = 1.20,
+/
+
+&method3
+ alph = 0.006,
+ sigma = 1.20,
+/
+
+&method4
+ alph = 0.028,
+ sigma = 1.20,
 /

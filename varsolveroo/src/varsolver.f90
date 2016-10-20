@@ -11,6 +11,8 @@ program adept
   use observation_covariance, only : Observation_Covariance_Type
   use innovation_vector, only      : Innovation_Vector_Type
   use observation_operator, only   : Observation_Operator_Type
+  use model, only                  : model_type
+  use lorenz96, only               : lorenz96_type, lorenz96_TL_type, lorenz96_ADJ_type
 
   implicit none
 
@@ -28,6 +30,8 @@ program adept
   real(KIND=8)                 ::      jvc_for(1,1)
   real                         ::      ret 
 
+  integer :: t,i
+
   ! BJE
   ! INITIALIZE GPTL AND START A TIMER
   ret = gptlsetutr (gptlnanotime)
@@ -43,13 +47,13 @@ program adept
   ! OBTAIN THE OBSERATIONS, Y, AND THE BACKGROUND, Xb 
 
   ! Initialize a background object, Xb
-  bkg = Background_Type(bkg_len, tim_len, mthd)
+  bkg = Background_Type(tim_len, mthd)
 
   ! OBTAIN THE B(1/2) MATRIX - FOR PRE CONDITIONING
-  bkg_cov = Background_Covariance_Type(bkg, tim_len)
+  bkg_cov = Background_Covariance_Type(bkg, tim_len, sigma)
 
   ! Initialize observations object, Y
-  obs = Observations_Type(obs_len, mthd)
+  obs = Observations_Type(mthd)
 
   ! OBTAIN THE COVARIANCE MATRIX R - OBS ERROR
   ! SOMEDAY WILL COME TO US FROM THE UFO
@@ -63,11 +67,11 @@ program adept
 
   ! BJE
   ! KNOWING THE NUMBERS, ALLOCATE VECTORS/MATRICIES (ARRAYS) ACCORTINGLY
-  allocate (hrh_cov(tim_len, bkg_len, bkg_len))
-  allocate (brh_cov(tim_len, bkg_len, bkg_len))
-  allocate (anl_vec(tim_len, bkg_len))
-  allocate (bht_ino(tim_len, bkg_len, 1))
-  allocate (htr_ino(tim_len, bkg_len, 1))
+  allocate (hrh_cov(tim_len, bkg%npoints, bkg%npoints))
+  allocate (brh_cov(tim_len, bkg%npoints, bkg%npoints))
+  allocate (anl_vec(tim_len, bkg%npoints))
+  allocate (bht_ino(tim_len, bkg%npoints, 1))
+  allocate (htr_ino(tim_len, bkg%npoints, 1))
 
   ! BJE
   ! GET THE NEEDED REUSED MATRIX PRODUCTS:
@@ -81,7 +85,9 @@ program adept
 
   ! BJE
   ! THE MAIN EVENT - THE SOLVER
-  call var_solver(bkg_cov, hrh_cov, brh_cov, htr_ino, bht_ino, jvc_for, bkg, anl_vec)
+  call var_solver(bkg_cov, hrh_cov, brh_cov, htr_ino, bht_ino, jvc_for, bkg,     anl_vec, mthd)
+!  call var_solver(bkg_cov, hrh_cov, brh_cov, htr_ino, bht_ino, jvc_for, bkg_vec, anl_vec, fwmod_vec, bwmod_vec)
+
 
   ! BJE
   ! OUTPUT THE NEW ANALYSIS

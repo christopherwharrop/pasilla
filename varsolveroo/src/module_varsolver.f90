@@ -11,6 +11,7 @@ module varsolver
   use observation_covariance, only : Observation_Covariance_Type
   use innovation_vector, only      : Innovation_Vector_Type
   use observation_operator, only   : Observation_Operator_Type
+  use lorenz96, only               : lorenz96_type, lorenz96_TL_type, lorenz96_ADJ_type
 
   ! Get unit numbers for stdin, stdout, stderr in a portable way
   use, intrinsic :: iso_fortran_env, only : stdin=>input_unit, &
@@ -22,9 +23,14 @@ module varsolver
   ! Define namelists and default values
   integer          :: mthd  = 4
   integer          :: tim_len = 3
-  integer          :: bkg_len = 4000
-  integer          :: obs_len = 20
-  namelist /params/  mthd, bkg_len, tim_len, obs_len
+  real(KIND=8)     :: alph
+  real(KIND=8)     :: sigma
+  namelist /control/ mthd, tim_len
+  namelist /method1/  alph, sigma
+  namelist /method2/  alph, sigma
+  namelist /method3/  alph, sigma
+  namelist /method4/  alph, sigma
+
 
 contains
 
@@ -39,9 +45,25 @@ contains
     print *,"GET_METHOD"
 
     ! Read namelists from stdin
-    read(stdin,nml=params)
+    read(stdin,nml=control)
+
+    select case (mthd)
+      case(1)
+        read(stdin,nml=method1)
+      case(2)
+        read(stdin,nml=method2)
+      case(3)
+        read(stdin,nml=method3)
+      case(4)
+        read(stdin,nml=method4)
+      case DEFAULT
+        write(*,'(A,A,A)') 'ERROR: method "',mthd,'" is not supported!'
+        stop
+    end select
 
     print *,"METHOD = ",mthd
+    print *,"ALPH = ",alph
+    print *,"SIGMA = ",sigma
 
     ! Force tim_len=1 for 3DVAR
     if(mthd.le.2) tim_len=1
@@ -64,7 +86,10 @@ contains
     integer                     :: i,j,jj,rad,info 
     integer, allocatable        :: ipiv(:)
     real(KIND=8)                :: var
+    integer                     :: bkg_len
     print *,"PRE_CON_DIF"
+
+    bkg_len=size(bkg_cov,2)
 
     allocate (ipiv(bkg_len))
     allocate (con_vec(bkg_len,1))
@@ -102,7 +127,8 @@ contains
     real(KIND=8), intent(inout) :: bht_ino(:,:,:)
     real(KIND=8), intent(inout) :: jvc_for(:,:) 
 
-    integer                     :: i,j,t 
+    integer :: i,j,t
+    integer :: bkg_len, obs_len
 
     real(KIND=8), allocatable   :: tmp_mat(:,:)
     real(KIND=8), allocatable   :: tmp_vec(:,:)
@@ -120,28 +146,31 @@ contains
     real(KIND=8), allocatable   :: tmp_hrr(:,:)
     print *, "PRE_SOLVER"
 
-    allocate (tmp_mat(bkg_len,bkg_len))
+    obs_len=size(obs_cov%covariance,2)
+    bkg_len=size(bkg_cov%covariance,2)
+
+    allocate (tmp_mat(bkg_len, bkg_len))
     allocate (tmp_vec(bkg_len,      1))
 
-    allocate (tim_bkc(bkg_len,bkg_len))
-    allocate (tim_obc(obs_len,obs_len))
-    allocate (tim_hrh(bkg_len,bkg_len))
-    allocate (tim_opr(obs_len,bkg_len))
+    allocate (tim_bkc(bkg_len, bkg_len))
+    allocate (tim_obc(obs_len, obs_len))
+    allocate (tim_hrh(bkg_len, bkg_len))
+    allocate (tim_opr(obs_len, bkg_len))
     allocate (tim_htr(bkg_len,      1))
 
     allocate (obs_vvc(obs_len,      1))
     allocate (tmp_jfo(obs_len,      1))
-    allocate (obs_opt(bkg_len,obs_len))
-    allocate (tmp_rhh(obs_len,bkg_len))
-    allocate (tmp_hrr(bkg_len,obs_len))
+    allocate (obs_opt(bkg_len, obs_len))
+    allocate (tmp_rhh(obs_len, bkg_len))
+    allocate (tmp_hrr(bkg_len, obs_len))
 
-    jvc_for(1,1)=0.0
-    do t=1,tim_len
+    jvc_for(1,1) = 0.0
+    do t = 1, tim_len
        ! ASSUME THAT OBS_OPR=H, OBS_COV=R(-1/2), BKG_COV=B(1/2), OBS_VEC=(Y-HXb)
-       tim_opr(:,:)=obs_opr%operator(t,:,:)
-       tim_obc(:,:)=obs_cov%covariance(t,:,:)
-       tim_bkc(:,:)=bkg_cov%covariance(t,:,:)
-       obs_vvc(:,1)=inno_vec%value(:)
+       tim_opr(:,:) = obs_opr%operator(t,:,:)
+       tim_obc(:,:) = obs_cov%covariance(t,:,:)
+       tim_bkc(:,:) = bkg_cov%covariance(t,:,:)
+       obs_vvc(:,1) = inno_vec%value(:)
 
        ! CREATE THE OBS BASED MATRICES, FOR USE IN CALCULATING THE COST FUNCTION
        ! tim_hrh=H(T)R(-1)H, tim_htr=R(-1)H
@@ -154,7 +183,7 @@ contains
 
       ! CREATE COST FUNCTION TERM (Y-HXb)R(-1)(Y-HXb), A CONSTANT
        call dgemv("N", obs_len, obs_len, 1.d0, tim_obc, obs_len, obs_vvc, 1, 0.d0, tmp_jfo, 1)
-       do i=1,obs_len                        ! CREATE (Y-HXb)(T)R(-1)(Y-HXb)
+       do i = 1, obs_len                        ! CREATE (Y-HXb)(T)R(-1)(Y-HXb)
           jvc_for(1,1) = jvc_for(1,1) + tmp_jfo(i,1) * tmp_jfo(i,1)
        end do
 
@@ -220,7 +249,7 @@ contains
   ! GRADJ = D(1/2)* [   V
   !                  + BRH*(X-Xb)
   !                  - BHT        ]
-  subroutine var_solver(bkg_cov, hrh_cov, brh_cov, htr_ino, bht_ino, jvc_for, bkg, anl_vec)
+  subroutine var_solver(bkg_cov, hrh_cov, brh_cov, htr_ino, bht_ino, jvc_for, bkg, anl_vec, mthd)
 
     class(Background_Covariance_Type), intent(in)    :: bkg_cov
     real(KIND=8), intent(in)    :: hrh_cov(:,:,:)
@@ -230,6 +259,7 @@ contains
     real(KIND=8), intent(in)    :: jvc_for(:,:)
     class(Background_Type)      :: bkg
     real(KIND=8), intent(inout) :: anl_vec(:,:)
+    integer, intent(in)         :: mthd
 
     real(KIND=8), allocatable   :: tim_htr(:,:)
     real(KIND=8), allocatable   :: tim_bkc(:,:)
@@ -255,10 +285,18 @@ contains
     real(KIND=8)                :: jvc_two(1,1)
     real(KIND=8)                :: jvc_the(1,1)
     integer                     :: i, j, t, nitr, mxit
-    real(KIND=8)                :: jold, jnew, jthr, alph, B, Q
+    real(KIND=8)                :: jold, jnew, jthr, B, Q
     real(KIND=8), allocatable   :: jtim(:) 
     integer                     :: nthreads, tid
     integer                     :: OMP_GET_NUM_THREADS, OMP_GET_THREAD_NUM
+    integer                     :: bkg_len
+    type(lorenz96_TL_type),  allocatable :: fwmod_vec(:)
+    type(lorenz96_ADJ_type), allocatable :: bwmod_vec(:)
+    type(lorenz96_type), allocatable :: model(:)
+    type(lorenz96_TL_type)           :: model_TL
+    type(lorenz96_ADJ_type)          :: model_ADJ
+
+    bkg_len=size(bkg_cov%covariance,2)
 
     allocate (jtim(tim_len))
     allocate (tim_htr(bkg_len,      1))
@@ -281,15 +319,36 @@ contains
     allocate (tmp_vvc(bkg_len,      1))
     allocate (grd_jvc(bkg_len,      1))
 
+
+    ! Allocate/initialize fw and bw models if we are doing 4DVar
+    if (mthd >= 3) then
+      ! Allocate the arrays to hold fw and bw models
+      allocate(model(tim_len))
+      allocate (fwmod_vec(2:tim_len))
+      allocate (bwmod_vec(1:tim_len-1))
+
+      ! Initialize a real model for use in calculating trajectories
+      do t=1,tim_len
+        model(t) = lorenz96_type(t,'NETCDF')
+      end do
+
+      ! Load fw models
+      do t=2,tim_len
+         fwmod_vec(t) = lorenz96_TL_type(t-1, "NETCDF")
+      end do
+
+      ! Load bw models
+      do t=1,tim_len-1
+         bwmod_vec(t) = lorenz96_ADJ_type(t+1, "NETCDF")
+      end do
+    end if
+
 !   PARAMETERS FOR VAR - SHOULD BE FROM NAMELIST
     nitr = 0
     mxit = 50
     jold = 100.0 
     jnew = 0.0
     jthr = 0.01 
-    alph = 0.00005
-    if(mthd.eq.4) alph=alph*4.7
-    if(mthd.eq.1) alph=alph*4.7
 
 !   PARAMETERS FOR MODEL ERROR - ALSO SHOULD BE FROM NAMELIST
 !   B = RATIO OF B/B = 1.0
@@ -313,7 +372,8 @@ contains
 
        new_vec(:,:)=0.0
        tlm_vec=anl_vec
-!$OMP PARALLEL SHARED (bkg_cov,htr_ino,hrh_cov,bkg,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q) DEFAULT(PRIVATE)
+
+!$OMP PARALLEL SHARED (bkg_cov,htr_ino,hrh_cov,bkg,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,fwmod_vec,model) DEFAULT(PRIVATE)
 !$OMP DO
        do t=1,tim_len
           tid=OMP_GET_THREAD_NUM()
@@ -324,12 +384,18 @@ contains
 
           if(t.eq.1) then
 !            FOR THE FIRST TIME STEP, THERE IS NO PRIOR FIELD TO PROPAGATE
-                  mdl_vec(:,1)=tlm_vec(t,:)
+             mdl_vec(:,1)=tlm_vec(t,:)
              if (mthd.eq.4) new_vec(t,:)=mdl_vec(:,1)
           else
 !            RUN THE FORWARD MODEL FOR ALL STEPS AFTER THE FIRST
-                  mdl_vec(:,1)=tlm_vec(t-1,:)
-             call forward_model(mdl_vec,t-1,1)
+             mdl_vec(:,1)=tlm_vec(t-1,:)
+             model_TL=fwmod_vec(t)
+             model_TL%state(:) = mdl_vec(:,1)
+             model(t)%state = model_TL%state
+             call model(t)%adv_nsteps(1)
+             model_TL%trajectory = model(t)%state - model_TL%state
+             call model_TL%adv_nsteps(10)
+             mdl_vec(:,1) = model_TL%state
              if (mthd.eq.4) new_vec(t,:)=mdl_vec(:,1)
              if (mthd.ne.4) tlm_vec(t,:)=mdl_vec(:,1)
           end if
@@ -364,7 +430,7 @@ contains
        jnew=jnew+jvc_for(1,1)
        new_vec(:,:)=0.0
 
-!$OMP PARALLEL SHARED (bht_ino,bkg_cov,brh_cov,bkg,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q) DEFAULT(PRIVATE)
+!$OMP PARALLEL SHARED (bht_ino,bkg_cov,brh_cov,bkg,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q,bwmod_vec,model) DEFAULT(PRIVATE)
 !$OMP DO
        !   CALCULATE GRAD-J IN REVERSE TEMPORAL ORDER 
        do t=tim_len,1,-1
@@ -382,7 +448,13 @@ contains
              !     FOR ALL OTHER TIME STEPS - ADJOINT NEEDED
              if (mthd.eq.3) mdl_vec(:,1)=tlm_vec(t+1,:)
              if (mthd.eq.4) mdl_vec(:,1)=anl_vec(t+1,:)
-             call backward_model(mdl_vec,t+1,1)
+             model_ADJ = bwmod_vec(t)
+             model_ADJ%state(:) = mdl_vec(:,1)
+             model(t)%state = model_ADJ%state
+             call model(t)%adv_nsteps(1)
+             model_ADJ%trajectory(:) = -(model(t)%state - model_ADJ%state)
+             call model_ADJ%adv_nsteps(10)
+             mdl_vec(:,1) = model_ADJ%state
           end if
 
 !         CHOOSE THE FIRST GUESS FIELD
@@ -431,19 +503,29 @@ contains
     real(KIND=8), intent(in)    :: anl_vec(:,:) 
     class(Background_Type)      :: bkg
 
-    integer                     :: i, t
+    integer                     :: i, t, ierr
+    type(lorenz96_type)         :: model
+
     print *,"PUT_ANL_VEC"
 
+    ! Write new analysis to model output file
+    model=lorenz96_type(2,"NETCDF")
+    if (mthd.le.2) then
+      model%state = anl_vec(1,:)
+    else
+      model%state = anl_vec(2,:)
+    end if
+    ierr = model%write_model_state("NETCDF")
 
 40  FORMAT(A8,2I5,3F10.4)
     do t=1,tim_len
-       do i=1,bkg_len
+       do i=1,bkg%npoints
 !         FOR 3DVAR
           if(mthd.le.2) then
-                  write(*,40) "FIN",2,i,anl_vec(t,i),bkg%state(t,i),50.0+50.0*sin(((20.0*float(2-1)+float(i))/1000.0)*PI)
-                    else
+             write(*,40) "FIN",2,i,anl_vec(t,i),bkg%state(t,i),50.0+50.0*sin(((20.0*float(2-1)+float(i))/1000.0)*PI)
+          else
              write(*,40) "FIN",t,i,anl_vec(t,i),bkg%state(t,i),50.0+50.0*sin(((20.0*float(t-1)+float(i))/1000.0)*PI)
-               end if
+          end if
        end do
     end do
 
@@ -462,7 +544,7 @@ contains
     print *,"FORWARD MODEL"
 
 35  FORMAT (A4,3I4,2F10.5)
-    do i=1,bkg_len
+    do i=1,size(mod_vec)
        mod_vec(i,1)=mod_vec(i,1)+PI*cos(((20.0*(float(t)-1.5)+float(i))/1000.0)*PI)*float(steps)
     end do
 
@@ -482,7 +564,7 @@ contains
     print *,"BACKWARD_MODEL"
 
 35  FORMAT (A4,3I4,2F10.5)
-    do i=1,bkg_len
+    do i=1,size(mod_vec)
        mod_vec(i,1)=mod_vec(i,1)-PI*cos(((20.0*(float(t)-2.5)+float(i))/1000.0)*PI)*float(steps)
     end do
 

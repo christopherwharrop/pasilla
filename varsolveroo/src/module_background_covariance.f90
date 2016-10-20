@@ -32,10 +32,11 @@ contains
   !
   ! Returns an initialized Background_Covariance
   !------------------------------------------------------------------
-  type(Background_Covariance_Type) function constructor(background, ntimes)
+  type(Background_Covariance_Type) function constructor(background, ntimes, sigma)
 
     class(Background_Type), intent(in) :: background
     integer, intent(in) :: ntimes
+    real(r8kind), intent(in) :: sigma
 
     real(r8kind) :: var
     integer :: t, i, j, jj, rad 
@@ -58,7 +59,7 @@ contains
              jj = i + j
              if (jj > background%npoints) jj = jj - background%npoints
              if (jj < 1) jj = background%npoints + jj
-             constructor%covariance(t, i, jj) = var * exp(-((float(j) * 0.005)**2))
+             constructor%covariance(t, i, jj) = var * exp(-((float(j) * sigma)**2))
           end do
        end do
     end do

@@ -32,44 +32,34 @@ contains
   !
   ! Returns an initialized Observations
   !------------------------------------------------------------------
-  type(Observations_Type) function constructor(nobs, method)
+  type(Observations_Type) function constructor(method)
 
-    integer, intent(in) :: nobs
     integer, intent(in) :: method
 
-    integer :: i, mod
+    integer            :: i
+    character(len=128) :: filename   ! name of output file
+    integer            :: fileunit
 
-    constructor%nobs = nobs
+
+    ! Construct name of obs input file
+    write(filename, '(A,I1,A)') 'lorenz96obs_', method, '.txt'
+
+    ! Open the output csv file
+    open(newunit=fileunit, file=trim(filename), form='formatted', status='old')
+
+    ! Read the number of obs
+    read(fileunit, '(I)') constructor%nobs
 
     ! Allocate object arrays
-    allocate(constructor%value(nobs))
-    allocate(constructor%position(nobs))
-    allocate(constructor%time(nobs))
+    allocate(constructor%value(constructor%nobs))
+    allocate(constructor%position(constructor%nobs))
+    allocate(constructor%time(constructor%nobs))
 
-    do i = 1, nobs
-
-        mod = modulo(i, 8)
-        constructor%time(i) = 2
-        constructor%position(i) = i * 200
-
-        if (mod .gt. 3) then
-            constructor%time(i) = 1
-            constructor%position(i) = i * 200 - 35
-        end if
-        if (mod .gt. 5) then
-            constructor%time(i) = 3
-            constructor%position(i) = i * 200 - 75
-        end if
-
-        ! FOR MATCHED 3DVAR
-        if (method .eq. 2) constructor%time(i) = 2
-
-        constructor%value(i) = 50.0 + 50.0 * sin(((20.0 * float(constructor%time(i) - 1) + float(constructor%position(i))) / 1000.0) * PI)
-
-        ! FOR 3DVAR
-        if (method .le. 2) constructor%time(i) = 1
-
+    do i=1,constructor%nobs
+      read(fileunit, '(2I,F)') constructor%time(i), constructor%position(i), constructor%value(i)
     end do
+
+    close(fileunit)
 
   end function
 

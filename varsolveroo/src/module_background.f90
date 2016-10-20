@@ -1,7 +1,8 @@
 module background
 
-  use kind, only      : r8kind
+  use kind, only             : r8kind
   use module_constants, only : PI
+  use lorenz96, only         : lorenz96_type
 
   implicit none
 
@@ -18,7 +19,7 @@ module background
       integer, allocatable, public      :: time(:)
 ! instance variable
   contains
-      final              :: destructor
+      final :: destructor
 ! methods
   end type Background_Type
 
@@ -33,30 +34,32 @@ contains
   !
   ! Returns an initialized Background
   !------------------------------------------------------------------
-  type(Background_Type) function constructor(npoints, ntimes, method)
+  type(Background_Type) function constructor(ntimes, method)
 
-    integer, intent(in) :: npoints
     integer, intent(in) :: ntimes
     integer, intent(in) :: method
 
-    integer :: i, t, tt
+    type(lorenz96_type) :: model
+    integer             :: i, t, tt
 
-    constructor%npoints = npoints
     constructor%ntimes = ntimes
 
-    ! Allocate object arrays
-    allocate (constructor%state(ntimes,npoints))
-    allocate (constructor%position(ntimes,npoints))
+    ! Allocate time array
     allocate (constructor%time(ntimes))
 
+    ! Read in model background for each time
     do t = 1, ntimes
        constructor%time(t) = t
        tt = t
        if (method .le. 2) tt = 2
-       do i = 1, npoints
-          constructor%position(t,i) = i
-          constructor%state(t,i) = 50.0 + 50.0 * sin(((20.0 * float(tt - 2) + float(i)) / 1000.0) * PI)
-       end do
+       model = lorenz96_type(tt, "NETCDF")
+       if (t==1) then
+         constructor%npoints = model%size
+         allocate (constructor%state(ntimes, model%size))
+         allocate (constructor%position(ntimes, model%size))
+       end if
+       constructor%position(t,:) = model%location(:)
+       constructor%state(t,:) = model%state(:)
     end do
 
   end function

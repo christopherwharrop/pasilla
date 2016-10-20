@@ -12,8 +12,8 @@ OBJS=module_varsolver.o \
      module_innovation_vector.o \
      module_observation_operator.o
 
-varsolver.exe: varsolver.f90 $(OBJS)
-	$(FC) -o varsolver.exe varsolver.f90 $(OBJS) $(FFLAGS) $(LAPACK) $(INCLUDES) $(LIBS)
+varsolver_l96.exe: varsolver.f90 $(OBJS)
+	$(FC) -o varsolver_l96.exe varsolver.f90 $(OBJS) $(FFLAGS) $(LAPACK) $(INCLUDES) $(LIBS)
 
 module_varsolver.o: module_varsolver.f90 module_background.o module_observations.o module_background_covariance.o module_observation_covariance.o module_innovation_vector.o module_observation_operator.o
 	$(FC) -c module_varsolver.f90 $(FFLAGS) $(GPTLFLAGS) $(INCLUDES)

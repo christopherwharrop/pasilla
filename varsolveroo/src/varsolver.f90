@@ -60,13 +60,13 @@ program adept
   inno_vec = Innovation_Vector_Type(bkg, obs)
 
   ! Initialize a solver
-  varsolver = Solver_Type(bkg, cfg)
+  varsolver = Solver_Type(cfg)
 
   ! THE MAIN EVENT - THE SOLVER
   call varsolver%solve(bkg, bkg_cov, obs_cov, obs_opr, inno_vec, cfg)
 
   ! OUTPUT THE NEW ANALYSIS
-  call varsolver%put_anl_vec(bkg, cfg)
+  call varsolver%put_anl_vec()
 
   ! BJE
   ! END THE TIMER AND OUTPUT THE GPTL RESULTS

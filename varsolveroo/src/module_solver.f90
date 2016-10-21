@@ -20,6 +20,7 @@ module solver
     private
     ! instance variables
     integer, public           :: method
+    real(r8kind)              :: alpha
     real(r8kind), allocatable :: hrh_cov(:,:,:)
     real(r8kind), allocatable :: brh_cov(:,:,:)
     real(r8kind), allocatable :: anl_vec(:,:)
@@ -47,18 +48,12 @@ contains
   !
   ! Returns an initialized Solver
   !------------------------------------------------------------------
-  type(Solver_Type) function constructor(bkg, cfg)
+  type(Solver_Type) function constructor(cfg)
 
-    class(Background_Type), intent(in) :: bkg
     class(Config_Type),     intent(in) :: cfg
 
     constructor%method = cfg%method
-
-    allocate (constructor%hrh_cov(bkg%ntimes, bkg%npoints, bkg%npoints))
-    allocate (constructor%brh_cov(bkg%ntimes, bkg%npoints, bkg%npoints))
-    allocate (constructor%anl_vec(bkg%ntimes, bkg%npoints))
-    allocate (constructor%bht_ino(bkg%ntimes, bkg%npoints, 1))
-    allocate (constructor%htr_ino(bkg%ntimes, bkg%npoints, 1))
+    constructor%alpha = cfg%alpha
 
   end function
 
@@ -300,6 +295,13 @@ contains
     type(lorenz96_TL_type)               :: model_TL
     type(lorenz96_ADJ_type)              :: model_ADJ
 
+    ! Allocate space for reused matrices
+    allocate (this%hrh_cov(bkg%ntimes, bkg%npoints, bkg%npoints))
+    allocate (this%brh_cov(bkg%ntimes, bkg%npoints, bkg%npoints))
+    allocate (this%anl_vec(bkg%ntimes, bkg%npoints))
+    allocate (this%bht_ino(bkg%ntimes, bkg%npoints, 1))
+    allocate (this%htr_ino(bkg%ntimes, bkg%npoints, 1))
+
     ! GET THE NEEDED REUSED MATRIX PRODUCTS:
     !        H(T)R(-1)(Y-HXb) = htr_ino
     !        H(T)R(-1)H       = hrh_cov
@@ -339,7 +341,7 @@ contains
 
 
     ! Allocate/initialize fw and bw models if we are doing 4DVar
-    if (cfg%method >= 3) then
+    if (this%method >= 3) then
       ! Allocate the arrays to hold fw and bw models
       allocate(model(tim_len))
       allocate (fwmod_vec(2:tim_len))
@@ -376,7 +378,7 @@ contains
     print *, "SOLVER"
 
     ! IF 3DVAR - NO Q TERM
-    if(cfg%method <= 2) Q = 0.0
+    if(this%method <= 2) Q = 0.0
 
     ! FIRST GUESS IS THE BACKGROUND
     this%anl_vec=bkg%state
@@ -403,7 +405,7 @@ contains
           if(t == 1) then
              ! FOR THE FIRST TIME STEP, THERE IS NO PRIOR FIELD TO PROPAGATE
              mdl_vec(:,1) = tlm_vec(t,:)
-             if (cfg%method == 4) new_vec(t,:) = mdl_vec(:,1)
+             if (this%method == 4) new_vec(t,:) = mdl_vec(:,1)
           else
              ! RUN THE FORWARD MODEL FOR ALL STEPS AFTER THE FIRST
              mdl_vec(:,1) = tlm_vec(t-1,:)
@@ -414,8 +416,8 @@ contains
              model_TL%trajectory = model(t)%state - model_TL%state
              call model_TL%adv_nsteps(10)
              mdl_vec(:,1) = model_TL%state
-             if (cfg%method == 4) new_vec(t,:) = mdl_vec(:,1)
-             if (cfg%method /= 4) tlm_vec(t,:) = mdl_vec(:,1)
+             if (this%method == 4) new_vec(t,:) = mdl_vec(:,1)
+             if (this%method /= 4) tlm_vec(t,:) = mdl_vec(:,1)
           end if
 
           ! CARRY ON WITH THE MINIMIZATION 
@@ -441,7 +443,7 @@ contains
 !$OMP END DO
 !$OMP END PARALLEL
 
-       if(cfg%method == 4) tlm_vec = new_vec
+       if(this%method == 4) tlm_vec = new_vec
        do t = 1, tim_len
           jnew = jnew + jtim(t)
        end do
@@ -460,12 +462,12 @@ contains
           if(t == tim_len) then
             ! FOR THE LAST (OR ONLY) TIME STEP - NO ADJOINT TO RUN
             mdl_vec(:,1) = tlm_vec(t,:)
-            if(cfg%method == 4) mdl_vec(:,1) = 0.5 * (tlm_vec(t,:) + this%anl_vec(t,:))
+            if(this%method == 4) mdl_vec(:,1) = 0.5 * (tlm_vec(t,:) + this%anl_vec(t,:))
           else
              ! THIS ONLY RUNS FOR 4DVAR
              ! FOR ALL OTHER TIME STEPS - ADJOINT NEEDED
-             if (cfg%method == 3) mdl_vec(:,1) = tlm_vec(t+1,:)
-             if (cfg%method == 4) mdl_vec(:,1) = this%anl_vec(t+1,:)
+             if (this%method == 3) mdl_vec(:,1) = tlm_vec(t+1,:)
+             if (this%method == 4) mdl_vec(:,1) = this%anl_vec(t+1,:)
              model_ADJ = bwmod_vec(t)
              model_ADJ%state(:) = mdl_vec(:,1)
              model(t)%state = model_ADJ%state
@@ -476,8 +478,8 @@ contains
           end if
 
           ! CHOOSE THE FIRST GUESS FIELD
-          if(cfg%method /= 4) ges_vec(:,1) = mdl_vec(:,1)
-          if(cfg%method == 4) ges_vec(:,1) = 0.5 * (tlm_vec(t,:) + mdl_vec(:,1))
+          if(this%method /= 4) ges_vec(:,1) = mdl_vec(:,1)
+          if(this%method == 4) ges_vec(:,1) = 0.5 * (tlm_vec(t,:) + mdl_vec(:,1))
 
           ! CALCULATE THE GRADIENT OF THE COST FUNCTION
           ! FIRST - DIFFERENCE BETWEEN FIRST GUESS AND BACKGROUND
@@ -492,14 +494,14 @@ contains
 
           tmp_vec(:,1) = pre_dif(:,1) + tmp_vec(:,1) - tim_htr(:,1)
           grd_jvc = matmul(tim_bkc, tmp_vec)
-          new_vec(t,:) = ges_vec(:,1) - grd_jvc(:,1) * cfg%alpha
+          new_vec(t,:) = ges_vec(:,1) - grd_jvc(:,1) * this%alpha
 
-          if(cfg%method /= 4) tlm_vec(t,:) = new_vec(t,:)
+          if(this%method /= 4) tlm_vec(t,:) = new_vec(t,:)
        end do
 !$OMP END DO
 !$OMP END PARALLEL
 
-       if(cfg%method == 4) tlm_vec = new_vec
+       if(this%method == 4) tlm_vec = new_vec
        this%anl_vec = tlm_vec
        if (nitr > 0 .and. jnew > jold) jnew = jold
        if (nitr == 0) print *, 'initial cost = ', jnew
@@ -515,11 +517,9 @@ contains
 
   ! BJE
   ! OUTPUT THE ANALYSIS VECTOR
-  subroutine put_anl_vec(this, bkg, cfg)
+  subroutine put_anl_vec(this)
 
     class(Solver_Type),     intent(in) :: this
-    class(Background_Type), intent(in) :: bkg
-    class(Config_Type),     intent(in) :: cfg
 
     integer             :: i, t, ierr
     type(lorenz96_type) :: model
@@ -528,21 +528,21 @@ contains
 
     ! Write new analysis to model output file
     model=lorenz96_type(2, "NETCDF")
-    if (cfg%method <= 2) then
+    if (this%method <= 2) then
       model%state = this%anl_vec(1,:)
     else
       model%state = this%anl_vec(2,:)
     end if
     ierr = model%write_model_state("NETCDF")
 
-40  FORMAT(A8, 2I5, 3F10.4)
-    do t = 1, bkg%ntimes
-       do i = 1, bkg%npoints
+40  FORMAT(A8, 2I5, F10.4)
+    do t = 1, size(this%anl_vec, 1)
+       do i = 1, size(this%anl_vec, 2)
           ! FOR 3DVAR
-          if(cfg%method <=2) then
-             write(*, 40) "FIN", 2, i, this%anl_vec(t,i), bkg%state(t,i), 50.0 + 50.0 * sin(((20.0 * float(2 - 1) + float(i)) / 1000.0) * PI)
+          if(this%method <=2) then
+             write(*, 40) "FIN", 2, i, this%anl_vec(t,i)
           else
-             write(*, 40) "FIN", t, i, this%anl_vec(t,i), bkg%state(t,i), 50.0 + 50.0 * sin(((20.0 * float(t - 1) + float(i)) / 1000.0) * PI)
+             write(*, 40) "FIN", t, i, this%anl_vec(t,i)
           end if
        end do
     end do

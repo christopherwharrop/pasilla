@@ -1,7 +1,7 @@
 module solver
 
-  use kind, only       : r8kind
-  use module_constants, only  : PI
+  use kind, only                   : r8kind
+  use module_constants, only       : PI
   use background, only             : Background_Type
   use background_covariance, only  : Background_Covariance_Type
   use observation_covariance, only : Observation_Covariance_Type
@@ -16,24 +16,23 @@ module solver
   public :: Solver_Type
 
   type Solver_Type
-      private
-      integer, public           :: method
-      real(KIND=8), allocatable :: hrh_cov(:,:,:)
-      real(KIND=8), allocatable :: brh_cov(:,:,:)
-      real(KIND=8), allocatable :: anl_vec(:,:)
-      real(KIND=8), allocatable :: bht_ino(:,:,:)
-      real(KIND=8), allocatable :: htr_ino(:,:,:)
-      real(KIND=8)              :: jvc_for(1,1)
+    private
+    ! instance variables
+    integer, public           :: method
+    real(r8kind), allocatable :: hrh_cov(:,:,:)
+    real(r8kind), allocatable :: brh_cov(:,:,:)
+    real(r8kind), allocatable :: anl_vec(:,:)
+    real(r8kind), allocatable :: bht_ino(:,:,:)
+    real(r8kind), allocatable :: htr_ino(:,:,:)
+    real(r8kind)              :: jvc_for(1,1)
 
-
-! instance variable
   contains
-      procedure, private :: pre_con_dif
-      procedure          :: pre_sol
-      procedure          :: var_solver
-      procedure          :: put_anl_vec
-      final :: destructor
-! methods
+    ! methods
+    procedure, private :: pre_con_dif
+    procedure, private :: pre_sol
+    procedure          :: var_solver
+    procedure          :: put_anl_vec
+    final :: destructor
   end type Solver_Type
 
   interface Solver_Type
@@ -79,30 +78,31 @@ contains
   ! BJE
   ! GENERATE PRE-CONDITIONED VECTOR V FROM X
   ! THIS REPLACED THE NEED TO EXPLICITLY INVERT B
-  subroutine pre_con_dif(this,bkg_cov,non_vec)
+  subroutine pre_con_dif(this, bkg_cov, non_vec)
 
     class(Solver_Type), intent(inout) :: this
+    real(r8kind),       intent(   in) :: bkg_cov(:,:)
+    real(r8kind),       intent(inout) :: non_vec(:,:)
 
-    real(KIND=8), intent(inout) :: non_vec(:,:)
-    real(KIND=8), intent(in)    :: bkg_cov(:,:)
-    real(KIND=8), allocatable   :: con_vec(:,:)
-    real(KIND=8), allocatable   :: bkg_cpy(:,:)
-    integer                     :: i,j,jj,rad,info 
-    integer, allocatable        :: ipiv(:)
-    real(KIND=8)                :: var
-    integer                     :: bkg_len
+    real(r8kind), allocatable :: con_vec(:,:)
+    real(r8kind), allocatable :: bkg_cpy(:,:)
+    integer                   :: i, j, jj, rad, info 
+    integer,      allocatable :: ipiv(:)
+    real(r8kind)              :: var
+    integer                   :: bkg_len
+
     print *,"PRE_CON_DIF"
 
-    bkg_len=size(bkg_cov,2)
+    bkg_len = size(bkg_cov, 2)
 
     allocate (ipiv(bkg_len))
-    allocate (con_vec(bkg_len,1))
-    allocate (bkg_cpy(bkg_len,bkg_len))
-    con_vec=non_vec
-    bkg_cpy=bkg_cov
+    allocate (con_vec(bkg_len, 1))
+    allocate (bkg_cpy(bkg_len, bkg_len))
+    con_vec = non_vec
+    bkg_cpy = bkg_cov
 
-    call dgesv(bkg_len,1,bkg_cpy,bkg_len,ipiv,con_vec,bkg_len,info)
-    non_vec=con_vec
+    call dgesv(bkg_len, 1, bkg_cpy, bkg_len, ipiv, con_vec, bkg_len, info)
+    non_vec = con_vec
 
     print *,"PRE_CON_DIF COMPLETE"
 
@@ -119,46 +119,47 @@ contains
 
   subroutine pre_sol(this, obs_opr, obs_cov, bkg_cov, inno_vec)
 
-    class(Solver_Type), intent(inout)              :: this
-    class(Observation_Operator_Type), intent(in)   :: obs_opr
-    class(Observation_Covariance_Type), intent(in) :: obs_cov
-    class(Background_Covariance_Type), intent(in)  :: bkg_cov
-    class(Innovation_Vector_Type), intent(in)      :: inno_vec
+    class(Solver_Type),                 intent(inout) :: this
+    class(Observation_Operator_Type),   intent(   in) :: obs_opr
+    class(Observation_Covariance_Type), intent(   in) :: obs_cov
+    class(Background_Covariance_Type),  intent(   in) :: bkg_cov
+    class(Innovation_Vector_Type),      intent(   in) :: inno_vec
 
-    integer :: i,j,t
+    integer :: i, j, t
     integer :: tim_len, bkg_len, obs_len
 
-    real(KIND=8), allocatable   :: tmp_mat(:,:)
-    real(KIND=8), allocatable   :: tmp_vec(:,:)
+    real(r8kind), allocatable :: tmp_mat(:,:)
+    real(r8kind), allocatable :: tmp_vec(:,:)
 
-    real(KIND=8), allocatable   :: tim_bkc(:,:)
-    real(KIND=8), allocatable   :: tim_obc(:,:)
-    real(KIND=8), allocatable   :: tim_hrh(:,:)
-    real(KIND=8), allocatable   :: tim_opr(:,:)
-    real(KIND=8), allocatable   :: tim_htr(:,:)
+    real(r8kind), allocatable :: tim_bkc(:,:)
+    real(r8kind), allocatable :: tim_obc(:,:)
+    real(r8kind), allocatable :: tim_hrh(:,:)
+    real(r8kind), allocatable :: tim_opr(:,:)
+    real(r8kind), allocatable :: tim_htr(:,:)
 
-    real(KIND=8), allocatable   :: obs_vvc(:,:)
-    real(KIND=8), allocatable   :: tmp_jfo(:,:)
-    real(KIND=8), allocatable   :: obs_opt(:,:)
-    real(KIND=8), allocatable   :: tmp_rhh(:,:)
-    real(KIND=8), allocatable   :: tmp_hrr(:,:)
+    real(r8kind), allocatable :: obs_vvc(:,:)
+    real(r8kind), allocatable :: tmp_jfo(:,:)
+    real(r8kind), allocatable :: obs_opt(:,:)
+    real(r8kind), allocatable :: tmp_rhh(:,:)
+    real(r8kind), allocatable :: tmp_hrr(:,:)
+
     print *, "PRE_SOLVER"
 
-    tim_len=size(obs_cov%covariance,1)
-    obs_len=size(obs_cov%covariance,2)
-    bkg_len=size(bkg_cov%covariance,2)
+    tim_len = size(obs_cov%covariance, 1)
+    obs_len = size(obs_cov%covariance, 2)
+    bkg_len = size(bkg_cov%covariance, 2)
 
     allocate (tmp_mat(bkg_len, bkg_len))
-    allocate (tmp_vec(bkg_len,      1))
+    allocate (tmp_vec(bkg_len,       1))
 
     allocate (tim_bkc(bkg_len, bkg_len))
     allocate (tim_obc(obs_len, obs_len))
     allocate (tim_hrh(bkg_len, bkg_len))
     allocate (tim_opr(obs_len, bkg_len))
-    allocate (tim_htr(bkg_len,      1))
+    allocate (tim_htr(bkg_len,       1))
 
-    allocate (obs_vvc(obs_len,      1))
-    allocate (tmp_jfo(obs_len,      1))
+    allocate (obs_vvc(obs_len,       1))
+    allocate (tmp_jfo(obs_len,       1))
     allocate (obs_opt(bkg_len, obs_len))
     allocate (tmp_rhh(obs_len, bkg_len))
     allocate (tmp_hrr(bkg_len, obs_len))
@@ -173,10 +174,11 @@ contains
 
        ! CREATE THE OBS BASED MATRICES, FOR USE IN CALCULATING THE COST FUNCTION
        ! tim_hrh=H(T)R(-1)H, tim_htr=R(-1)H
-!      R(-1/2)H
+       ! R(-1/2)H
        call dgemm("N", "N", obs_len, bkg_len, obs_len, 1.d0, tim_obc, obs_len, tim_opr, obs_len, 0.d0, tmp_rhh, obs_len)
        obs_opt = transpose(tmp_rhh)            ! H(T)R(-1/2)
-!      H(T)R(-1)H
+
+       ! H(T)R(-1)H
        call dgemm("N", "N", bkg_len, bkg_len, obs_len, 1.d0, obs_opt, bkg_len, tmp_rhh, obs_len, 0.d0, tim_hrh, bkg_len)
        this%hrh_cov(t,:,:) = tim_hrh(:,:)
 
@@ -186,19 +188,23 @@ contains
           this%jvc_for(1,1) = this%jvc_for(1,1) + tmp_jfo(i,1) * tmp_jfo(i,1)
        end do
 
-!      CREATE R(-1) from R(-1/2)
+       ! CREATE R(-1) from R(-1/2)
        call dgemm("N", "N", obs_len, obs_len, obs_len, 1.d0, tim_obc, obs_len, tim_obc, obs_len, 0.d0, tim_obc, obs_len)
-!      H(T)R(-1)
+
+       ! H(T)R(-1)
        call dgemm("N", "N", bkg_len, obs_len, obs_len, 1.d0, obs_opt, bkg_len, tim_obc, obs_len, 0.d0, tmp_hrr, bkg_len)
-!      H(T)R(-1)(Y-HXb)
+
+       ! H(T)R(-1)(Y-HXb)
        call dgemv("N", bkg_len, obs_len, 1.d0, tmp_hrr, bkg_len, obs_vvc, 1, 0.d0, tim_htr, 1)
        this%htr_ino(t,:,1) = tim_htr(:,1)
 
        ! CREATE THE UNPRECONDITIONED MATRICES, FOR THE GRADIENT OF J
-!      B(1/2)*H(T)R(-1)
+       ! B(1/2)*H(T)R(-1)
        call dgemv("N", bkg_len, bkg_len, 1.d0, tim_bkc, bkg_len, tim_htr, 1, 0.d0, tmp_vec, 1)
-!      B(1/2)*H(T)R(-1)H
+
+       ! B(1/2)*H(T)R(-1)H
        call dgemm("N", "N", bkg_len, bkg_len, bkg_len, 1.d0, tim_bkc, bkg_len, tim_hrh, bkg_len, 0.d0, tmp_mat, bkg_len)
+
        this%bht_ino(t,:,1) = tmp_vec(:,1)
        this%brh_cov(t,:,:) = tmp_mat(:,:)
     end do
@@ -248,72 +254,88 @@ contains
   ! GRADJ = D(1/2)* [   V
   !                  + BRH*(X-Xb)
   !                  - BHT        ]
-  subroutine var_solver(this, bkg_cov, bkg, mthd, alph)
+  subroutine var_solver(this, bkg, bkg_cov, obs_cov, obs_opr, inno_vec, mthd, alph)
 
-    class(Solver_Type), intent(inout)             :: this
-    class(Background_Covariance_Type), intent(in) :: bkg_cov
-    class(Background_Type)                        :: bkg
-    integer, intent(in)                           :: mthd
-    real(KIND=8), intent(in)                      :: alph
+    class(Solver_Type),                 intent(inout) :: this
+    class(Background_Type),             intent(   in) :: bkg
+    class(Background_Covariance_Type),  intent(   in) :: bkg_cov
+    class(Observation_Covariance_Type), intent(   in) :: obs_cov
+    class(Observation_Operator_Type),   intent(   in) :: obs_opr
+    class(Innovation_Vector_Type),      intent(   in) :: inno_vec
+    integer,                            intent(   in) :: mthd
+    real(r8kind),                       intent(   in) :: alph
 
-    real(KIND=8), allocatable   :: tim_htr(:,:)
-    real(KIND=8), allocatable   :: tim_bkc(:,:)
-    real(KIND=8), allocatable   :: tim_hrh(:,:)
-    real(KIND=8), allocatable   :: tim_anv(:,:)
-    real(KIND=8), allocatable   :: tim_bkv(:,:)
+    real(r8kind), allocatable   :: tim_htr(:,:)
+    real(r8kind), allocatable   :: tim_bkc(:,:)
+    real(r8kind), allocatable   :: tim_hrh(:,:)
+    real(r8kind), allocatable   :: tim_anv(:,:)
+    real(r8kind), allocatable   :: tim_bkv(:,:)
 
-    real(KIND=8), allocatable   :: new_vec(:,:)
-    real(KIND=8), allocatable   :: tlm_vec(:,:)
-    real(KIND=8), allocatable   :: mdl_vec(:,:)
-    real(KIND=8), allocatable   :: ges_vec(:,:)
-    real(KIND=8), allocatable   :: dif_vec(:,:)
-    real(KIND=8), allocatable   :: dif_tra(:,:)
+    real(r8kind), allocatable   :: new_vec(:,:)
+    real(r8kind), allocatable   :: tlm_vec(:,:)
+    real(r8kind), allocatable   :: mdl_vec(:,:)
+    real(r8kind), allocatable   :: ges_vec(:,:)
+    real(r8kind), allocatable   :: dif_vec(:,:)
+    real(r8kind), allocatable   :: dif_tra(:,:)
 
-    real(KIND=8), allocatable   :: pre_tra(:,:)
-    real(KIND=8), allocatable   :: pre_dif(:,:)
-    real(KIND=8), allocatable   :: tmp_mat(:,:)
-    real(KIND=8), allocatable   :: tmp_vec(:,:)
-    real(KIND=8), allocatable   :: tmp_vvc(:,:)
+    real(r8kind), allocatable   :: pre_tra(:,:)
+    real(r8kind), allocatable   :: pre_dif(:,:)
+    real(r8kind), allocatable   :: tmp_mat(:,:)
+    real(r8kind), allocatable   :: tmp_vec(:,:)
+    real(r8kind), allocatable   :: tmp_vvc(:,:)
 
-    real(KIND=8), allocatable   :: grd_jvc(:,:)
-    real(KIND=8)                :: jvc_one(1,1)
-    real(KIND=8)                :: jvc_two(1,1)
-    real(KIND=8)                :: jvc_the(1,1)
+    real(r8kind), allocatable   :: grd_jvc(:,:)
+    real(r8kind)                :: jvc_one(1,1)
+    real(r8kind)                :: jvc_two(1,1)
+    real(r8kind)                :: jvc_the(1,1)
     integer                     :: i, j, t, nitr, mxit
-    real(KIND=8)                :: jold, jnew, jthr, B, Q
-    real(KIND=8), allocatable   :: jtim(:) 
+    real(r8kind)                :: jold, jnew, jthr, B, Q
+    real(r8kind), allocatable   :: jtim(:) 
     integer                     :: nthreads, tid
     integer                     :: OMP_GET_NUM_THREADS, OMP_GET_THREAD_NUM
     integer                     :: tim_len, bkg_len
     type(lorenz96_TL_type),  allocatable :: fwmod_vec(:)
     type(lorenz96_ADJ_type), allocatable :: bwmod_vec(:)
-    type(lorenz96_type), allocatable     :: model(:)
+    type(lorenz96_type),     allocatable :: model(:)
     type(lorenz96_TL_type)               :: model_TL
     type(lorenz96_ADJ_type)              :: model_ADJ
 
-    tim_len=size(bkg_cov%covariance,1)
-    bkg_len=size(bkg_cov%covariance,2)
+    ! GET THE NEEDED REUSED MATRIX PRODUCTS:
+    !        H(T)R(-1)(Y-HXb) = htr_ino
+    !        H(T)R(-1)H       = hrh_cov
+    ! B(-1/2)H(T)R(-1)(Y-HXb) = btr_ino
+    ! B(-1/2)H(T)R(-1)H       = brh_cov
+    ! INPUTS: Y, H, Xb, R(-1), B
+    ! USE SAME VARIABLE NAME PRE AND POST
+    call this%pre_sol(obs_opr, obs_cov, bkg_cov, inno_vec)
 
+    ! Get the number of assimilation times
+    tim_len = bkg%ntimes
+
+    ! Get the size of the background
+    bkg_len = bkg%npoints
+
+    ! Allocate storage for intermediate results
     allocate (jtim(tim_len))
-    allocate (tim_htr(bkg_len,      1))
-    allocate (tim_bkc(bkg_len,bkg_len))
-    allocate (tim_hrh(bkg_len,bkg_len))
-    allocate (tim_bkv(bkg_len,      1))
-    allocate (tim_anv(bkg_len,      1))
+    allocate (tim_htr(bkg_len,       1))
+    allocate (tim_bkc(bkg_len, bkg_len))
+    allocate (tim_hrh(bkg_len, bkg_len))
+    allocate (tim_bkv(bkg_len,       1))
+    allocate (tim_anv(bkg_len,       1))
 
-    allocate (new_vec(tim_len,bkg_len))
-    allocate (tlm_vec(tim_len,bkg_len))
-    allocate (mdl_vec(bkg_len,      1))
-    allocate (ges_vec(bkg_len,      1))
-    allocate (dif_vec(bkg_len,      1))
-    allocate (dif_tra(      1,bkg_len))
+    allocate (new_vec(tim_len, bkg_len))
+    allocate (tlm_vec(tim_len, bkg_len))
+    allocate (mdl_vec(bkg_len,       1))
+    allocate (ges_vec(bkg_len,       1))
+    allocate (dif_vec(bkg_len,       1))
+    allocate (dif_tra(      1, bkg_len))
 
-    allocate (pre_dif(bkg_len,      1))
-    allocate (pre_tra(      1,bkg_len))
-    allocate (tmp_mat(      1,bkg_len))
-    allocate (tmp_vec(bkg_len,      1))
-    allocate (tmp_vvc(bkg_len,      1))
-    allocate (grd_jvc(bkg_len,      1))
+    allocate (pre_dif(bkg_len,       1))
+    allocate (pre_tra(      1, bkg_len))
+    allocate (tmp_mat(      1, bkg_len))
+    allocate (tmp_vec(bkg_len,       1))
+    allocate (tmp_vvc(bkg_len,       1))
+    allocate (grd_jvc(bkg_len,       1))
 
 
     ! Allocate/initialize fw and bw models if we are doing 4DVar
@@ -321,129 +343,129 @@ contains
       ! Allocate the arrays to hold fw and bw models
       allocate(model(tim_len))
       allocate (fwmod_vec(2:tim_len))
-      allocate (bwmod_vec(1:tim_len-1))
+      allocate (bwmod_vec(1:tim_len - 1))
 
       ! Initialize a real model for use in calculating trajectories
-      do t=1,tim_len
+      do t = 1, tim_len
         model(t) = lorenz96_type(t,'NETCDF')
       end do
 
       ! Load fw models
-      do t=2,tim_len
-         fwmod_vec(t) = lorenz96_TL_type(t-1, "NETCDF")
+      do t = 2, tim_len
+         fwmod_vec(t) = lorenz96_TL_type(t - 1, "NETCDF")
       end do
 
       ! Load bw models
-      do t=1,tim_len-1
-         bwmod_vec(t) = lorenz96_ADJ_type(t+1, "NETCDF")
+      do t = 1, tim_len - 1
+         bwmod_vec(t) = lorenz96_ADJ_type(t + 1, "NETCDF")
       end do
     end if
 
-!   PARAMETERS FOR VAR - SHOULD BE FROM NAMELIST
+    !   PARAMETERS FOR VAR - SHOULD BE FROM NAMELIST
     nitr = 0
     mxit = 50
     jold = 100.0 
     jnew = 0.0
     jthr = 0.01 
 
-!   PARAMETERS FOR MODEL ERROR - ALSO SHOULD BE FROM NAMELIST
-!   B = RATIO OF B/B = 1.0
-!   Q = RATIO OF Q/B = 0.2 (OR, PERFECT TL/AD MODEL, Q=0.0)
+    !   PARAMETERS FOR MODEL ERROR - ALSO SHOULD BE FROM NAMELIST
+    !   B = RATIO OF B/B = 1.0
+    !   Q = RATIO OF Q/B = 0.2 (OR, PERFECT TL/AD MODEL, Q=0.0)
     B    = 1.0
     Q    = 0.0
-    print *,"SOLVER"
+    print *, "SOLVER"
 
-! IF 3DVAR - NO Q TERM
+    ! IF 3DVAR - NO Q TERM
     if(mthd <= 2) Q = 0.0
 
-! FIRST GUESS IS THE BACKGROUND
+    ! FIRST GUESS IS THE BACKGROUND
     this%anl_vec=bkg%state
 
-! ITERATE TO SOLVE THE COST FUNCTION
-    do while ( abs(jold-jnew) > jthr)
-       if (nitr.gt.mxit) exit
-       if (jnew.lt.0.0) exit
-       jold=jnew
-       jnew=0.0
+    ! ITERATE TO SOLVE THE COST FUNCTION
+    do while ( abs(jold - jnew) > jthr)
+       if (nitr > mxit) exit
+       if (jnew < 0.0) exit
+       jold = jnew
+       jnew = 0.0
 
-       new_vec(:,:)=0.0
-       tlm_vec=this%anl_vec
+       new_vec(:,:) = 0.0
+       tlm_vec = this%anl_vec
 
 !$OMP PARALLEL SHARED (bkg_cov, this, bkg, tlm_vec, jtim, new_vec, tim_len, mthd, B, Q, fwmod_vec, model) DEFAULT(PRIVATE)
 !$OMP DO
-       do t=1,tim_len
-          tid=OMP_GET_THREAD_NUM()
-          tim_bkc(:,:)=bkg_cov%covariance(t,:,:)
-          tim_hrh(:,:)=this%hrh_cov(t,:,:)
-          tim_htr(:,:)=this%htr_ino(t,:,:)
-          tim_bkv(:,1)=bkg%state(t,:)
+       do t = 1, tim_len
+          tid = OMP_GET_THREAD_NUM()
+          tim_bkc(:,:) = bkg_cov%covariance(t,:,:)
+          tim_hrh(:,:) = this%hrh_cov(t,:,:)
+          tim_htr(:,:) = this%htr_ino(t,:,:)
+          tim_bkv(:,1) = bkg%state(t,:)
 
-          if(t.eq.1) then
-!            FOR THE FIRST TIME STEP, THERE IS NO PRIOR FIELD TO PROPAGATE
-             mdl_vec(:,1)=tlm_vec(t,:)
-             if (mthd.eq.4) new_vec(t,:)=mdl_vec(:,1)
+          if(t == 1) then
+             ! FOR THE FIRST TIME STEP, THERE IS NO PRIOR FIELD TO PROPAGATE
+             mdl_vec(:,1) = tlm_vec(t,:)
+             if (mthd == 4) new_vec(t,:) = mdl_vec(:,1)
           else
-!            RUN THE FORWARD MODEL FOR ALL STEPS AFTER THE FIRST
-             mdl_vec(:,1)=tlm_vec(t-1,:)
-             model_TL=fwmod_vec(t)
+             ! RUN THE FORWARD MODEL FOR ALL STEPS AFTER THE FIRST
+             mdl_vec(:,1) = tlm_vec(t-1,:)
+             model_TL = fwmod_vec(t)
              model_TL%state(:) = mdl_vec(:,1)
              model(t)%state = model_TL%state
              call model(t)%adv_nsteps(1)
              model_TL%trajectory = model(t)%state - model_TL%state
              call model_TL%adv_nsteps(10)
              mdl_vec(:,1) = model_TL%state
-             if (mthd.eq.4) new_vec(t,:)=mdl_vec(:,1)
-             if (mthd.ne.4) tlm_vec(t,:)=mdl_vec(:,1)
+             if (mthd == 4) new_vec(t,:) = mdl_vec(:,1)
+             if (mthd /= 4) tlm_vec(t,:) = mdl_vec(:,1)
           end if
 
-          !   CARRY ON WITH THE MINIMIZATION 
-          tmp_vec(:,1)=(mdl_vec(:,1)-tim_bkv(:,1))*B
-          dif_vec(:,1)=(mdl_vec(:,1)-tim_bkv(:,1))*B
-          dif_tra=transpose(dif_vec)
-          call this%pre_con_dif(tim_bkc,tmp_vec)
-          pre_tra=transpose(tmp_vec)
-          pre_dif(:,1)=tmp_vec(:,1)
+          ! CARRY ON WITH THE MINIMIZATION 
+          tmp_vec(:,1) = (mdl_vec(:,1) - tim_bkv(:,1)) * B
+          dif_vec(:,1) = (mdl_vec(:,1) - tim_bkv(:,1)) * B
+          dif_tra = transpose(dif_vec)
+          call this%pre_con_dif(tim_bkc, tmp_vec)
+          pre_tra = transpose(tmp_vec)
+          pre_dif(:,1) = tmp_vec(:,1)
 
-          !   SOLVE FOR COST FUNCTION J
-          !   FIRST TERM
-          jvc_one=matmul(pre_tra,pre_dif)
-          !   SECOND TERM
-          tmp_mat=matmul(dif_tra,tim_hrh)
-          jvc_two=matmul(tmp_mat,dif_vec)
-          !   THIRD TERM
-          jvc_the=matmul(dif_tra,tim_htr)
-          !   COST FUNCTION
-          jtim(t) = 0.5*(jvc_one(1,1)+jvc_two(1,1)-2.0*jvc_the(1,1))
+          ! SOLVE FOR COST FUNCTION J
+          ! FIRST TERM
+          jvc_one = matmul(pre_tra, pre_dif)
+          ! SECOND TERM
+          tmp_mat = matmul(dif_tra, tim_hrh)
+          jvc_two = matmul(tmp_mat, dif_vec)
+          ! THIRD TERM
+          jvc_the = matmul(dif_tra, tim_htr)
+          ! COST FUNCTION
+          jtim(t) = 0.5 * (jvc_one(1,1) + jvc_two(1,1) - 2.0 * jvc_the(1,1))
 
        end do
 !$OMP END DO
 !$OMP END PARALLEL
 
-       if(mthd.eq.4) tlm_vec=new_vec
-       do t=1,tim_len
-          jnew=jnew+jtim(t)
+       if(mthd == 4) tlm_vec = new_vec
+       do t = 1, tim_len
+          jnew = jnew + jtim(t)
        end do
-       jnew=jnew+this%jvc_for(1,1)
-       new_vec(:,:)=0.0
+       jnew = jnew + this%jvc_for(1,1)
+       new_vec(:,:) = 0.0
 
 !$OMP PARALLEL SHARED (this, bkg_cov, bkg, tlm_vec, new_vec, tim_len, alph, mthd, B, Q, bwmod_vec, model) DEFAULT(PRIVATE)
 !$OMP DO
        !   CALCULATE GRAD-J IN REVERSE TEMPORAL ORDER 
-       do t=tim_len,1,-1
-          tim_bkc(:,:)=bkg_cov%covariance(t,:,:)
-          tim_hrh(:,:)=this%brh_cov(t,:,:)
-          tim_htr(:,:)=this%bht_ino(t,:,:)
-          tim_bkv(:,1)=bkg%state(t,:)
+       do t = tim_len, 1, -1
+          tim_bkc(:,:) = bkg_cov%covariance(t,:,:)
+          tim_hrh(:,:) = this%brh_cov(t,:,:)
+          tim_htr(:,:) = this%bht_ino(t,:,:)
+          tim_bkv(:,1) = bkg%state(t,:)
 
-          if(t.eq.tim_len) then
-!            FOR THE LAST (OR ONLY) TIME STEP - NO ADJOINT TO RUN
-                  mdl_vec(:,1)=tlm_vec(t,:)
-             if(mthd.eq.4) mdl_vec(:,1)=0.5*(tlm_vec(t,:)+this%anl_vec(t,:))
+          if(t == tim_len) then
+            ! FOR THE LAST (OR ONLY) TIME STEP - NO ADJOINT TO RUN
+            mdl_vec(:,1) = tlm_vec(t,:)
+            if(mthd == 4) mdl_vec(:,1) = 0.5 * (tlm_vec(t,:) + this%anl_vec(t,:))
           else
-!            THIS ONLY RUNS FOR 4DVAR
-             !     FOR ALL OTHER TIME STEPS - ADJOINT NEEDED
-             if (mthd.eq.3) mdl_vec(:,1)=tlm_vec(t+1,:)
-             if (mthd.eq.4) mdl_vec(:,1)=this%anl_vec(t+1,:)
+             ! THIS ONLY RUNS FOR 4DVAR
+             ! FOR ALL OTHER TIME STEPS - ADJOINT NEEDED
+             if (mthd == 3) mdl_vec(:,1) = tlm_vec(t+1,:)
+             if (mthd == 4) mdl_vec(:,1) = this%anl_vec(t+1,:)
              model_ADJ = bwmod_vec(t)
              model_ADJ%state(:) = mdl_vec(:,1)
              model(t)%state = model_ADJ%state
@@ -453,34 +475,34 @@ contains
              mdl_vec(:,1) = model_ADJ%state
           end if
 
-!         CHOOSE THE FIRST GUESS FIELD
-          if(mthd.ne.4) ges_vec(:,1)=mdl_vec(:,1)
-          if(mthd.eq.4) ges_vec(:,1)=0.5*(tlm_vec(t,:)+mdl_vec(:,1))
+          ! CHOOSE THE FIRST GUESS FIELD
+          if(mthd /= 4) ges_vec(:,1) = mdl_vec(:,1)
+          if(mthd == 4) ges_vec(:,1) = 0.5 * (tlm_vec(t,:) + mdl_vec(:,1))
 
-!         CALCULATE THE GRADIENT OF THE COST FUNCTION
-          !  FIRST - DIFFERENCE BETWEEN FIRST GUESS AND BACKGROUND
-            tmp_vec(:,1)=(ges_vec(:,1)-tim_bkv(:,1))*(B+Q)
-              dif_vec(:,1)=(ges_vec(:,1)-tim_bkv(:,1))*(B+Q)
+          ! CALCULATE THE GRADIENT OF THE COST FUNCTION
+          ! FIRST - DIFFERENCE BETWEEN FIRST GUESS AND BACKGROUND
+          tmp_vec(:,1) = (ges_vec(:,1) - tim_bkv(:,1)) * (B + Q)
+          dif_vec(:,1) = (ges_vec(:,1) - tim_bkv(:,1)) * (B + Q)
 
-!         OBTAIN THE PRE-CONDITIONED DIFFERENCE BETWEEN THE BACKGROUND AND
-!         THE FIRST GUESS
-          call this%pre_con_dif(tim_bkc,tmp_vec)
-          pre_dif(:,1)=tmp_vec(:,1)
-          tmp_vec=matmul(tim_hrh,dif_vec)
+          ! OBTAIN THE PRE-CONDITIONED DIFFERENCE BETWEEN THE BACKGROUND AND
+          ! THE FIRST GUESS
+          call this%pre_con_dif(tim_bkc, tmp_vec)
+          pre_dif(:,1) = tmp_vec(:,1)
+          tmp_vec = matmul(tim_hrh, dif_vec)
 
-          tmp_vec(:,1)=pre_dif(:,1)+tmp_vec(:,1)-tim_htr(:,1)
-            grd_jvc=matmul(tim_bkc,tmp_vec)
-          new_vec(t,:)=ges_vec(:,1)-grd_jvc(:,1)*alph
+          tmp_vec(:,1) = pre_dif(:,1) + tmp_vec(:,1) - tim_htr(:,1)
+          grd_jvc = matmul(tim_bkc, tmp_vec)
+          new_vec(t,:) = ges_vec(:,1) - grd_jvc(:,1) * alph
 
-          if(mthd.ne.4) tlm_vec(t,:)=new_vec(t,:)
+          if(mthd /= 4) tlm_vec(t,:) = new_vec(t,:)
        end do
 !$OMP END DO
 !$OMP END PARALLEL
 
-       if(mthd.eq.4) tlm_vec=new_vec
-       this%anl_vec=tlm_vec
-       if (nitr.gt.0 .and. jnew.gt.jold) jnew=jold
-       if (nitr.eq.0) print *,'initial cost = ',jnew
+       if(mthd == 4) tlm_vec = new_vec
+       this%anl_vec = tlm_vec
+       if (nitr > 0 .and. jnew > jold) jnew = jold
+       if (nitr == 0) print *, 'initial cost = ', jnew
        nitr = nitr + 1 
        print *,"Cost at ",nitr,jnew
     end do
@@ -495,32 +517,32 @@ contains
   ! OUTPUT THE ANALYSIS VECTOR
   subroutine put_anl_vec(this, bkg, mthd)
 
-    class(Solver_Type)          :: this
-    class(Background_Type)      :: bkg
-    integer                     :: mthd
+    class(Solver_Type),     intent(in) :: this
+    class(Background_Type), intent(in) :: bkg
+    integer,                intent(in) :: mthd
 
-    integer                     :: i, t, ierr
-    type(lorenz96_type)         :: model
+    integer             :: i, t, ierr
+    type(lorenz96_type) :: model
 
     print *,"PUT_ANL_VEC"
 
     ! Write new analysis to model output file
-    model=lorenz96_type(2,"NETCDF")
-    if (mthd.le.2) then
+    model=lorenz96_type(2, "NETCDF")
+    if (mthd <= 2) then
       model%state = this%anl_vec(1,:)
     else
       model%state = this%anl_vec(2,:)
     end if
     ierr = model%write_model_state("NETCDF")
 
-40  FORMAT(A8,2I5,3F10.4)
-    do t=1,bkg%ntimes
-       do i=1,bkg%npoints
-!         FOR 3DVAR
-          if(mthd.le.2) then
-             write(*,40) "FIN",2,i,this%anl_vec(t,i),bkg%state(t,i),50.0+50.0*sin(((20.0*float(2-1)+float(i))/1000.0)*PI)
+40  FORMAT(A8, 2I5, 3F10.4)
+    do t = 1, bkg%ntimes
+       do i = 1, bkg%npoints
+          ! FOR 3DVAR
+          if(mthd <=2) then
+             write(*, 40) "FIN", 2, i, this%anl_vec(t,i), bkg%state(t,i), 50.0 + 50.0 * sin(((20.0 * float(2 - 1) + float(i)) / 1000.0) * PI)
           else
-             write(*,40) "FIN",t,i,this%anl_vec(t,i),bkg%state(t,i),50.0+50.0*sin(((20.0*float(t-1)+float(i))/1000.0)*PI)
+             write(*, 40) "FIN", t, i, this%anl_vec(t,i), bkg%state(t,i), 50.0 + 50.0 * sin(((20.0 * float(t - 1) + float(i)) / 1000.0) * PI)
           end if
        end do
     end do
@@ -528,7 +550,6 @@ contains
     print *,"PUT_ANL_VEC COMPLETE"
 
   end subroutine put_anl_vec
-
 
 
 end module solver

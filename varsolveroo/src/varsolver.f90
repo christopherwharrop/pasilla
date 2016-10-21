@@ -64,17 +64,8 @@ program adept
   ! Initialize a solver
   solve = Solver_Type(mthd, bkg)
 
-  ! GET THE NEEDED REUSED MATRIX PRODUCTS:
-  !        H(T)R(-1)(Y-HXb) = htr_ino
-  !        H(T)R(-1)H       = hrh_cov
-  ! B(-1/2)H(T)R(-1)(Y-HXb) = btr_ino
-  ! B(-1/2)H(T)R(-1)H       = brh_cov
-  ! INPUTS: Y, H, Xb, R(-1), B
-  ! USE SAME VARIABLE NAME PRE AND POST
-  call solve%pre_sol(obs_opr, obs_cov, bkg_cov, inno_vec)
-
   ! THE MAIN EVENT - THE SOLVER
-  call solve%var_solver(bkg_cov, bkg, mthd, alph)
+  call solve%var_solver(bkg, bkg_cov, obs_cov, obs_opr, inno_vec, mthd, alph)
 
   ! OUTPUT THE NEW ANALYSIS
   call solve%put_anl_vec(bkg, mthd)

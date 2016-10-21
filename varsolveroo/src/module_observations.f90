@@ -1,7 +1,7 @@
 module observations
 
-  use kind, only      : r8kind
-  use module_constants, only : PI
+  use kind, only   : r8kind
+  use config, only : Config_Type
 
   implicit none
 
@@ -11,14 +11,14 @@ module observations
 
   type Observations_Type
       private
+      ! instance variable
       integer, public                   :: nobs
       real(r8kind), allocatable, public :: value(:)
       integer, allocatable, public      :: position(:)
       integer, allocatable, public      :: time(:)
-! instance variable
   contains
+      ! methods
       final              :: destructor
-! methods
   end type Observations_Type
 
   interface Observations_Type
@@ -32,9 +32,9 @@ contains
   !
   ! Returns an initialized Observations
   !------------------------------------------------------------------
-  type(Observations_Type) function constructor(method)
+  type(Observations_Type) function constructor(cfg)
 
-    integer, intent(in) :: method
+    class(Config_Type), intent(in) :: cfg
 
     integer            :: i
     character(len=128) :: filename   ! name of output file
@@ -42,7 +42,7 @@ contains
 
 
     ! Construct name of obs input file
-    write(filename, '(A,I1,A)') 'lorenz96obs_', method, '.txt'
+    write(filename, '(A,I1,A)') 'lorenz96obs_', cfg%method, '.txt'
 
     ! Open the output csv file
     open(newunit=fileunit, file=trim(filename), form='formatted', status='old')

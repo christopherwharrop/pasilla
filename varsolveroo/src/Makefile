@@ -4,7 +4,7 @@ INCLUDES=-I$(GPTL)/include -I../../utilities/include -I../../models/abstract/inc
 LIBS=-L$(GPTL)/lib -lgptl -L../../models/sine/lib -lsine -L$(NETCDF)/lib -lnetcdf -lnetcdff -L../../models/lorenz96/lib -llorenz96
 FFLAGS+=-openmp
 
-OBJS=module_varsolver.o \
+OBJS=module_config.o \
      module_background.o \
      module_observations.o \
      module_background_covariance.o \
@@ -16,8 +16,8 @@ OBJS=module_varsolver.o \
 varsolver_l96.exe: varsolver.f90 $(OBJS)
 	$(FC) -o varsolver_l96.exe varsolver.f90 $(OBJS) $(FFLAGS) $(LAPACK) $(INCLUDES) $(LIBS)
 
-module_varsolver.o: module_varsolver.f90 module_background.o module_observations.o module_background_covariance.o module_observation_covariance.o module_innovation_vector.o module_observation_operator.o module_solver.o
-	$(FC) -c module_varsolver.f90 $(FFLAGS) $(GPTLFLAGS) $(INCLUDES)
+module_config.o: module_config.f90
+	$(FC) -c module_config.f90 $(FFLAGS) $(GPTLFLAGS) $(INCLUDES)
 
 module_background.o: module_background.f90
 	$(FC) -c module_background.f90 $(FFLAGS) $(GPTLFLAGS) $(INCLUDES)

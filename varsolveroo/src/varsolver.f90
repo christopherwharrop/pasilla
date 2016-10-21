@@ -3,8 +3,12 @@
 
 program adept
 
+  ! Get unit numbers for stdin, stdout, stderr in a portable way
+  use, intrinsic :: iso_fortran_env, only : stdin=>input_unit, &
+                                            stdout=>output_unit, &
+                                            stderr=>error_unit
   use gptl
-  use varsolver
+  use config, only                 : Config_Type
   use background, only             : Background_Type
   use observations, only           : Observations_Type
   use background_covariance, only  : Background_Covariance_Type
@@ -17,16 +21,15 @@ program adept
 
   implicit none
 
+  type(Config_Type)                 :: cfg
   type(Background_Type)             :: bkg
   type(Observations_Type)           :: obs
   type(Background_Covariance_Type)  :: bkg_cov
   type(Observation_Covariance_Type) :: obs_cov
   type(Innovation_Vector_Type)      :: inno_vec
   type(Observation_Operator_Type)   :: obs_opr
-  type(Solver_Type)                 :: solve
-  real                              ::      ret 
-
-  integer :: t,i
+  type(Solver_Type)                 :: varsolver
+  real                              :: ret 
 
   ! BJE
   ! INITIALIZE GPTL AND START A TIMER
@@ -34,26 +37,21 @@ program adept
   ret = gptlinitialize ()                    
   ret = gptlstart ('adept')                 
 
-  ! BJE
-  ! GET THE METHOD TO USE
-  call get_method
-
-  ! BJE
-  ! FIRST - NEED TO KNOW HOW MANY OBSERVATIONS AND STATE VECTOR
-  ! OBTAIN THE OBSERATIONS, Y, AND THE BACKGROUND, Xb 
+  ! Read the assimilation configuration
+  cfg = Config_Type(stdin)
 
   ! Initialize a background object, Xb
-  bkg = Background_Type(tim_len, mthd)
+  bkg = Background_Type(cfg)
 
   ! OBTAIN THE B(1/2) MATRIX - FOR PRE CONDITIONING
-  bkg_cov = Background_Covariance_Type(bkg, tim_len, sigma)
+  bkg_cov = Background_Covariance_Type(bkg, cfg)
 
   ! Initialize observations object, Y
-  obs = Observations_Type(mthd)
+  obs = Observations_Type(cfg)
 
   ! OBTAIN THE COVARIANCE MATRIX R - OBS ERROR
   ! SOMEDAY WILL COME TO US FROM THE UFO
-  obs_cov = Observation_Covariance_Type(obs, tim_len)
+  obs_cov = Observation_Covariance_Type(obs, cfg)
 
   ! KNOWING THE LOCATION OF THE OBS, CREATE OBS OPERATOR, H
   obs_opr = Observation_Operator_Type(bkg, obs)
@@ -62,13 +60,13 @@ program adept
   inno_vec = Innovation_Vector_Type(bkg, obs)
 
   ! Initialize a solver
-  solve = Solver_Type(mthd, bkg)
+  varsolver = Solver_Type(bkg, cfg)
 
   ! THE MAIN EVENT - THE SOLVER
-  call solve%var_solver(bkg, bkg_cov, obs_cov, obs_opr, inno_vec, mthd, alph)
+  call varsolver%solve(bkg, bkg_cov, obs_cov, obs_opr, inno_vec, cfg)
 
   ! OUTPUT THE NEW ANALYSIS
-  call solve%put_anl_vec(bkg, mthd)
+  call varsolver%put_anl_vec(bkg, cfg)
 
   ! BJE
   ! END THE TIMER AND OUTPUT THE GPTL RESULTS

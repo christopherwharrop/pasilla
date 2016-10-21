@@ -1,7 +1,7 @@
 module observation_covariance
 
-  use kind, only      : r8kind
-  use module_constants, only : PI
+  use kind, only         : r8kind
+  use config, only       : Config_Type
   use observations, only : Observations_Type
 
   implicit none
@@ -12,13 +12,13 @@ module observation_covariance
 
   type Observation_Covariance_Type
       private
+      ! instance variable
       integer                           :: size
       integer                           :: ntimes
       real(r8kind), allocatable, public :: covariance(:,:,:)
-! instance variable
   contains
+      ! methods
       final :: destructor
-! methods
   end type Observation_Covariance_Type
 
   interface Observation_Covariance_Type
@@ -32,17 +32,17 @@ contains
   !
   ! Returns an initialized Observation_Covariance
   !------------------------------------------------------------------
-  type(Observation_Covariance_Type) function constructor(observations, ntimes)
+  type(Observation_Covariance_Type) function constructor(observations, cfg)
 
     class(Observations_Type), intent(in) :: observations
-    integer, intent(in) :: ntimes
+    class(Config_Type),       intent(in) :: cfg
 
     integer :: i
 
     constructor%size = observations%nobs
-    constructor%ntimes = ntimes
+    constructor%ntimes = cfg%ntimes
     
-    allocate(constructor%covariance(ntimes, observations%nobs, observations%nobs))
+    allocate(constructor%covariance(cfg%ntimes, observations%nobs, observations%nobs))
 
     constructor%covariance(:,:,:) = 0.0
 

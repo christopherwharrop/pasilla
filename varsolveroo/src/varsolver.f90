@@ -11,6 +11,7 @@ program adept
   use observation_covariance, only : Observation_Covariance_Type
   use innovation_vector, only      : Innovation_Vector_Type
   use observation_operator, only   : Observation_Operator_Type
+  use solver, only                 : Solver_Type
   use model, only                  : model_type
   use lorenz96, only               : lorenz96_type, lorenz96_TL_type, lorenz96_ADJ_type
 
@@ -22,13 +23,8 @@ program adept
   type(Observation_Covariance_Type) :: obs_cov
   type(Innovation_Vector_Type)      :: inno_vec
   type(Observation_Operator_Type)   :: obs_opr
-  real(KIND=8), allocatable    ::      hrh_cov(:,:,:)
-  real(KIND=8), allocatable    ::      brh_cov(:,:,:)
-  real(KIND=8), allocatable    ::      anl_vec(:,:)
-  real(KIND=8), allocatable    ::      bht_ino(:,:,:)
-  real(KIND=8), allocatable    ::      htr_ino(:,:,:)
-  real(KIND=8)                 ::      jvc_for(1,1)
-  real                         ::      ret 
+  type(Solver_Type)                 :: solve
+  real                              ::      ret 
 
   integer :: t,i
 
@@ -65,15 +61,9 @@ program adept
   ! GET THE INNOVATION VECTOR - (Y-HXb) - DO NOT OVERWRITE OBS
   inno_vec = Innovation_Vector_Type(bkg, obs)
 
-  ! BJE
-  ! KNOWING THE NUMBERS, ALLOCATE VECTORS/MATRICIES (ARRAYS) ACCORTINGLY
-  allocate (hrh_cov(tim_len, bkg%npoints, bkg%npoints))
-  allocate (brh_cov(tim_len, bkg%npoints, bkg%npoints))
-  allocate (anl_vec(tim_len, bkg%npoints))
-  allocate (bht_ino(tim_len, bkg%npoints, 1))
-  allocate (htr_ino(tim_len, bkg%npoints, 1))
+  ! Initialize a solver
+  solve = Solver_Type(mthd, bkg)
 
-  ! BJE
   ! GET THE NEEDED REUSED MATRIX PRODUCTS:
   !        H(T)R(-1)(Y-HXb) = htr_ino
   !        H(T)R(-1)H       = hrh_cov
@@ -81,17 +71,13 @@ program adept
   ! B(-1/2)H(T)R(-1)H       = brh_cov
   ! INPUTS: Y, H, Xb, R(-1), B
   ! USE SAME VARIABLE NAME PRE AND POST
-  call pre_sol(obs_opr, obs_cov, bkg_cov, hrh_cov, brh_cov, inno_vec, htr_ino, bht_ino, jvc_for)
+  call solve%pre_sol(obs_opr, obs_cov, bkg_cov, inno_vec)
 
-  ! BJE
   ! THE MAIN EVENT - THE SOLVER
-  call var_solver(bkg_cov, hrh_cov, brh_cov, htr_ino, bht_ino, jvc_for, bkg,     anl_vec, mthd)
-!  call var_solver(bkg_cov, hrh_cov, brh_cov, htr_ino, bht_ino, jvc_for, bkg_vec, anl_vec, fwmod_vec, bwmod_vec)
+  call solve%var_solver(bkg_cov, bkg, mthd, alph)
 
-
-  ! BJE
   ! OUTPUT THE NEW ANALYSIS
-  call put_anl_vec(anl_vec, bkg)
+  call solve%put_anl_vec(bkg, mthd)
 
   ! BJE
   ! END THE TIMER AND OUTPUT THE GPTL RESULTS

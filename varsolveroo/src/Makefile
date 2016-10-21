@@ -10,12 +10,13 @@ OBJS=module_varsolver.o \
      module_background_covariance.o \
      module_observation_covariance.o \
      module_innovation_vector.o \
-     module_observation_operator.o
+     module_observation_operator.o \
+     module_solver.o 
 
 varsolver_l96.exe: varsolver.f90 $(OBJS)
 	$(FC) -o varsolver_l96.exe varsolver.f90 $(OBJS) $(FFLAGS) $(LAPACK) $(INCLUDES) $(LIBS)
 
-module_varsolver.o: module_varsolver.f90 module_background.o module_observations.o module_background_covariance.o module_observation_covariance.o module_innovation_vector.o module_observation_operator.o
+module_varsolver.o: module_varsolver.f90 module_background.o module_observations.o module_background_covariance.o module_observation_covariance.o module_innovation_vector.o module_observation_operator.o module_solver.o
 	$(FC) -c module_varsolver.f90 $(FFLAGS) $(GPTLFLAGS) $(INCLUDES)
 
 module_background.o: module_background.f90
@@ -35,6 +36,9 @@ module_innovation_vector.o: module_innovation_vector.f90
 
 module_observation_operator.o: module_observation_operator.f90
 	$(FC) -c module_observation_operator.f90 $(FFLAGS) $(GPTLFLAGS) $(INCLUDES)
+
+module_solver.o: module_solver.f90
+	$(FC) -c module_solver.f90 $(FFLAGS) $(GPTLFLAGS) $(INCLUDES)
 
 clean:
 	rm -f *.exe *.o *.mod

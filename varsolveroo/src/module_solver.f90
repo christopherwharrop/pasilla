@@ -250,7 +250,7 @@ contains
   ! GRADJ = D(1/2)* [   V
   !                  + BRH*(X-Xb)
   !                  - BHT        ]
-  subroutine solve(this, bkg, bkg_cov, obs_cov, obs_opr, inno_vec, cfg)
+  subroutine solve(this, bkg, bkg_cov, obs_cov, obs_opr, inno_vec)
 
     class(Solver_Type),                 intent(inout) :: this
     class(Background_Type),             intent(   in) :: bkg
@@ -258,7 +258,6 @@ contains
     class(Observation_Covariance_Type), intent(   in) :: obs_cov
     class(Observation_Operator_Type),   intent(   in) :: obs_opr
     class(Innovation_Vector_Type),      intent(   in) :: inno_vec
-    class(Config_Type),                 intent(   in) :: cfg
 
     real(r8kind), allocatable   :: tim_htr(:,:)
     real(r8kind), allocatable   :: tim_bkc(:,:)
@@ -295,7 +294,7 @@ contains
     type(lorenz96_TL_type)               :: model_TL
     type(lorenz96_ADJ_type)              :: model_ADJ
 
-    ! Allocate space for reused matrices
+    ! Allocate space for reused matrix products
     allocate (this%hrh_cov(bkg%ntimes, bkg%npoints, bkg%npoints))
     allocate (this%brh_cov(bkg%ntimes, bkg%npoints, bkg%npoints))
     allocate (this%anl_vec(bkg%ntimes, bkg%npoints))
@@ -393,7 +392,7 @@ contains
        new_vec(:,:) = 0.0
        tlm_vec = this%anl_vec
 
-!$OMP PARALLEL SHARED (bkg_cov, this, bkg, tlm_vec, jtim, new_vec, tim_len, cfg, B, Q, fwmod_vec, model) DEFAULT(PRIVATE)
+!$OMP PARALLEL SHARED (bkg_cov, this, bkg, tlm_vec, jtim, new_vec, tim_len, B, Q, fwmod_vec, model) DEFAULT(PRIVATE)
 !$OMP DO
        do t = 1, tim_len
           tid = OMP_GET_THREAD_NUM()
@@ -450,7 +449,7 @@ contains
        jnew = jnew + this%jvc_for(1,1)
        new_vec(:,:) = 0.0
 
-!$OMP PARALLEL SHARED (this, bkg_cov, bkg, tlm_vec, new_vec, tim_len, cfg, B, Q, bwmod_vec, model) DEFAULT(PRIVATE)
+!$OMP PARALLEL SHARED (this, bkg_cov, bkg, tlm_vec, new_vec, tim_len, B, Q, bwmod_vec, model) DEFAULT(PRIVATE)
 !$OMP DO
        !   CALCULATE GRAD-J IN REVERSE TEMPORAL ORDER 
        do t = tim_len, 1, -1

@@ -63,7 +63,7 @@ program adept
   varsolver = Solver_Type(cfg)
 
   ! THE MAIN EVENT - THE SOLVER
-  call varsolver%solve(bkg, bkg_cov, obs_cov, obs_opr, inno_vec, cfg)
+  call varsolver%solve(bkg, bkg_cov, obs_cov, obs_opr, inno_vec)
 
   ! OUTPUT THE NEW ANALYSIS
   call varsolver%put_anl_vec()

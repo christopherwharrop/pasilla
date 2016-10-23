@@ -54,8 +54,8 @@ contains
 
     ! Calculate the innovation vector values
     do i = 1, observations%nobs
-       constructor%value(i) = observations%value(i) - background%state(observations%time(i), observations%position(i))
-       write(*,'(A8,3I5,2F10.4)') "INO ", i, constructor%time(i), constructor%position(i), constructor%value(i), background%state(constructor%time(i), constructor%position(i))
+       constructor%value(i) = observations%value(i) - background%get_state_element(observations%time(i), observations%position(i))
+       write(*,'(A8,3I5,2F10.4)') "INO ", i, constructor%time(i), constructor%position(i), constructor%value(i), background%get_state_element(constructor%time(i), constructor%position(i))
     end do
 
   end function

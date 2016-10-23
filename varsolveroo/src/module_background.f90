@@ -14,14 +14,19 @@ module background
   type Background_Type
       private
       ! instance variable
-      integer, public                   :: npoints
-      integer, public                   :: ntimes
-      real(r8kind), allocatable, public :: state(:,:)
-      integer, allocatable, public      :: position(:,:)
-      integer, allocatable, public      :: time(:)
+      integer                   :: npoints
+      integer                   :: ntimes
+      real(r8kind), allocatable :: state(:,:)
+      integer, allocatable      :: position(:,:)
+      integer, allocatable      :: time(:)
   contains
       ! methods
       final :: destructor
+      procedure :: get_npoints
+      procedure :: get_ntimes
+      procedure :: get_state_element
+      procedure :: get_state_vector
+      procedure :: get_state_at_time
   end type Background_Type
 
   interface Background_Type
@@ -77,6 +82,80 @@ contains
     ! No pointers in Background object so we do nothing
 
   end subroutine
+
+
+  !------------------------------------------------------------------
+  ! get_npoints
+  !
+  ! Returns the size of the state vector
+  !------------------------------------------------------------------
+  integer function get_npoints(this)
+
+    class(Background_Type) :: this
+
+    get_npoints = this%npoints
+
+  end function get_npoints
+
+
+  !------------------------------------------------------------------
+  ! get_ntimes
+  !
+  ! Returns the size of the time dimension of the state vector
+  !------------------------------------------------------------------
+  integer function get_ntimes(this)
+
+    class(Background_Type) :: this
+
+    get_ntimes = this%ntimes
+
+  end function get_ntimes
+
+
+  !------------------------------------------------------------------
+  ! get_state_element
+  !
+  ! Returns the state at element t,i
+  !------------------------------------------------------------------
+  real(r8kind) function get_state_element(this, t, i)
+
+    class(Background_Type) :: this
+    integer                :: t, i
+
+    get_state_element = this%state(t,i)
+
+  end function get_state_element
+
+
+  !------------------------------------------------------------------
+  ! get_state_vector
+  !
+  ! Returns the state vector
+  !------------------------------------------------------------------
+  function get_state_vector(this)
+
+    class(Background_Type) :: this
+    real(r8kind), dimension(this%ntimes, this%npoints) :: get_state_vector
+
+    get_state_vector = this%state
+
+  end function get_state_vector
+
+
+  !------------------------------------------------------------------
+  ! get_state_at_time
+  !
+  ! Returns the state vector at time t
+  !------------------------------------------------------------------
+  function get_state_at_time(this, t)
+
+    class(Background_Type) :: this
+    integer                :: t
+    real(r8kind), dimension(this%npoints) :: get_state_at_time
+
+    get_state_at_time = this%state(t,:)
+
+  end function get_state_at_time
 
 
 end module background

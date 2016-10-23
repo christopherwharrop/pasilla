@@ -43,22 +43,22 @@ contains
 
     var = 3.61
 
-    constructor%size = background%npoints
+    constructor%size = background%get_npoints()
     constructor%ntimes = cfg%ntimes
     constructor%var = var
 
     ! Allocate object arrays
-    allocate (constructor%covariance(cfg%ntimes, background%npoints, background%npoints))
+    allocate (constructor%covariance(cfg%ntimes, constructor%size, constructor%size))
 
     constructor%covariance(:,:,:) = 0.0
-    rad = background%npoints / 10
+    rad = constructor%size / 10
 
     do t = 1, cfg%ntimes
-       do i = 1, background%npoints
+       do i = 1, constructor%size
           do j = -rad, +rad
              jj = i + j
-             if (jj > background%npoints) jj = jj - background%npoints
-             if (jj < 1) jj = background%npoints + jj
+             if (jj > constructor%size) jj = jj - constructor%size
+             if (jj < 1) jj = constructor%size + jj
              constructor%covariance(t, i, jj) = var * exp(-((float(j) * cfg%sigma)**2))
           end do
        end do

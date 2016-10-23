@@ -294,12 +294,17 @@ contains
     type(lorenz96_TL_type)               :: model_TL
     type(lorenz96_ADJ_type)              :: model_ADJ
 
+    ! Get the number of assimilation times
+    tim_len = bkg%get_ntimes()
+    ! Get the size of the background
+    bkg_len = bkg%get_npoints()
+
     ! Allocate space for reused matrix products
-    allocate (this%hrh_cov(bkg%ntimes, bkg%npoints, bkg%npoints))
-    allocate (this%brh_cov(bkg%ntimes, bkg%npoints, bkg%npoints))
-    allocate (this%anl_vec(bkg%ntimes, bkg%npoints))
-    allocate (this%bht_ino(bkg%ntimes, bkg%npoints, 1))
-    allocate (this%htr_ino(bkg%ntimes, bkg%npoints, 1))
+    allocate (this%hrh_cov(tim_len, bkg_len, bkg_len))
+    allocate (this%brh_cov(tim_len, bkg_len, bkg_len))
+    allocate (this%anl_vec(tim_len, bkg_len))
+    allocate (this%bht_ino(tim_len, bkg_len, 1))
+    allocate (this%htr_ino(tim_len, bkg_len, 1))
 
     ! GET THE NEEDED REUSED MATRIX PRODUCTS:
     !        H(T)R(-1)(Y-HXb) = htr_ino
@@ -309,12 +314,6 @@ contains
     ! INPUTS: Y, H, Xb, R(-1), B
     ! USE SAME VARIABLE NAME PRE AND POST
     call this%pre_sol(obs_opr, obs_cov, bkg_cov, inno_vec)
-
-    ! Get the number of assimilation times
-    tim_len = bkg%ntimes
-
-    ! Get the size of the background
-    bkg_len = bkg%npoints
 
     ! Allocate storage for intermediate results
     allocate (jtim(tim_len))
@@ -380,7 +379,7 @@ contains
     if(this%method <= 2) Q = 0.0
 
     ! FIRST GUESS IS THE BACKGROUND
-    this%anl_vec=bkg%state
+    this%anl_vec=bkg%get_state_vector()
 
     ! ITERATE TO SOLVE THE COST FUNCTION
     do while ( abs(jold - jnew) > jthr)
@@ -399,7 +398,7 @@ contains
           tim_bkc(:,:) = bkg_cov%covariance(t,:,:)
           tim_hrh(:,:) = this%hrh_cov(t,:,:)
           tim_htr(:,:) = this%htr_ino(t,:,:)
-          tim_bkv(:,1) = bkg%state(t,:)
+          tim_bkv(:,1) = bkg%get_state_at_time(t)
 
           if(t == 1) then
              ! FOR THE FIRST TIME STEP, THERE IS NO PRIOR FIELD TO PROPAGATE
@@ -456,7 +455,7 @@ contains
           tim_bkc(:,:) = bkg_cov%covariance(t,:,:)
           tim_hrh(:,:) = this%brh_cov(t,:,:)
           tim_htr(:,:) = this%bht_ino(t,:,:)
-          tim_bkv(:,1) = bkg%state(t,:)
+          tim_bkv(:,1) = bkg%get_state_at_time(t)
 
           if(t == tim_len) then
             ! FOR THE LAST (OR ONLY) TIME STEP - NO ADJOINT TO RUN

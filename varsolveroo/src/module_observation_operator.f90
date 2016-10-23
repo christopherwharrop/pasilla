@@ -42,11 +42,11 @@ contains
 
     ! Initialize the dimensions of the operator
     constructor%nobs = obs%nobs
-    constructor%npoints = bkg%npoints
-    constructor%ntimes = bkg%ntimes
+    constructor%npoints = bkg%get_npoints()
+    constructor%ntimes = bkg%get_ntimes()
 
     ! Allocate space for the observation operator matrix
-    allocate(constructor%operator(bkg%ntimes, obs%nobs, bkg%npoints))
+    allocate(constructor%operator(constructor%ntimes, obs%nobs, constructor%npoints))
 
     ! Initialize the matrix to zero
     constructor%operator(:,:,:) = 0.0

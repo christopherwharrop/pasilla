@@ -13,13 +13,15 @@ module background_covariance
   type Background_Covariance_Type
       private
       ! instance variable
-      integer                           :: size
-      integer                           :: ntimes
-      real(r8kind)                      :: var
-      real(r8kind), allocatable, public :: covariance(:,:,:)
+      integer                   :: size
+      integer                   :: ntimes
+      real(r8kind)              :: var
+      real(r8kind), allocatable :: covariance(:,:,:)
   contains
       ! methods
       final :: destructor
+      procedure :: get_size
+      procedure :: get_covariances_at_time
   end type Background_Covariance_Type
 
   interface Background_Covariance_Type
@@ -79,6 +81,37 @@ contains
     ! No pointers in Background_Covariance object so we do nothing
 
   end subroutine
+
+
+  !------------------------------------------------------------------
+  ! get_size
+  !
+  ! Return the size of the background covariance matrix
+  !------------------------------------------------------------------
+  integer function get_size(this)
+
+    class(Background_Covariance_Type) :: this
+
+    get_size = this%size
+
+  end function get_size
+
+
+  !------------------------------------------------------------------
+  ! get_covariances_at_time
+  !
+  ! Return the covariance matrix for time t
+  !------------------------------------------------------------------
+  function get_covariances_at_time(this, t)
+
+    class(Background_Covariance_Type) :: this
+    integer                           :: t
+
+    real(r8kind), dimension(this%size,this%size) :: get_covariances_at_time
+
+    get_covariances_at_time = this%covariance(t,:,:)
+
+  end function get_covariances_at_time
 
 
 end module background_covariance

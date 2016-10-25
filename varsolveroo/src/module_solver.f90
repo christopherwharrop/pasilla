@@ -143,7 +143,7 @@ contains
 
     tim_len = size(obs_cov%covariance, 1)
     obs_len = size(obs_cov%covariance, 2)
-    bkg_len = size(bkg_cov%covariance, 2)
+    bkg_len = bkg_cov%get_size()
 
     allocate (tmp_mat(bkg_len, bkg_len))
     allocate (tmp_vec(bkg_len,       1))
@@ -165,7 +165,7 @@ contains
        ! ASSUME THAT OBS_OPR=H, OBS_COV=R(-1/2), BKG_COV=B(1/2), OBS_VEC=(Y-HXb)
        tim_opr(:,:) = obs_opr%operator(t,:,:)
        tim_obc(:,:) = obs_cov%covariance(t,:,:)
-       tim_bkc(:,:) = bkg_cov%covariance(t,:,:)
+       tim_bkc(:,:) = bkg_cov%get_covariances_at_time(t)
        obs_vvc(:,1) = inno_vec%get_value_vector()
 
        ! CREATE THE OBS BASED MATRICES, FOR USE IN CALCULATING THE COST FUNCTION
@@ -395,7 +395,7 @@ contains
 !$OMP DO
        do t = 1, tim_len
           tid = OMP_GET_THREAD_NUM()
-          tim_bkc(:,:) = bkg_cov%covariance(t,:,:)
+          tim_bkc(:,:) = bkg_cov%get_covariances_at_time(t)
           tim_hrh(:,:) = this%hrh_cov(t,:,:)
           tim_htr(:,:) = this%htr_ino(t,:,:)
           tim_bkv(:,1) = bkg%get_state_at_time(t)
@@ -452,7 +452,7 @@ contains
 !$OMP DO
        !   CALCULATE GRAD-J IN REVERSE TEMPORAL ORDER 
        do t = tim_len, 1, -1
-          tim_bkc(:,:) = bkg_cov%covariance(t,:,:)
+          tim_bkc(:,:) = bkg_cov%get_covariances_at_time(t)
           tim_hrh(:,:) = this%brh_cov(t,:,:)
           tim_htr(:,:) = this%bht_ino(t,:,:)
           tim_bkv(:,1) = bkg%get_state_at_time(t)

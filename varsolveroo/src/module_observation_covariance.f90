@@ -13,12 +13,14 @@ module observation_covariance
   type Observation_Covariance_Type
       private
       ! instance variable
-      integer                           :: size
-      integer                           :: ntimes
-      real(r8kind), allocatable, public :: covariance(:,:,:)
+      integer                   :: size
+      integer                   :: ntimes
+      real(r8kind), allocatable :: covariance(:,:,:)
   contains
       ! methods
       final :: destructor
+      procedure :: get_size
+      procedure :: get_covariances_at_time
   end type Observation_Covariance_Type
 
   interface Observation_Covariance_Type
@@ -67,6 +69,37 @@ contains
     ! No pointers in Observation_Covariance object so we do nothing
 
   end subroutine
+
+
+  !------------------------------------------------------------------
+  ! get_size
+  !
+  ! Get the size of the observation covariance matrix
+  !------------------------------------------------------------------
+  integer function get_size(this)
+
+    class(Observation_Covariance_Type) :: this
+
+    get_size = this%size
+
+  end function get_size
+
+
+  !------------------------------------------------------------------
+  ! get_covariances_at_time
+  !
+  ! Get the covariance matrix at time t
+  !------------------------------------------------------------------
+  function get_covariances_at_time(this, t)
+
+    class(Observation_Covariance_Type) :: this
+    integer                            :: t
+
+    real(r8kind), dimension(this%size, this%size) :: get_covariances_at_time
+
+    get_covariances_at_time = this%covariance(t,:,:)
+
+  end function get_covariances_at_time
 
 
 end module observation_covariance

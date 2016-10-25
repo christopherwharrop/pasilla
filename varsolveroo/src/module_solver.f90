@@ -20,6 +20,7 @@ module solver
     private
     ! instance variables
     integer, public           :: method
+    integer                   :: ntimes
     real(r8kind)              :: alpha
     real(r8kind), allocatable :: hrh_cov(:,:,:)
     real(r8kind), allocatable :: brh_cov(:,:,:)
@@ -53,6 +54,7 @@ contains
     class(Config_Type),     intent(in) :: cfg
 
     constructor%method = cfg%method
+    constructor%ntimes = cfg%ntimes
     constructor%alpha = cfg%alpha
 
   end function
@@ -122,7 +124,7 @@ contains
     class(Innovation_Vector_Type),      intent(   in) :: inno_vec
 
     integer :: i, j, t
-    integer :: tim_len, bkg_len, obs_len
+    integer :: bkg_len, obs_len
 
     real(r8kind), allocatable :: tmp_mat(:,:)
     real(r8kind), allocatable :: tmp_vec(:,:)
@@ -141,8 +143,7 @@ contains
 
     print *, "PRE_SOLVER"
 
-    tim_len = size(obs_cov%covariance, 1)
-    obs_len = size(obs_cov%covariance, 2)
+    obs_len = obs_cov%get_size()
     bkg_len = bkg_cov%get_size()
 
     allocate (tmp_mat(bkg_len, bkg_len))
@@ -161,10 +162,10 @@ contains
     allocate (tmp_hrr(bkg_len, obs_len))
 
     this%jvc_for(1,1) = 0.0
-    do t = 1, tim_len
+    do t = 1, this%ntimes
        ! ASSUME THAT OBS_OPR=H, OBS_COV=R(-1/2), BKG_COV=B(1/2), OBS_VEC=(Y-HXb)
        tim_opr(:,:) = obs_opr%operator(t,:,:)
-       tim_obc(:,:) = obs_cov%covariance(t,:,:)
+       tim_obc(:,:) = obs_cov%get_covariances_at_time(t)
        tim_bkc(:,:) = bkg_cov%get_covariances_at_time(t)
        obs_vvc(:,1) = inno_vec%get_value_vector()
 
@@ -287,24 +288,22 @@ contains
     real(r8kind), allocatable   :: jtim(:) 
     integer                     :: nthreads, tid
     integer                     :: OMP_GET_NUM_THREADS, OMP_GET_THREAD_NUM
-    integer                     :: tim_len, bkg_len
+    integer                     :: bkg_len
     type(lorenz96_TL_type),  allocatable :: fwmod_vec(:)
     type(lorenz96_ADJ_type), allocatable :: bwmod_vec(:)
     type(lorenz96_type),     allocatable :: model(:)
     type(lorenz96_TL_type)               :: model_TL
     type(lorenz96_ADJ_type)              :: model_ADJ
 
-    ! Get the number of assimilation times
-    tim_len = bkg%get_ntimes()
     ! Get the size of the background
     bkg_len = bkg%get_npoints()
 
     ! Allocate space for reused matrix products
-    allocate (this%hrh_cov(tim_len, bkg_len, bkg_len))
-    allocate (this%brh_cov(tim_len, bkg_len, bkg_len))
-    allocate (this%anl_vec(tim_len, bkg_len))
-    allocate (this%bht_ino(tim_len, bkg_len, 1))
-    allocate (this%htr_ino(tim_len, bkg_len, 1))
+    allocate (this%hrh_cov(this%ntimes, bkg_len, bkg_len))
+    allocate (this%brh_cov(this%ntimes, bkg_len, bkg_len))
+    allocate (this%anl_vec(this%ntimes, bkg_len))
+    allocate (this%bht_ino(this%ntimes, bkg_len, 1))
+    allocate (this%htr_ino(this%ntimes, bkg_len, 1))
 
     ! GET THE NEEDED REUSED MATRIX PRODUCTS:
     !        H(T)R(-1)(Y-HXb) = htr_ino
@@ -316,15 +315,15 @@ contains
     call this%pre_sol(obs_opr, obs_cov, bkg_cov, inno_vec)
 
     ! Allocate storage for intermediate results
-    allocate (jtim(tim_len))
+    allocate (jtim(this%ntimes))
     allocate (tim_htr(bkg_len,       1))
     allocate (tim_bkc(bkg_len, bkg_len))
     allocate (tim_hrh(bkg_len, bkg_len))
     allocate (tim_bkv(bkg_len,       1))
     allocate (tim_anv(bkg_len,       1))
 
-    allocate (new_vec(tim_len, bkg_len))
-    allocate (tlm_vec(tim_len, bkg_len))
+    allocate (new_vec(this%ntimes, bkg_len))
+    allocate (tlm_vec(this%ntimes, bkg_len))
     allocate (mdl_vec(bkg_len,       1))
     allocate (ges_vec(bkg_len,       1))
     allocate (dif_vec(bkg_len,       1))
@@ -341,22 +340,22 @@ contains
     ! Allocate/initialize fw and bw models if we are doing 4DVar
     if (this%method >= 3) then
       ! Allocate the arrays to hold fw and bw models
-      allocate(model(tim_len))
-      allocate (fwmod_vec(2:tim_len))
-      allocate (bwmod_vec(1:tim_len - 1))
+      allocate(model(this%ntimes))
+      allocate (fwmod_vec(2:this%ntimes))
+      allocate (bwmod_vec(1:this%ntimes - 1))
 
       ! Initialize a real model for use in calculating trajectories
-      do t = 1, tim_len
+      do t = 1, this%ntimes
         model(t) = lorenz96_type(t,'NETCDF')
       end do
 
       ! Load fw models
-      do t = 2, tim_len
+      do t = 2, this%ntimes
          fwmod_vec(t) = lorenz96_TL_type(t - 1, "NETCDF")
       end do
 
       ! Load bw models
-      do t = 1, tim_len - 1
+      do t = 1, this%ntimes - 1
          bwmod_vec(t) = lorenz96_ADJ_type(t + 1, "NETCDF")
       end do
     end if
@@ -391,9 +390,9 @@ contains
        new_vec(:,:) = 0.0
        tlm_vec = this%anl_vec
 
-!$OMP PARALLEL SHARED (bkg_cov, this, bkg, tlm_vec, jtim, new_vec, tim_len, B, Q, fwmod_vec, model) DEFAULT(PRIVATE)
+!$OMP PARALLEL SHARED (bkg_cov, this, bkg, tlm_vec, jtim, new_vec, B, Q, fwmod_vec, model) DEFAULT(PRIVATE)
 !$OMP DO
-       do t = 1, tim_len
+       do t = 1, this%ntimes
           tid = OMP_GET_THREAD_NUM()
           tim_bkc(:,:) = bkg_cov%get_covariances_at_time(t)
           tim_hrh(:,:) = this%hrh_cov(t,:,:)
@@ -442,22 +441,22 @@ contains
 !$OMP END PARALLEL
 
        if(this%method == 4) tlm_vec = new_vec
-       do t = 1, tim_len
+       do t = 1, this%ntimes
           jnew = jnew + jtim(t)
        end do
        jnew = jnew + this%jvc_for(1,1)
        new_vec(:,:) = 0.0
 
-!$OMP PARALLEL SHARED (this, bkg_cov, bkg, tlm_vec, new_vec, tim_len, B, Q, bwmod_vec, model) DEFAULT(PRIVATE)
+!$OMP PARALLEL SHARED (this, bkg_cov, bkg, tlm_vec, new_vec, B, Q, bwmod_vec, model) DEFAULT(PRIVATE)
 !$OMP DO
        !   CALCULATE GRAD-J IN REVERSE TEMPORAL ORDER 
-       do t = tim_len, 1, -1
+       do t = this%ntimes, 1, -1
           tim_bkc(:,:) = bkg_cov%get_covariances_at_time(t)
           tim_hrh(:,:) = this%brh_cov(t,:,:)
           tim_htr(:,:) = this%bht_ino(t,:,:)
           tim_bkv(:,1) = bkg%get_state_at_time(t)
 
-          if(t == tim_len) then
+          if(t == this%ntimes) then
             ! FOR THE LAST (OR ONLY) TIME STEP - NO ADJOINT TO RUN
             mdl_vec(:,1) = tlm_vec(t,:)
             if(this%method == 4) mdl_vec(:,1) = 0.5 * (tlm_vec(t,:) + this%anl_vec(t,:))

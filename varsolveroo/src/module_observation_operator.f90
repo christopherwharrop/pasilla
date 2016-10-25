@@ -12,14 +12,15 @@ module observation_operator
 
   type Observation_Operator_Type
       private
-      integer, public                   :: nobs
-      integer, public                   :: npoints
-      integer, public                   :: ntimes
-      real(r8kind), allocatable, public :: operator(:,:,:)
-! instance variable
+      ! instance variable
+      integer                   :: nobs
+      integer                   :: npoints
+      integer                   :: ntimes
+      real(r8kind), allocatable :: operator(:,:,:)
   contains
+      ! methods
       final :: destructor
-! methods
+      procedure :: get_operator_at_time
   end type Observation_Operator_Type
 
   interface Observation_Operator_Type
@@ -73,6 +74,23 @@ contains
     ! No pointers in Observation_Operator object so we do nothing
 
   end subroutine
+
+
+  !------------------------------------------------------------------
+  ! get_operator_at_time
+  !
+  ! Get the operator matrix at time t
+  !------------------------------------------------------------------
+  function get_operator_at_time(this, t)
+
+    class(Observation_Operator_Type), intent(in) :: this
+    integer, intent(in)                          :: t
+
+    real(r8kind), dimension(this%nobs, this%npoints) :: get_operator_at_time
+
+    get_operator_at_time = this%operator(t,:,:)
+
+  end function get_operator_at_time
 
 
 end module observation_operator

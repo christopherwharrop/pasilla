@@ -164,7 +164,7 @@ contains
     this%jvc_for(1,1) = 0.0
     do t = 1, this%ntimes
        ! ASSUME THAT OBS_OPR=H, OBS_COV=R(-1/2), BKG_COV=B(1/2), OBS_VEC=(Y-HXb)
-       tim_opr(:,:) = obs_opr%operator(t,:,:)
+       tim_opr(:,:) = obs_opr%get_operator_at_time(t)
        tim_obc(:,:) = obs_cov%get_covariances_at_time(t)
        tim_bkc(:,:) = bkg_cov%get_covariances_at_time(t)
        obs_vvc(:,1) = inno_vec%get_value_vector()

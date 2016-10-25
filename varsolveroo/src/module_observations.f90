@@ -12,13 +12,19 @@ module observations
   type Observations_Type
       private
       ! instance variable
-      integer, public                   :: nobs
-      real(r8kind), allocatable, public :: value(:)
-      integer, allocatable, public      :: position(:)
-      integer, allocatable, public      :: time(:)
+      integer                   :: nobs
+      real(r8kind), allocatable :: value(:)
+      integer, allocatable      :: position(:)
+      integer, allocatable      :: time(:)
   contains
       ! methods
-      final              :: destructor
+      final     :: destructor
+      procedure :: get_nobs
+      procedure :: get_time_element
+      procedure :: get_time_vector
+      procedure :: get_position_element
+      procedure :: get_position_vector
+      procedure :: get_value_element
   end type Observations_Type
 
   interface Observations_Type
@@ -76,6 +82,103 @@ contains
     ! No pointers in Observations object so we do nothing
 
   end subroutine
+
+
+  !------------------------------------------------------------------
+  ! get_nobs
+  !
+  ! Return the number of obs
+  !------------------------------------------------------------------
+  integer function get_nobs(this)
+
+    class(Observations_Type) :: this
+
+    get_nobs = this%nobs
+
+  end function get_nobs
+
+
+  !------------------------------------------------------------------
+  ! get_time_element
+  !
+  ! Return the time of observation i
+  !------------------------------------------------------------------
+  function get_time_element(this, i)
+
+    class(Observations_Type) :: this
+    integer :: i
+
+    integer :: get_time_element
+
+    get_time_element = this%time(i)
+
+  end function get_time_element
+
+
+  !------------------------------------------------------------------
+  ! get_time_vector
+  !
+  ! Return the time vector
+  !------------------------------------------------------------------
+  function get_time_vector(this)
+
+    class(Observations_Type) :: this
+
+    integer, dimension(this%nobs) :: get_time_vector
+
+    get_time_vector = this%time
+
+  end function get_time_vector
+
+
+  !------------------------------------------------------------------
+  ! get_position_vector
+  !
+  ! Return the observation position vector
+  !------------------------------------------------------------------
+  function get_position_vector(this)
+
+    class(Observations_Type) :: this
+
+    integer, dimension(this%nobs) :: get_position_vector
+
+    get_position_vector = this%position
+
+  end function get_position_vector
+
+
+  !------------------------------------------------------------------
+  ! get_position_element
+  !
+  ! Return the position of observation i
+  !------------------------------------------------------------------
+  function get_position_element(this, i)
+
+    class(Observations_Type) :: this
+    integer                  :: i
+
+    integer :: get_position_element
+
+    get_position_element = this%position(i)
+
+  end function get_position_element
+
+
+  !------------------------------------------------------------------
+  ! get_value_element
+  !
+  ! Return the value of observation i
+  !------------------------------------------------------------------
+  function get_value_element(this, i)
+
+    class(Observations_Type) :: this
+    integer                  :: i
+
+    real(r8kind) :: get_value_element
+
+    get_value_element = this%value(i)
+
+  end function get_value_element
 
 
 end module observations

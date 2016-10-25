@@ -38,22 +38,24 @@ contains
     class(Background_Type), intent(in)   :: bkg
     class(Observations_Type), intent(in) :: obs
 
-    integer :: i
+    integer :: i, nobs
+
+    nobs = obs%get_nobs()
 
     ! Initialize the dimensions of the operator
-    constructor%nobs = obs%nobs
+    constructor%nobs = nobs
     constructor%npoints = bkg%get_npoints()
     constructor%ntimes = bkg%get_ntimes()
 
     ! Allocate space for the observation operator matrix
-    allocate(constructor%operator(constructor%ntimes, obs%nobs, constructor%npoints))
+    allocate(constructor%operator(constructor%ntimes, nobs, constructor%npoints))
 
     ! Initialize the matrix to zero
     constructor%operator(:,:,:) = 0.0
 
     ! Initialize non-zero values
-    do i = 1, obs%nobs
-       constructor%operator(obs%time(i), i, obs%position(i)) = 1.0
+    do i = 1, nobs
+       constructor%operator(obs%get_time_element(i), i, obs%get_position_element(i)) = 1.0
     end do
 
   end function

@@ -166,7 +166,7 @@ contains
        tim_opr(:,:) = obs_opr%operator(t,:,:)
        tim_obc(:,:) = obs_cov%covariance(t,:,:)
        tim_bkc(:,:) = bkg_cov%covariance(t,:,:)
-       obs_vvc(:,1) = inno_vec%value(:)
+       obs_vvc(:,1) = inno_vec%get_value_vector()
 
        ! CREATE THE OBS BASED MATRICES, FOR USE IN CALCULATING THE COST FUNCTION
        ! tim_hrh=H(T)R(-1)H, tim_htr=R(-1)H

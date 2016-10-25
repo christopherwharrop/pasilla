@@ -37,17 +37,19 @@ contains
     class(Observations_Type), intent(in) :: observations
     class(Config_Type),       intent(in) :: cfg
 
-    integer :: i
+    integer :: i, nobs
 
-    constructor%size = observations%nobs
+    nobs = observations%get_nobs()
+
+    constructor%size = nobs
     constructor%ntimes = cfg%ntimes
     
-    allocate(constructor%covariance(cfg%ntimes, observations%nobs, observations%nobs))
+    allocate(constructor%covariance(cfg%ntimes, nobs, nobs))
 
     constructor%covariance(:,:,:) = 0.0
 
-    do i = 1, observations%nobs
-       constructor%covariance(observations%time(i), i, i) = 1.0
+    do i = 1, nobs
+       constructor%covariance(observations%get_time_element(i), i, i) = 1.0
     end do
 
   end function

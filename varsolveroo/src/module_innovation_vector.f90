@@ -11,15 +11,16 @@ module innovation_vector
   public :: Innovation_Vector_Type
 
   type Innovation_Vector_Type
+      ! instance variable
       private
-      integer, public                   :: nobs
-      real(r8kind), allocatable, public :: value(:)
-      integer, allocatable, public      :: position(:)
-      integer, allocatable, public      :: time(:)
-! instance variable
+      integer                   :: nobs
+      real(r8kind), allocatable :: value(:)
+      integer, allocatable      :: position(:)
+      integer, allocatable      :: time(:)
   contains
+      ! methods
+      procedure :: get_value_vector
       final :: destructor
-! methods
   end type Innovation_Vector_Type
 
   interface Innovation_Vector_Type
@@ -38,23 +39,25 @@ contains
     class(Background_Type), intent(in)   :: background
     class(Observations_Type), intent(in) :: observations
 
-    integer :: i
+    integer :: i, nobs
+
+    nobs = observations%get_nobs()
 
     ! Initialize the length of the innovation vector
-    constructor%nobs = observations%nobs
+    constructor%nobs = nobs
 
     ! Allocate space for the innovation vector values, positions, and times
-    allocate(constructor%value(observations%nobs))
-    allocate(constructor%position(observations%nobs))
-    allocate(constructor%time(observations%nobs))
+    allocate(constructor%value(nobs))
+    allocate(constructor%position(nobs))
+    allocate(constructor%time(nobs))
 
     ! Initialize the innovation vector positions and times
-    constructor%position = observations%position
-    constructor%time = observations%time
+    constructor%position = observations%get_position_vector()
+    constructor%time = observations%get_time_vector()
 
     ! Calculate the innovation vector values
-    do i = 1, observations%nobs
-       constructor%value(i) = observations%value(i) - background%get_state_element(observations%time(i), observations%position(i))
+    do i = 1, nobs
+       constructor%value(i) = observations%get_value_element(i) - background%get_state_element(observations%get_time_element(i), observations%get_position_element(i))
        write(*,'(A8,3I5,2F10.4)') "INO ", i, constructor%time(i), constructor%position(i), constructor%value(i), background%get_state_element(constructor%time(i), constructor%position(i))
     end do
 
@@ -73,6 +76,17 @@ contains
     ! No pointers in Innovation_vector object so we do nothing
 
   end subroutine
+
+
+  function get_value_vector(this)
+
+    class(Innovation_Vector_Type) :: this
+
+    real(r8kind), dimension(this%nobs) :: get_value_vector
+
+    get_value_vector = this%value
+
+  end function get_value_vector
 
 
 end module innovation_vector

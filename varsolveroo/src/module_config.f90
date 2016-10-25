@@ -1,6 +1,6 @@
 module config
 
-  use kind, only             : r8kind
+  use kind, only : r8kind
 
   implicit none
 
@@ -11,13 +11,17 @@ module config
   type Config_Type
       private
       ! instance variable
-      integer, public      :: method
-      integer, public      :: ntimes
-      real(r8kind), public :: sigma
-      real(r8kind), public :: alpha
+      integer      :: method
+      integer      :: ntimes
+      real(r8kind) :: sigma
+      real(r8kind) :: alpha
   contains
       ! methods
       final :: destructor
+      procedure :: get_method
+      procedure :: get_ntimes
+      procedure :: get_sigma
+      procedure :: get_alpha
   end type Config_Type
 
   interface Config_Type
@@ -96,6 +100,62 @@ contains
     ! No pointers in Config object so we do nothing
 
   end subroutine
+
+
+  !------------------------------------------------------------------
+  ! get_method
+  !
+  ! Get the method from the configuration
+  !------------------------------------------------------------------
+  integer function get_method(this)
+
+    class(Config_Type), intent(in) :: this
+
+    get_method = this%method
+
+  end function get_method
+
+
+  !------------------------------------------------------------------
+  ! get_ntimes
+  !
+  ! Get the ntimes from the configuration
+  !------------------------------------------------------------------
+  integer function get_ntimes(this)
+
+    class(Config_Type), intent(in) :: this
+
+    get_ntimes = this%ntimes
+
+  end function get_ntimes
+
+
+  !------------------------------------------------------------------
+  ! get_alpha
+  !
+  ! Get the alpha from the configuration
+  !------------------------------------------------------------------
+  real(r8kind) function get_alpha(this)
+
+    class(Config_Type), intent(in) :: this
+
+    get_alpha = this%alpha
+
+  end function get_alpha
+
+
+  !------------------------------------------------------------------
+  ! get_sigma
+  !
+  ! Get the sigma from the configuration
+  !------------------------------------------------------------------
+  real(r8kind) function get_sigma(this)
+
+    class(Config_Type), intent(in) :: this
+
+    get_sigma = this%sigma
+
+  end function get_sigma
 
 
 end module config

@@ -48,7 +48,7 @@ contains
 
 
     ! Construct name of obs input file
-    write(filename, '(A,I1,A)') 'lorenz96obs_', cfg%method, '.txt'
+    write(filename, '(A,I1,A)') 'lorenz96obs_', cfg%get_method(), '.txt'
 
     ! Open the output csv file
     open(newunit=fileunit, file=trim(filename), form='formatted', status='old')

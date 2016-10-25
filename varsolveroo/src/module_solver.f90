@@ -53,9 +53,9 @@ contains
 
     class(Config_Type),     intent(in) :: cfg
 
-    constructor%method = cfg%method
-    constructor%ntimes = cfg%ntimes
-    constructor%alpha = cfg%alpha
+    constructor%method = cfg%get_method()
+    constructor%ntimes = cfg%get_ntimes()
+    constructor%alpha = cfg%get_alpha()
 
   end function
 

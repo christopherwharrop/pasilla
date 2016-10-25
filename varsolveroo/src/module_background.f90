@@ -47,21 +47,21 @@ contains
     type(lorenz96_type) :: model
     integer             :: t, tt
 
-    constructor%ntimes = cfg%ntimes
+    constructor%ntimes = cfg%get_ntimes()
 
     ! Allocate time array
-    allocate (constructor%time(cfg%ntimes))
+    allocate (constructor%time(cfg%get_ntimes()))
 
     ! Read in model background for each time
-    do t = 1, cfg%ntimes
+    do t = 1, cfg%get_ntimes()
        constructor%time(t) = t
        tt = t
-       if (cfg%method .le. 2) tt = 2
+       if (cfg%get_method() .le. 2) tt = 2
        model = lorenz96_type(tt, "NETCDF")
        if (t==1) then
          constructor%npoints = model%size
-         allocate (constructor%state(cfg%ntimes, model%size))
-         allocate (constructor%position(cfg%ntimes, model%size))
+         allocate (constructor%state(cfg%get_ntimes(), model%size))
+         allocate (constructor%position(cfg%get_ntimes(), model%size))
        end if
        constructor%position(t,:) = model%location(:)
        constructor%state(t,:) = model%state(:)

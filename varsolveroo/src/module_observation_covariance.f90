@@ -44,9 +44,9 @@ contains
     nobs = observations%get_nobs()
 
     constructor%size = nobs
-    constructor%ntimes = cfg%ntimes
+    constructor%ntimes = cfg%get_ntimes()
     
-    allocate(constructor%covariance(cfg%ntimes, nobs, nobs))
+    allocate(constructor%covariance(cfg%get_ntimes(), nobs, nobs))
 
     constructor%covariance(:,:,:) = 0.0
 

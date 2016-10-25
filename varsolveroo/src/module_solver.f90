@@ -19,7 +19,7 @@ module solver
   type Solver_Type
     private
     ! instance variables
-    integer, public           :: method
+    integer                   :: method
     integer                   :: ntimes
     real(r8kind)              :: alpha
     real(r8kind), allocatable :: hrh_cov(:,:,:)

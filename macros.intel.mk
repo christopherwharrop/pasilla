@@ -1,6 +1,6 @@
 FC=ifort
 FCOPT=-O2 -fp-model precise
-FCDEBUG=#-check all,noarg_temp_created -fpe0
+FCDEBUG=#-O0 -check all,noarg_temp_created -fpe0
 FFLAGS=-g -traceback $(FCOPT) $(FCDEBUG)
 LAPACK=-mkl=sequential
 GPTLFLAGS=-finstrument-functions 

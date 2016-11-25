@@ -11,32 +11,29 @@ program lorenz96Model
   implicit none
 
   integer :: step, i, mthd           ! Loop index
-!  integer :: obs_idx(15)             ! Array of observation indices
-!  integer :: obs_tim(15)             ! Array of observation times
-  integer :: obs_idx(1000)             ! Array of observation indices
-  integer :: obs_tim(1000)             ! Array of observation times
+  integer :: obs_idx(20)             ! Array of observation indices
+  integer :: obs_tim(20)             ! Array of observation times
   type(lorenz96_type) :: obs_data(3) ! Array of the observation data
   integer :: ierr                    ! Error code 
   character(len=128) :: filename
   integer :: fileunit
 
-  integer :: j, k
-
   ! Set the indices of the obs locations
-!  obs_idx=(/4, 6, 8, 11, 12, 14, 18, 19, 25, 27, 29, 30, 33, 35, 40/)
-!  obs_tim=(/1, 2, 3,  2,  1,  2,  3,  2,  1,  2,  3,  2,  1,  2,  3/)
-
-  j=1
-  do i = 1, 4000, 4
-    obs_idx(j) = i
-    k=modulo(j, 4)
-    if (k ==0 ) k = 2
-    obs_tim(j) = k
-    j = j + 1
+! obs_idx=(/4, 6, 8, 11, 12, 14, 18, 19, 25, 27, 29, 30, 33, 35, 40/)
+! obs_tim=(/1, 2, 3,  2,  1,  2,  3,  2,  1,  2,  3,  2,  1,  2,  3/)
+  do i=1,20
+     obs_idx(i)=i*2
+     obs_tim(i)=2
   end do
+  do i=1,20,4
+     obs_tim(i)=1
+     obs_tim(i+2)=3
+  end do
+  print *,obs_idx
+  print *,obs_tim
 
   ! Loop over experiment analysis times
-  do step = 40060, 80000, 60
+  do step = 40030, 80000, 30
 
      ! Read in truth at analysis time and surrounding times
      obs_data(1) = lorenz96_type(step - 10, "NETCDF")
@@ -57,19 +54,19 @@ program lorenz96Model
      select case (mthd)
        case(1)
          do i=1, size(obs_idx)
-           write(fileunit, '(2I,F7.3)') 1, obs_idx(i), obs_data(obs_tim(i))%state(obs_idx(i))
+           write(fileunit, '(2I,F8.4)') 1, obs_idx(i), obs_data(obs_tim(i))%state(obs_idx(i))
          end do
        case(2)
          do i=1, size(obs_idx)
-           write(fileunit, '(2I,F7.3)') 1, obs_idx(i), obs_data(2)%state(obs_idx(i))
+           write(fileunit, '(2I,F8.4)') 1, obs_idx(i), obs_data(2)%state(obs_idx(i))
          end do
        case(3)
          do i=1, size(obs_idx)
-           write(fileunit, '(2I,F7.3)') obs_tim(i), obs_idx(i), obs_data(obs_tim(i))%state(obs_idx(i))
+           write(fileunit, '(2I,F8.4)') obs_tim(i), obs_idx(i), obs_data(obs_tim(i))%state(obs_idx(i))
          end do
        case(4)
          do i=1, size(obs_idx)
-           write(fileunit, '(2I,F7.3)') obs_tim(i), obs_idx(i), obs_data(obs_tim(i))%state(obs_idx(i))
+           write(fileunit, '(2I,F8.4)') obs_tim(i), obs_idx(i), obs_data(obs_tim(i))%state(obs_idx(i))
          end do
       end select
 

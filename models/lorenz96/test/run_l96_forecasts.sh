@@ -8,22 +8,22 @@ module load netcdf
 export OMP_STACKSIZE=1G
 
 # Set locations of data, namelists, and executables
-PASILLA_DIR=/scratch4/BMC/nim/Christopher.W.Harrop/pasilla.dev
+PASILLA_DIR=/scratch3/BMC/nim/Brian.Etherton/pasilla
 OBS_DIR=${PASILLA_DIR}/models/lorenz96/obs
 NATURE_DIR=${PASILLA_DIR}/models/lorenz96/nature  # Needed for initial analysis file
 VARSOLVER_DIR=${PASILLA_DIR}/varsolver
 LORENZ96_DIR=${PASILLA_DIR}/models/lorenz96
 
 GPTL_PATH=/contrib/gptl/gptl-v5.5_nompi_noomp/bin
-PARSE_PATH=/home/Christopher.W.Harrop/bin
+PARSE_PATH=/home/Brian.Etherton/bin
 
 # Set experiment location
-BASE_DIR=/scratch4/BMC/nim/Christopher.W.Harrop/pasilla.dev/models/lorenz96/test
+BASE_DIR=/scratch3/BMC/nim/Brian.Etherton/pasilla/models/lorenz96/test
 
 # Set model parameters
-lorenz96_forcing=8.1
+lorenz96_forcing=8.10 
 lorenz96_delta_t=0.000833
-start_offset=30
+start_offset=10
 
 
 one_hour=10                      # There are 10 steps in one "hour"
@@ -50,7 +50,8 @@ while [ $f -le $end_fcst ]; do
   prev_f7=`printf "%07d" $prev_f`
 
   # Loop over methods
-  for method in 1 2 3 4 5; do
+# for method in 1 2 3 4 5; do
+  for method in 1; do
 
     # Set OMP options for this method
     method_dir=$method

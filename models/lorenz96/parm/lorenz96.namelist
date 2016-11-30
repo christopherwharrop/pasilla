@@ -1,7 +1,7 @@
 &params
- size = 40,
+ nx = 40,
  forcing = 8.0,
- delta_t = 0.05,
+ time_step = 0.05,
 /
 &runtime
  start_step = 0,

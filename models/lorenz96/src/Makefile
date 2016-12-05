@@ -17,14 +17,18 @@ harvest_lorenz96_obs.exe: module_lorenz96.o harvest_lorenz96_obs.f90
 #lorenz96.exe: module_lorenz96.o lorenz96.f90
 #	$(FC) $(FFLAGS) -o lorenz96.exe lorenz96.f90 module_lorenz96.o $(INCLUDES) $(LIBS)
 
-lorenz96.exe: module_L96_model.o module_L96_config.o module_L96_writer.o L96.f90
-	$(FC) $(FFLAGS) -o lorenz96.exe L96.f90 module_L96_model.o module_L96_config.o module_L96_writer.o $(INCLUDES) $(LIBS)
+lorenz96.exe: module_L96_model.o module_L96_config.o module_L96_reader.o module_L96_writer.o module_netcdf_writer.o L96.f90
+	$(FC) $(FFLAGS) -o lorenz96.exe L96.f90 module_L96_model.o module_L96_config.o module_L96_reader.o module_L96_writer.o module_netcdf_writer.o $(INCLUDES) $(LIBS)
 module_L96_model.o: module_L96_config.o module_L96_model.f90
 	$(FC) $(FFLAGS) -c module_L96_model.f90 $(INCLUDES) $(LIBS)
 module_L96_config.o: module_L96_config.f90
 	$(FC) $(FFLAGS) -c module_L96_config.f90 $(INCLUDES) $(LIBS)
-module_L96_writer.o: module_L96_writer.f90
+module_L96_reader.o: module_L96_reader.f90
+	$(FC) $(FFLAGS) -c module_L96_reader.f90 $(INCLUDES) $(LIBS)
+module_L96_writer.o: module_L96_writer.f90 module_netcdf_writer.o
 	$(FC) $(FFLAGS) -c module_L96_writer.f90 $(INCLUDES) $(LIBS)
+module_netcdf_writer.o: module_netcdf_writer.f90
+	$(FC) $(FFLAGS) -c module_netcdf_writer.f90 $(INCLUDES) $(LIBS)
 
 
 

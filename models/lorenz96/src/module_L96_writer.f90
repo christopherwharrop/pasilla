@@ -1,9 +1,9 @@
 module L96_Writer
 
-  use kind,      only  : r8kind
-  use L96_Model, only  : l96_model_type
-  use L96_Config, only : l96_config_type
-!  use Writer, only : writer_type
+  use kind,          only : r8kind
+  use L96_Model,     only : l96_model_type
+  use L96_Config,    only : l96_config_type
+  use NetCDF_Writer, only : netcdf_writer_type
 
   implicit none
 
@@ -14,15 +14,14 @@ module L96_Writer
   type :: l96_writer_type
       private
       character(len=7) :: io_format
+      character(len=16) :: format_extension
+      type(netcdf_writer_type) :: io_writer
   contains
       final :: destructor
       procedure :: write
-      procedure :: ascii_write
-      procedure :: netcdf_write
-!      procedure :: write_config
-!      procedure :: write_state
-!      procedure, private :: netcdf_write_state
-!      procedure, private :: ascii_write_state
+      procedure :: generic_write
+      procedure, private :: ascii_write
+      procedure, private :: netcdf_write
   end type l96_writer_type
 
   interface l96_writer_type
@@ -38,13 +37,16 @@ contains
   !------------------------------------------------------------------
   type(l96_writer_type) function constructor(io_format)
 
-    character(len=*) :: io_format
+    character(len=*), intent(in) :: io_format
 
+    constructor%io_format = io_format
     select case (io_format)
       case('NETCDF')
-        constructor%io_format = io_format
+        constructor%io_writer = netcdf_writer_type()
+        constructor%format_extension = '.nc'
       case('ASCII')
-        constructor%io_format = io_format
+!        constructor%io_writer = ascii_writer_type()
+        constructor%format_extension = '.csv'
       case DEFAULT
         write(*,'(A,A,A)') 'ERROR: IO Format "', io_format, '" is not supported!'
         stop
@@ -70,43 +72,86 @@ contains
   !------------------------------------------------------------------
   ! write
   !------------------------------------------------------------------
-  integer function write(this, model)
+  subroutine write(this, model, filename)
 
-    class(l96_writer_type), intent(in) :: this
-    class(l96_model_type),  intent(in) :: model
+    class(l96_writer_type), intent(inout) :: this
+    class(l96_model_type), intent(   in) :: model
+    character(len=*),      intent(   in) :: filename
 
-    integer :: ierr          ! return value of function
 
     select case (this%io_format)
       case('NETCDF')
-        ierr = this%netcdf_write(model)
+        call this%netcdf_write(model,filename)
       case('ASCII')
-        ierr = this%ascii_write(model)
+        call this%ascii_write(model,filename)
       case DEFAULT
         write(*,'(A,A,A)') 'ERROR: IO Format "', this%io_format, '" is not supported!'
         stop
     end select
 
 
-    write = ierr
-
-  end function write
+  end subroutine write
 
 
   !------------------------------------------------------------------
-  ! ascii_write_model_state
+  ! generic_write
   !------------------------------------------------------------------
-  integer function ascii_write(this, model)
+  subroutine generic_write(this, model)
+
+    class(l96_writer_type), intent(inout) :: this
+    class(l96_model_type),  intent(   in) :: model
+
+    type(l96_config_type) :: config      ! model configuration
+    character(len=128)    :: filename    ! name of output file
+    character(len=8)      :: crdate      ! needed by F90 DATE_AND_TIME intrinsic
+    character(len=10)     :: crtime      ! needed by F90 DATE_AND_TIME intrinsic
+    character(len=5)      :: crzone      ! needed by F90 DATE_AND_TIME intrinsic
+    integer, dimension(8) :: values      ! needed by F90 DATE_AND_TIME intrinsic
+    character(len=19)     :: timestr     ! date/time string
+
+    ! Get the model configuration
+    config = model%get_config()
+
+    ! Construct name of output file
+    write(filename,'(A,I0.7)') 'lorenz96out_', model%get_step()
+
+    ! Create the output file
+    call this%io_writer%create(filename)
+
+    ! Construct a string containing the current date and time
+    call DATE_AND_TIME(crdate, crtime, crzone, values)
+    write(timestr,'(i4,2(a,i2.2),1x,i2.2,2(a,i2.2))') &
+          values(1), '/', values(2), '/', values(3), values(5), ':', values(6), ':', values(7)
+
+    ! Write the global header data
+    call this%io_writer%write_global_var('creation_date', timestr)
+    call this%io_writer%write_global_var('model', 'Lorenz_96')
+    call this%io_writer%write_global_var('model_forcing', config%get_forcing())
+    call this%io_writer%write_global_var('model_time_step', config%get_time_step())
+    call this%io_writer%write_global_var('model_clock', model%get_clock())
+    call this%io_writer%write_global_var('model_step', model%get_step())
+
+    ! Close the output file
+    call this%io_writer%close()
+
+
+  end subroutine generic_write
+
+
+  !------------------------------------------------------------------
+  ! ascii_write
+  !------------------------------------------------------------------
+  subroutine ascii_write(this, model, filename)
 
     class(l96_writer_type), intent(in) :: this
     class(l96_model_type),  intent(in) :: model
+    character(len=*),       intent(in) :: filename
 
     integer :: ierr          ! return value of function
 
     type(l96_config_type) :: config
     real(r8kind), allocatable :: state(:)
 
-    character(len=128)    :: filename    ! name of output file
     integer :: fileunit
     integer :: i
     character(len=8)      :: crdate      ! needed by F90 DATE_AND_TIME intrinsic
@@ -123,10 +168,10 @@ contains
     state = model%get_state()
 
     ! Construct name of output file
-    write(filename,'(A,I0.7,A)') 'lorenz96out_', model%get_step(), '.csv'
+!    write(filename,'(A,I0.7,A)') 'lorenz96out_', model%get_step(), '.csv'
 
     ! Open the output csv file
-    open(newunit=fileunit, file=trim(filename), form='formatted')
+    open(newunit=fileunit, file=trim(filename) // trim(this%format_extension), form='formatted')
 
     call DATE_AND_TIME(crdate,crtime,crzone,values)
     write(timestr,'(i4,2(a,i2.2),1x,i2.2,2(a,i2.2))') &
@@ -156,9 +201,7 @@ contains
     ! Close the file
     close(fileunit)
 
-    ascii_write = ierr
-
-  end function ascii_write
+  end subroutine ascii_write
 
 
  !------------------------------------------------------------------
@@ -176,12 +219,13 @@ contains
   !    NF90_put_var       ! provide values for variable
   ! NF90_CLOSE            ! close: save updated netCDF dataset
   !------------------------------------------------------------------
-  integer function netcdf_write(this, model)
+  subroutine netcdf_write(this, model, filename)
 
     use netcdf
 
     class(l96_writer_type), intent(in) :: this
     class(l96_model_type),  intent(in) :: model
+    character(len=*),       intent(in) :: filename
 
     integer :: ierr          ! return value of function
 
@@ -195,7 +239,6 @@ contains
 
     ! local variables
     integer               :: i           ! loop index variable
-    character(len=128)    :: filename    ! name of output file
     character(len=8)      :: crdate      ! needed by F90 DATE_AND_TIME intrinsic
     character(len=10)     :: crtime      ! needed by F90 DATE_AND_TIME intrinsic
     character(len=5)      :: crzone      ! needed by F90 DATE_AND_TIME intrinsic
@@ -213,10 +256,10 @@ contains
     state = model%get_state()
 
     ! Construct name of output file
-    write(filename,'(A,I0.7,A)') 'lorenz96out_', model%get_step(), '.nc'
+!    write(filename,'(A,I0.7,A)') 'lorenz96out_', model%get_step(), '.nc'
 
     ! Open new file, overwriting previous contents
-    call nc_check(nf90_create(trim(filename), NF90_CLOBBER, ncFileID))
+    call nc_check(nf90_create(trim(filename) // trim(this%format_extension), NF90_CLOBBER, ncFileID))
     call nc_check(nf90_Inquire(ncFileID, nDimensions, nVariables, nAttributes, unlimitedDimID))
 
     ! Write Global Attributes 
@@ -276,9 +319,7 @@ contains
     ! Close the NetCDF file
     call nc_check(nf90_close(ncFileID))
 
-    netcdf_write = ierr
-
-  end function netcdf_write
+  end subroutine netcdf_write
 
 
   !------------------------------------------------------------------

@@ -49,10 +49,10 @@ contains
     constructor%config = config
 
     ! Initialize model state
+    allocate(constructor%state(config%get_nx()))
     if (present(state)) then
-      constructor%state = state
+      constructor%state(:) = state(:)
     else
-      allocate(constructor%state(config%get_nx()))
       constructor%state(:) = config%get_forcing()
       constructor%state(1) = 1.001_r8kind * config%get_forcing()
     end if 

@@ -513,16 +513,11 @@ contains
 !       this%trajectory = this%trajectory + x1 / 6.0 + x2 / 3.0 + x3 / 3.0 + x4 / 6.0
 !
 
-! Lidia's matrix formulation with wrong trajectory
-!      call buildMprime(this%trajectory,mprime)
-!      this%state = this%trajectory + (this%delta_t * matmul(mprime, this%trajectory))
-!      this%trajectory = this%state
-
 ! Lidia's matrix formulation with correct trajectory
+44    FORMAT(A8,6F10.6)
       call buildMprime(this%state, mprime)
-      this%trajectory = this%trajectory + this%delta_t * matmul(mprime, this%trajectory)
       this%state = this%state + this%trajectory
-
+      this%trajectory = this%trajectory + this%delta_t * matmul(mprime, this%trajectory)
       ! Increment time step
       this%t = this%t + this%delta_t
       this%step = this%step + 1
@@ -600,16 +595,14 @@ contains
 !      call this%comp_dt_b(this%trajectory, this%state, dx, dxb)
 !
 
-! Lidia's MATRIX formulation with incorrect trajectory
-!       call buildMprime(this%trajectory,mprime)
-!       this%state = this%trajectory + (this%delta_t * matmul(transpose(mprime), this%trajectory))
-!       this%trajectory = this%state
 
 ! Lidia's MATRIX formulation with correct trajectory
+44    FORMAT (A8,6F10.6)
       call buildMprime(this%state, mprime)
-      this%trajectory = this%trajectory + this%delta_t * matmul(transpose(mprime), this%trajectory)
+      x2 = -this%delta_t * matmul(mprime,this%trajectory)
+      x1 = -this%delta_t * matmul(transpose(mprime), x2)
+      this%trajectory = this%trajectory + x2 + x1  
       this%state = this%state + this%trajectory
-
       ! Increment time step
       this%t = this%t - this%delta_t
       this%step = this%step - 1

@@ -72,18 +72,19 @@ contains
   !------------------------------------------------------------------
   ! write
   !------------------------------------------------------------------
-  subroutine write(this, model, filename)
+  subroutine write(this, model, state, filename)
 
-    class(l96_writer_type), intent(inout) :: this
-    class(l96_model_type), intent(   in) :: model
-    character(len=*),      intent(   in) :: filename
+    class(l96_writer_type),    intent(inout) :: this
+    class(l96_model_type),     intent(   in) :: model
+    real(r8kind),              intent(   in) :: state(:)
+    character(len=*),          intent(   in) :: filename
 
 
     select case (this%io_format)
       case('NETCDF')
-        call this%netcdf_write(model,filename)
+        call this%netcdf_write(model, state, filename)
       case('ASCII')
-        call this%ascii_write(model,filename)
+        call this%ascii_write(model, state, filename)
       case DEFAULT
         write(*,'(A,A,A)') 'ERROR: IO Format "', this%io_format, '" is not supported!'
         stop
@@ -141,16 +142,18 @@ contains
   !------------------------------------------------------------------
   ! ascii_write
   !------------------------------------------------------------------
-  subroutine ascii_write(this, model, filename)
+  subroutine ascii_write(this, model, state, filename)
 
-    class(l96_writer_type), intent(in) :: this
-    class(l96_model_type),  intent(in) :: model
-    character(len=*),       intent(in) :: filename
+    class(l96_writer_type),    intent(in) :: this
+    class(l96_model_type),     intent(in) :: model
+    real(r8kind),              intent(in) :: state(:)
+    character(len=*),          intent(in) :: filename
 
     integer :: ierr          ! return value of function
 
     type(l96_config_type) :: config
-    real(r8kind), allocatable :: state(:)
+    real(r8kind), allocatable :: location(:)
+!    real(r8kind), allocatable :: state(:)
 
     integer :: fileunit
     integer :: i
@@ -163,9 +166,13 @@ contains
     ! Get the model configuration
     config = model%get_config()
 
+    ! Get the model location
+!    allocate(location(config%get_nx()))
+!    location = model%get_location()
+
     ! Get the model state
-    allocate(state(config%get_nx()))
-    state = model%get_state()
+!    allocate(state(config%get_nx()))
+!    state = model%get_state()
 
     ! Construct name of output file
 !    write(filename,'(A,I0.7,A)') 'lorenz96out_', model%get_step(), '.csv'
@@ -191,12 +198,10 @@ contains
     write(fileunit,*)
 
     ! Write the coordinate, location, and state fields
-    write(fileunit,'(5A)') 'Coordinates',',','Location',',','State'
-    do i=1, config%get_nx()
-!      write(fileunit,'(I,2(A,F12.7))') i,',',this%location(i),',',this%state(i)
-      write(fileunit,'(I,2(A,F12.7))') i,',',i,',',state(i)
-!      write(fileunit,'(I,A,F12.7)') i,',',state(i)
-    end do
+!    write(fileunit,'(5A)') 'Coordinates',',','Location',',','State'
+!    do i=1, config%get_nx()
+!      write(fileunit,'(I,2(A,F12.7))') i,',',location(i),',',state(i)
+!    end do
 
     ! Close the file
     close(fileunit)
@@ -219,18 +224,20 @@ contains
   !    NF90_put_var       ! provide values for variable
   ! NF90_CLOSE            ! close: save updated netCDF dataset
   !------------------------------------------------------------------
-  subroutine netcdf_write(this, model, filename)
+  subroutine netcdf_write(this, model, state, filename)
 
     use netcdf
 
-    class(l96_writer_type), intent(in) :: this
-    class(l96_model_type),  intent(in) :: model
-    character(len=*),       intent(in) :: filename
+    class(l96_writer_type),    intent(in) :: this
+    class(l96_model_type),     intent(in) :: model
+    real(r8kind),              intent(in) :: state(:)
+    character(len=*),          intent(in) :: filename
 
     integer :: ierr          ! return value of function
 
     type(l96_config_type) :: config
-    real(r8kind), allocatable :: state(:)
+    real(r8kind), allocatable :: location(:)
+!    real(r8kind), allocatable :: state(:)
 
     ! General netCDF variables
     integer :: ncFileID      ! netCDF file identifier
@@ -251,9 +258,13 @@ contains
     ! Get the model configuration
     config = model%get_config()
 
+    ! Get the model location
+!    allocate(location(config%get_nx()))
+!    location = model%get_location()
+
     ! Get the model state
-    allocate(state(config%get_nx()))
-    state = model%get_state()
+!    allocate(state(config%get_nx()))
+!    state = model%get_state()
 
     ! Construct name of output file
 !    write(filename,'(A,I0.7,A)') 'lorenz96out_', model%get_step(), '.nc'
@@ -308,7 +319,7 @@ contains
     call nc_check(nf90_put_var(ncFileID, CoordinatesVarID, (/ (i,i=1, config%get_nx()) /) ))
 
     ! Fill the location variable
-!    call nc_check(nf90_put_var(ncFileID, LocationVarID, (/ (this%location(i),i=1, config%nx()) /) ))
+!    call nc_check(nf90_put_var(ncFileID, LocationVarID, (/ (location(i),i=1, config%get_nx()) /) ))
 
     ! Fill the state variable
     call nc_check(nf90_put_var(ncFileID, StateVarID, (/ (state(i),i=1, config%get_nx()) /) ))

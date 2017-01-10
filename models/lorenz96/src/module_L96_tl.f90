@@ -15,13 +15,15 @@ module L96_TL
     type(l96_config_type)     :: config
     integer                   :: step
     real(r8kind)              :: clock
+    real(r8kind), allocatable :: state(:)
+    real(r8kind), allocatable :: trajectory(:)
   contains
     final              :: destructor_tl
     procedure, private :: comp_dt
     procedure          :: adv_nsteps
     procedure          :: get_config
 !    procedure          :: get_location
-!    procedure          :: get_state
+    procedure          :: get_state
     procedure          :: get_step
     procedure          :: get_clock
     procedure          :: print
@@ -40,12 +42,11 @@ contains
   !
   ! Returns an initialized l96_tl_type object
   !------------------------------------------------------------------
-!  type(l96_tl_type) function constructor_tl(config, state, trajectory, step)
-  type(l96_tl_type) function constructor_tl(config, step)
+  type(l96_tl_type) function constructor_tl(config, state, trajectory, step)
 
     class(l96_config_type), intent(in) :: config
-!    real(r8kind), optional, intent(in) :: state(:)
-!    real(r8kind), optional, intent(in) :: trajectory(:)
+    real(r8kind), optional, intent(in) :: state(:)
+    real(r8kind), optional, intent(in) :: trajectory(:)
     integer,      optional, intent(in) :: step
 
     constructor_tl%config = config
@@ -60,19 +61,26 @@ contains
     ! Initialize model clock
     constructor_tl%clock = constructor_tl%step * config%get_time_step()
 
-
-    ! Call constructor for superclass
-!    constructor_tl%l96_model_type = l96_model_type(config, state, step)
+    ! Initialize model state
+    allocate(constructor_tl%state(config%get_nx()))
+    if (present(state)) then
+      constructor_tl%state(:) = state(:)
+    else
+      constructor_tl%state(:) = config%get_forcing()
+      constructor_tl%state(1) = 1.001_r8kind * config%get_forcing()
+    end if
 
     ! Initialize model trajectory
-!    allocate(constructor_tl%trajectory(config%get_nx()))
-!    if (present(trajectory)) then
-!      constructor_tl%trajectory(:) = trajectory(:)
-!    else
-!      constructor_tl%trajectory(:) = constructor_tl%state(:)
-!    end if
+    allocate(constructor_tl%trajectory(config%get_nx()))
+    if (present(trajectory)) then
+      constructor_tl%trajectory(:) = trajectory(:)
+    else
+      constructor_tl%trajectory(:) = constructor_tl%state(:)
+    end if
 
   end function constructor_tl
+
+
   !------------------------------------------------------------------
   ! destructor_tl
   !
@@ -149,12 +157,10 @@ contains
   ! Does n time step advances for lorenz 96 model
   ! using four-step rk time step
   !------------------------------------------------------------------
-  subroutine adv_nsteps(this, nsteps, state, trajectory)
+  subroutine adv_nsteps(this, nsteps)
 
     class(l96_tl_type), intent(inout) :: this
     integer, intent(in) :: nsteps
-    real(r8kind), dimension(this%config%get_nx()), intent(inout) :: state
-    real(r8kind), dimension(this%config%get_nx()), intent(inout) :: trajectory
 
     real(r8kind), dimension(this%config%get_nx()) :: x1, x2, x3, x4, dx, inter
     real(r8kind), dimension(this%config%get_nx()) :: x1d, x2d, x3d, x4d, dxd, interd
@@ -195,9 +201,10 @@ contains
 
 ! Lidia's matrix formulation with correct trajectory
 44    FORMAT(A8,6F10.6)
-      call buildMprime(state, mprime)
-      state = state + trajectory
-      trajectory = trajectory + this%config%get_time_step() * matmul(mprime, trajectory)
+      call buildMprime(this%state, mprime)
+      this%state = this%state + this%trajectory
+      this%trajectory = this%trajectory + this%config%get_time_step() * matmul(mprime, this%trajectory)
+
       ! Increment time step
       this%clock = this%clock + this%config%get_time_step()
       this%step = this%step + 1
@@ -287,14 +294,14 @@ contains
   !
   ! Return the model state vector
   !------------------------------------------------------------------  
-!  pure function get_state(this)
-!
-!    class(l96_model_type), intent(in) :: this
-!    real(r8kind), dimension(this%config%get_nx()) :: get_state
-!
-!    get_state = this%state    
-!
-!  end function get_state
+  pure function get_state(this)
+
+    class(l96_tl_type), intent(in) :: this
+    real(r8kind), dimension(this%config%get_nx()) :: get_state
+
+    get_state = this%state
+
+  end function get_state
 
 
   !------------------------------------------------------------------  
@@ -344,11 +351,11 @@ contains
     write(*,'(A20,A)') 'step = ', adjustl(numstr)
     write(numstr,'(F16.13)') this%clock
     write(*,'(A20,A)') 'clock = ', adjustl(numstr)
-!    do i=1, this%config%get_nx()
-!      write(numstr,'(F16.13)') this%state(i)
-!      write(indexstr,'(I)') i
-!      write(*,'(A20,A)') 'state(' // trim(adjustl(indexstr)) // ') = ', numstr
-!    end do
+    do i=1, this%config%get_nx()
+      write(numstr,'(F16.13)') this%state(i)
+      write(indexstr,'(I)') i
+      write(*,'(A20,A)') 'state(' // trim(adjustl(indexstr)) // ') = ', numstr
+    end do
 
   end subroutine print
 

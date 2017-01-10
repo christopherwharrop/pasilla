@@ -13,7 +13,7 @@ module L96_Model
   type, extends(model_type) :: l96_model_type
     private
     type(l96_config_type)     :: config
-!    real(r8kind), allocatable :: state(:)
+    real(r8kind), allocatable :: state(:)
 !    real(r8kind), allocatable :: location(:)
     integer                   :: step
     real(r8kind)              :: clock
@@ -23,7 +23,7 @@ module L96_Model
     procedure          :: adv_nsteps
     procedure          :: get_config
 !    procedure          :: get_location
-!    procedure          :: get_state
+    procedure          :: get_state
     procedure          :: get_step
     procedure          :: get_clock
     procedure          :: print
@@ -41,11 +41,10 @@ contains
   !
   ! Returns an initialized l96_model_type object
   !------------------------------------------------------------------
-!  type(l96_model_type) function constructor_model(config, state, step)
-  type(l96_model_type) function constructor_model(config, step)
+  type(l96_model_type) function constructor_model(config, state, step)
 
     class(l96_config_type), intent(in) :: config
-!    real(r8kind), optional, intent(in) :: state(:)
+    real(r8kind), optional, intent(in) :: state(:)
     integer, optional, intent(in) :: step
 
     integer :: j
@@ -60,13 +59,13 @@ contains
 !    end do
 
     ! Initialize model state
-!    allocate(constructor_model%state(config%get_nx()))
-!    if (present(state)) then
-!      constructor_model%state(:) = state(:)
-!    else
-!      constructor_model%state(:) = config%get_forcing()
-!      constructor_model%state(1) = 1.001_r8kind * config%get_forcing()
-!    end if
+    allocate(constructor_model%state(config%get_nx()))
+    if (present(state)) then
+      constructor_model%state(:) = state(:)
+    else
+      constructor_model%state(:) = config%get_forcing()
+      constructor_model%state(1) = 1.001_r8kind * config%get_forcing()
+    end if
 
     ! Initialize model step
     if (present(step)) then
@@ -136,11 +135,10 @@ contains
   ! Does n time step advances for lorenz 96 model
   ! using four-step rk time step
   !------------------------------------------------------------------
-  subroutine adv_nsteps(this, nsteps, state)
+  subroutine adv_nsteps(this, nsteps)
 
     class(l96_model_type),                         intent(inout) :: this
     integer,                                       intent(   in) :: nsteps
-    real(r8kind), dimension(this%config%get_nx()), intent(inout) :: state
 
     real(r8kind), dimension(this%config%get_nx()) :: x1, x2, x3, x4, dx, inter
     integer :: step
@@ -148,22 +146,22 @@ contains
     do step = 1, nsteps
 
       !  Compute the first intermediate step
-      x1    = this%config%get_time_step() * this%comp_dt(state)
-      inter = state + x1 / 2.0_r8kind
+      x1    = this%config%get_time_step() * this%comp_dt(this%state)
+      inter = this%state + x1 / 2.0_r8kind
 
       !  Compute the second intermediate step
       x2    = this%config%get_time_step() * this%comp_dt(inter)
-      inter = state + x2 / 2.0_r8kind
+      inter = this%state + x2 / 2.0_r8kind
 
       !  Compute the third intermediate step
       x3    = this%config%get_time_step() * this%comp_dt(inter)
-      inter = state + x3
+      inter = this%state + x3
 
       !  Compute fourth intermediate step
       x4 = this%config%get_time_step() * this%comp_dt(inter)
 
       !  Compute new value for state
-      state = state + x1 / 6.0_r8kind + x2 / 3.0_r8kind + x3 / 3.0_r8kind + x4 / 6.0_r8kind
+      this%state = this%state + x1 / 6.0_r8kind + x2 / 3.0_r8kind + x3 / 3.0_r8kind + x4 / 6.0_r8kind
 
       ! Increment time step
       this%clock = this%clock + this%config%get_time_step()
@@ -208,14 +206,14 @@ contains
   !
   ! Return the model state vector
   !------------------------------------------------------------------
-!  pure function get_state(this)
-!
-!    class(l96_model_type), intent(in) :: this
-!    real(r8kind), dimension(this%config%get_nx()) :: get_state
-!
-!    get_state = this%state
-!
-!  end function get_state
+  pure function get_state(this)
+
+    class(l96_model_type), intent(in) :: this
+    real(r8kind), dimension(this%config%get_nx()) :: get_state
+
+    get_state = this%state
+
+  end function get_state
 
 
   !------------------------------------------------------------------  
@@ -265,11 +263,11 @@ contains
     write(*,'(A20,A)') 'step = ', adjustl(numstr)
     write(numstr,'(F16.13)') this%clock
     write(*,'(A20,A)') 'clock = ', adjustl(numstr)
-!    do i=1, this%config%get_nx()
-!      write(numstr,'(F16.13)') this%state(i)
-!      write(indexstr,'(I)') i
-!      write(*,'(A20,A)') 'state(' // trim(adjustl(indexstr)) // ') = ', numstr
-!    end do
+    do i=1, this%config%get_nx()
+      write(numstr,'(F16.13)') this%state(i)
+      write(indexstr,'(I)') i
+      write(*,'(A20,A)') 'state(' // trim(adjustl(indexstr)) // ') = ', numstr
+    end do
 
   end subroutine print
 

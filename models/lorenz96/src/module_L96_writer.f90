@@ -72,19 +72,18 @@ contains
   !------------------------------------------------------------------
   ! write
   !------------------------------------------------------------------
-  subroutine write(this, model, state, filename)
+  subroutine write(this, model, filename)
 
     class(l96_writer_type),    intent(inout) :: this
     class(l96_model_type),     intent(   in) :: model
-    real(r8kind),              intent(   in) :: state(:)
     character(len=*),          intent(   in) :: filename
 
 
     select case (this%io_format)
       case('NETCDF')
-        call this%netcdf_write(model, state, filename)
+        call this%netcdf_write(model, filename)
       case('ASCII')
-        call this%ascii_write(model, state, filename)
+        call this%ascii_write(model, filename)
       case DEFAULT
         write(*,'(A,A,A)') 'ERROR: IO Format "', this%io_format, '" is not supported!'
         stop
@@ -142,18 +141,17 @@ contains
   !------------------------------------------------------------------
   ! ascii_write
   !------------------------------------------------------------------
-  subroutine ascii_write(this, model, state, filename)
+  subroutine ascii_write(this, model, filename)
 
     class(l96_writer_type),    intent(in) :: this
     class(l96_model_type),     intent(in) :: model
-    real(r8kind),              intent(in) :: state(:)
     character(len=*),          intent(in) :: filename
 
     integer :: ierr          ! return value of function
 
     type(l96_config_type) :: config
     real(r8kind), allocatable :: location(:)
-!    real(r8kind), allocatable :: state(:)
+    real(r8kind), allocatable :: state(:)
 
     integer :: fileunit
     integer :: i
@@ -171,11 +169,8 @@ contains
 !    location = model%get_location()
 
     ! Get the model state
-!    allocate(state(config%get_nx()))
-!    state = model%get_state()
-
-    ! Construct name of output file
-!    write(filename,'(A,I0.7,A)') 'lorenz96out_', model%get_step(), '.csv'
+    allocate(state(config%get_nx()))
+    state = model%get_state()
 
     ! Open the output csv file
     open(newunit=fileunit, file=trim(filename) // trim(this%format_extension), form='formatted')
@@ -224,20 +219,19 @@ contains
   !    NF90_put_var       ! provide values for variable
   ! NF90_CLOSE            ! close: save updated netCDF dataset
   !------------------------------------------------------------------
-  subroutine netcdf_write(this, model, state, filename)
+  subroutine netcdf_write(this, model, filename)
 
     use netcdf
 
     class(l96_writer_type),    intent(in) :: this
     class(l96_model_type),     intent(in) :: model
-    real(r8kind),              intent(in) :: state(:)
     character(len=*),          intent(in) :: filename
 
     integer :: ierr          ! return value of function
 
     type(l96_config_type) :: config
     real(r8kind), allocatable :: location(:)
-!    real(r8kind), allocatable :: state(:)
+    real(r8kind), allocatable :: state(:)
 
     ! General netCDF variables
     integer :: ncFileID      ! netCDF file identifier
@@ -263,11 +257,8 @@ contains
 !    location = model%get_location()
 
     ! Get the model state
-!    allocate(state(config%get_nx()))
-!    state = model%get_state()
-
-    ! Construct name of output file
-!    write(filename,'(A,I0.7,A)') 'lorenz96out_', model%get_step(), '.nc'
+    allocate(state(config%get_nx()))
+    state = model%get_state()
 
     ! Open new file, overwriting previous contents
     call nc_check(nf90_create(trim(filename) // trim(this%format_extension), NF90_CLOBBER, ncFileID))

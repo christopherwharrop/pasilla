@@ -23,7 +23,6 @@ program L96
   type(L96_model_type)  :: model  ! Lorenz96 model
   type(L96_reader_type) :: reader ! Lorenz96 reader
   type(L96_writer_type) :: writer ! Lorenz96 writer
-  real(r8kind), allocatable :: model_state(:)  ! Lorenz96 state
 
   integer :: t     ! Loop index
   integer :: ierr  ! Error code 
@@ -44,7 +43,7 @@ program L96
     write(filename,'(A,I0.7)') 'lorenz96out_', start_step
 
     ! Load restart file into new model instance
-    call reader%read(model, model_state, filename)
+    call reader%read(model, filename)
 
   ! Otherwise instantiate a new model
   else
@@ -54,10 +53,6 @@ program L96
 
     ! Create and configure a Lorenz96 model with the specified configuration
     model = l96_model_type(config)
-
-    allocate(model_state(config%get_nx()))
-    model_state(:) = config%get_forcing()
-    model_state(1) = 1.001_r8kind * config%get_forcing()
 
   end if
 
@@ -70,20 +65,20 @@ program L96
   writer = l96_writer_type(io_format)
 
   ! Write out model state if needed
-  if (output_interval_steps <= run_steps) call writer%write(model, model_state, filename)
+  if (output_interval_steps <= run_steps) call writer%write(model, filename)
 
   ! Run the model
   do t = 1, run_steps, output_interval_steps
 
     ! Advance the model to next output interval
-    call model%adv_nsteps(min(output_interval_steps, run_steps), model_state)
+    call model%adv_nsteps(min(output_interval_steps, run_steps))
 
     ! Write out model state if needed
     if (output_interval_steps <= run_steps) then
 
       ! Construct name of output file
       write(filename,'(A,I0.7)') 'lorenz96out_', model%get_step()
-      call writer%write(model, model_state, filename)
+      call writer%write(model, filename)
 
     end if
 

@@ -253,7 +253,6 @@ contains
     integer                                  :: i,t,tt
     type(l96_config_type)                    :: config
     type(l96_model_type)                     :: model
-    real(KIND=8), allocatable                :: state(:)
     type(l96_reader_type)                    :: reader
     character(len=256)                       :: filename
 
@@ -266,9 +265,8 @@ contains
        bkg_tim(t)=t
        tt=t
        if(mthd.le.2) tt=2
-!       model = l96_model_type(tt, "NETCDF")
        write(filename,'(A,I0.7)') 'bkgin_', tt
-       call reader%read(model, state, filename)
+       call reader%read(model, filename)
        if (t == 1) then
          bkg_config = model%get_config()
          bkg_len = bkg_config%get_nx()
@@ -277,8 +275,7 @@ contains
        end if
        if (tt == 2) bkg_step = model%get_step()
 !       bkg_pos(t,:) = model%get_location()
-!       bkg_vec(t,:) = model%get_state()
-       bkg_vec(t,:) = state
+       bkg_vec(t,:) = model%get_state()
     end do
 
     print *,"GET_BKG_VEC COMPLETE"
@@ -496,10 +493,6 @@ contains
     real(KIND=8), intent(in)    :: bkg_vec(:,:)
     real(KIND=8), intent(inout) :: anl_vec(:,:)
     real(KIND=8), intent(in)    :: jvc_for(:,:)
-!    type(l96_tl_type), intent(in), allocatable  :: fwmod_vec(:)
-!    type(l96_adj_type), intent(in), allocatable :: bwmod_vec(:)
-!    class(model_type), intent(in), allocatable  :: fwmod_vec(:)
-!    class(model_type), intent(in), allocatable  :: bwmod_vec(:)
 
     real(KIND=8), allocatable   :: tim_htr(:,:)
     real(KIND=8), allocatable   :: tim_bkc(:,:)
@@ -518,7 +511,6 @@ contains
     real(KIND=8), allocatable   :: pre_dif(:,:)
     real(KIND=8), allocatable   :: tmp_mat(:,:)
     real(KIND=8), allocatable   :: tmp_vec(:,:)
-    real(KIND=8), allocatable   :: trj_vec(:,:)
     real(KIND=8), allocatable   :: tmp_vvc(:,:)
 
     real(KIND=8), allocatable   :: grd_jvc(:,:)
@@ -530,15 +522,10 @@ contains
     real(KIND=8), allocatable   :: jtim(:) 
     integer                     :: nthreads, tid
     integer                     :: OMP_GET_NUM_THREADS, OMP_GET_THREAD_NUM
-    type(l96_model_type), allocatable :: model(:)
-    type(l96_tl_type),    allocatable :: model_TL(:)
-    type(l96_adj_type),   allocatable :: model_ADJ(:)
-!    type(l96_model_type)        :: model
-!    type(l96_tl_type)           :: model_TL
-!    type(l96_adj_type)          :: model_ADJ
 
-!    class(model_type), allocatable :: model_TL
-!    class(model_type), allocatable :: model_ADJ
+    type(l96_model_type)        :: model
+    type(l96_tl_type)           :: model_TL
+    type(l96_adj_type)          :: model_ADJ
 
     allocate (jtim(tim_len)) 
     allocate (tim_htr(bkg_len,      1)) 
@@ -558,15 +545,9 @@ contains
     allocate (pre_tra(      1,bkg_len))
     allocate (tmp_mat(      1,bkg_len))
     allocate (tmp_vec(bkg_len,      1))
-    allocate (trj_vec(bkg_len,      1))
     allocate (tmp_vvc(bkg_len,      1))
     allocate (grd_jvc(bkg_len,      1))
 
-    allocate(model(tim_len))
-    allocate(model_TL(tim_len))
-    allocate(model_ADJ(tim_len))
-!    allocate(model_TL,MOLD=fwmod_vec(1))
-!    allocate(model_ADJ,MOLD=bwmod_vec(1))
 
 !   PARAMETERS FOR VAR - SHOULD BE FROM NAMELIST
     nitr = 0
@@ -603,9 +584,7 @@ contains
  
        new_vec(:,:)=0.0
        tlm_vec=anl_vec
-!!$OMP PARALLEL SHARED (bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,fwmod_vec,model) DEFAULT(PRIVATE)
-!!$OMP PARALLEL DO SHARED (bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,model,model_TL) DEFAULT(PRIVATE)
-!$OMP PARALLEL DO SHARED (bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,model,model_TL,bkg_config) DEFAULT(PRIVATE)
+!$OMP PARALLEL DO SHARED (bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,bkg_config) DEFAULT(PRIVATE)
        do t=1,tim_len
           tid=OMP_GET_THREAD_NUM()
           tim_bkc(:,:)=bkg_cov(t,:,:)
@@ -618,26 +597,17 @@ contains
              if (mthd.eq.4) new_vec(t,:)=mdl_vec(:,1)
           else
 !            RUN THE FORWARD MODEL FOR ALL STEPS AFTER THE FIRST
-	     mdl_vec(:,1)=tlm_vec(t-1,:)
+	     mdl_vec(:,1) = tlm_vec(t-1,:)
              print *, "FORWARD MODEL"
-!             model_TL=fwmod_vec(t)
-!             model_TL%state(:) = mdl_vec(:,1)
-!             model(t) = l96_model_type(bkg_config, state = mdl_vec(:,1), step = t)
-!             call model(t)%adv_nsteps(1)
-             tmp_vec(:,1) = mdl_vec(:,1)
-             model(t) = l96_model_type(bkg_config, step = t)
-             call model(t)%adv_nsteps(1, state = tmp_vec(:,1))
-             model_TL(t) = l96_tl_type(bkg_config, step = t)
-!             model_TL(t) = l96_tl_type(bkg_config, state = mdl_vec(:,1), trajectory = model(t)%get_state() - mdl_vec(:,1), step = t)
-!             model(t)%state = model_TL%state
-!             model_TL%trajectory = model(t)%state - model_TL%state
-             trj_vec(:,1) = tmp_vec(:,1) - mdl_vec(:,1)
-             call model_TL(t)%adv_nsteps(10, state = mdl_vec(:,1), trajectory = trj_vec(:,1))
-!             mdl_vec(:,1) = model_TL(t)%get_state()
+             model = l96_model_type(bkg_config, state=mdl_vec(:,1), step=t)
+             call model%adv_nsteps(1)
+             model_TL = l96_tl_type(bkg_config, state=mdl_vec(:,1), trajectory=model%get_state() - mdl_vec(:,1), step = t)
+             call model_TL%adv_nsteps(10)
+             mdl_vec(:,1) = model_TL%get_state()
              print *, "END FORWARD_MODEL"
 
-             if (mthd.eq.4) new_vec(t,:)=mdl_vec(:,1)
-             if (mthd.ne.4) tlm_vec(t,:)=mdl_vec(:,1)
+             if (mthd.eq.4) new_vec(t,:) = mdl_vec(:,1)
+             if (mthd.ne.4) tlm_vec(t,:) = mdl_vec(:,1)
           end if
 
           !   CARRY ON WITH THE MINIMIZATION 
@@ -669,8 +639,7 @@ contains
        jnew=jnew+jvc_for(1,1)
        new_vec(:,:)=0.0
 
-!!$OMP PARALLEL SHARED (bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q,bwmod_vec,model) DEFAULT(PRIVATE)
-!$OMP PARALLEL DO SHARED (bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q,model,model_ADJ,bkg_config) DEFAULT(PRIVATE)
+!$OMP PARALLEL DO SHARED (bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q,bkg_config) DEFAULT(PRIVATE)
        !   CALCULATE GRAD-J IN REVERSE TEMPORAL ORDER 
        do t=tim_len,1,-1
           tim_bkc(:,:)=bkg_cov(t,:,:)
@@ -688,20 +657,11 @@ contains
              if (mthd.eq.3) mdl_vec(:,1)=tlm_vec(t+1,:)
              if (mthd.eq.4) mdl_vec(:,1)=anl_vec(t+1,:)
              print *, "BACKWARD_MODEL"
-!             model_ADJ = bwmod_vec(t)
-!             model_ADJ%state(:) = mdl_vec(:,1)
-!             model(t)%state = model_ADJ%state
-             tmp_vec(:,1) = mdl_vec(:,1)
-!             model(t) = l96_model_type(bkg_config, state = mdl_vec(:,1), step = t)
-             model(t) = l96_model_type(bkg_config, step = t)
-!             call model(t)%adv_nsteps(1)
-             call model(t)%adv_nsteps(1, state=tmp_vec(:,1))
-!             model_ADJ%trajectory(:) = -(model(t)%state - model_ADJ%state)
-!             model_ADJ(t) = l96_adj_type(bkg_config, state = mdl_vec(:,1), trajectory = -(model(t)%get_state() - mdl_vec(:,1)), step = t)
-             trj_vec(:,1) = -(tmp_vec(:,1) - mdl_vec(:,1))
-             model_ADJ(t) = l96_adj_type(bkg_config, step = t)
-             call model_ADJ(t)%adv_nsteps(10, state = mdl_vec(:,1), trajectory = trj_vec(:,1))
-!             mdl_vec(:,1) = model_ADJ(t)%get_state()
+             model = l96_model_type(bkg_config, state=mdl_vec(:,1), step=t)
+             call model%adv_nsteps(1)
+             model_ADJ = l96_adj_type(bkg_config, state=mdl_vec(:,1), trajectory=-(model%get_state() - mdl_vec(:,1)), step = t)
+             call model_ADJ%adv_nsteps(10)
+             mdl_vec(:,1) = model_ADJ%get_state()
              print *, "END BACKWARD_MODEL"
           end if
 
@@ -761,23 +721,15 @@ contains
     writer = l96_writer_type('NETCDF')
 
     ! Write new analysis to model output file
-!    model=l96_model_type(2,"NETCDF")
     if (mthd.le.2) then
       write(filename,'(A,I0.7)') 'bkgout_', 1
-!      model = l96_model_type(bkg_config, state = anl_vec(1,:))
-!      model = l96_model_type(bkg_config, state = anl_vec(1,:))
-       model = l96_model_type(bkg_config, bkg_step)
-!      model%state = anl_vec(1,:)
-      call writer%write(model, anl_vec(1,:), filename)
+       model = l96_model_type(bkg_config, state=anl_vec(1,:), step=bkg_step)
+      call writer%write(model, filename)
     else
       write(filename,'(A,I0.7)') 'bkgout_', 2
-!      model = l96_model_type(bkg_config, state = anl_vec(2,:))
-       model = l96_model_type(bkg_config, bkg_step)
-
-!      model%state = anl_vec(2,:)
-      call writer%write(model, anl_vec(2,:), filename)
+       model = l96_model_type(bkg_config, state=anl_vec(2,:), step=bkg_step)
+      call writer%write(model, filename)
     end if
-!    ierr = model%write_model_state("NETCDF")
 
 40  FORMAT(A8,2I5,3F10.4)
     do t=1,tim_len

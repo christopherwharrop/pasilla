@@ -73,18 +73,17 @@ contains
   !------------------------------------------------------------------
   ! read
   !------------------------------------------------------------------
-  subroutine read(this, model, state, filename)
+  subroutine read(this, model, filename)
 
     class(l96_reader_type),    intent(   in) :: this
     class(l96_model_type),     intent(inout) :: model
-    real(r8kind), allocatable, intent(inout) :: state(:)
     character(len=*),          intent(   in) :: filename
 
     select case (this%io_format)
       case('NETCDF')
-        call this%netcdf_read(model, state, filename)
+        call this%netcdf_read(model, filename)
       case('ASCII')
-        call this%ascii_read(model, state, filename)
+        call this%ascii_read(model, filename)
       case DEFAULT
         write(*,'(A,A,A)') 'ERROR: IO Format "', this%io_format, '" is not supported!'
         stop
@@ -96,11 +95,10 @@ contains
   !------------------------------------------------------------------
   ! ascii_read
   !------------------------------------------------------------------
-  subroutine ascii_read(this, model, state, filename)
+  subroutine ascii_read(this, model, filename)
 
     class(l96_reader_type),    intent(   in) :: this
     type(l96_model_type),      intent(inout) :: model
-    real(r8kind), allocatable, intent(inout) :: state(:)
     character(len=*),          intent(   in) :: filename
 
     
@@ -117,7 +115,7 @@ contains
     type(l96_config_type) :: config
     integer               :: step
     real(r8kind)          :: clock
-!    real(r8kind), allocatable :: state(:)
+    real(r8kind), allocatable :: state(:)
     real(r8kind), allocatable :: location(:)
 
     ! Open the output csv file
@@ -182,8 +180,7 @@ contains
     config = l96_config_type(nx, time_step, forcing)
 
     ! Instantiate a model from the configuration
-!    model = l96_model_type(config, state=state, step=step)
-    model = l96_model_type(config, step=step)
+    model = l96_model_type(config, state=state, step=step)
 
   end subroutine ascii_read
 
@@ -203,13 +200,12 @@ contains
   !    NF90_put_var       ! provide values for variable
   ! NF90_CLOSE            ! close: save updated netCDF dataset
   !------------------------------------------------------------------
-  subroutine netcdf_read(this, model, state, filename)
+  subroutine netcdf_read(this, model, filename)
 
     use netcdf
 
     class(l96_reader_type),    intent(   in) :: this
     type(l96_model_type),      intent(inout) :: model
-    real(r8kind), allocatable, intent(inout) :: state(:)
     character(len=*),          intent(   in) :: filename
 
     integer               :: nx
@@ -218,7 +214,7 @@ contains
     type(l96_config_type) :: config
     integer               :: step
     real(r8kind)          :: clock
-!    real(r8kind), allocatable :: state(:)
+    real(r8kind), allocatable :: state(:)
     real(r8kind), allocatable :: location(:)
 
     ! General netCDF variables
@@ -241,8 +237,6 @@ contains
     call nc_check(nf90_inquire_dimension(ncFileID, StateVarDimID, len=nx))
 
     ! Allocate space for the model state and location
-    if (allocated(state)) deallocate(state)
-    if (allocated(location)) deallocate(location)
     allocate(state(nx))
     allocate(location(nx))
 
@@ -268,8 +262,7 @@ contains
     config = l96_config_type(nx, time_step, forcing)
 
     ! Instantiate a model from the configuration
-!    model = l96_model_type(config, state=state, step=step)
-    model = l96_model_type(config, step=step)
+    model = l96_model_type(config, state=state, step=step)
 
   end subroutine netcdf_read
 

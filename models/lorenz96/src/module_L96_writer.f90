@@ -159,14 +159,14 @@ contains
     character(len=10)     :: crtime      ! needed by F90 DATE_AND_TIME intrinsic
     character(len=5)      :: crzone      ! needed by F90 DATE_AND_TIME intrinsic
     integer, dimension(8) :: values      ! needed by F90 DATE_AND_TIME intrinsic
-    character(len=19) :: timestr
+    character(len=19)     :: timestr
 
     ! Get the model configuration
     config = model%get_config()
 
     ! Get the model location
-!    allocate(location(config%get_nx()))
-!    location = model%get_location()
+    allocate(location(config%get_nx()))
+    location = model%get_location()
 
     ! Get the model state
     allocate(state(config%get_nx()))
@@ -193,10 +193,10 @@ contains
     write(fileunit,*)
 
     ! Write the coordinate, location, and state fields
-!    write(fileunit,'(5A)') 'Coordinates',',','Location',',','State'
-!    do i=1, config%get_nx()
-!      write(fileunit,'(I,2(A,F12.7))') i,',',location(i),',',state(i)
-!    end do
+    write(fileunit,'(5A)') 'Coordinates',',','Location',',','State'
+    do i=1, config%get_nx()
+      write(fileunit,'(I,2(A,F12.7))') i,',',location(i),',',state(i)
+    end do
 
     ! Close the file
     close(fileunit)
@@ -244,7 +244,7 @@ contains
     character(len=10)     :: crtime      ! needed by F90 DATE_AND_TIME intrinsic
     character(len=5)      :: crzone      ! needed by F90 DATE_AND_TIME intrinsic
     integer, dimension(8) :: values      ! needed by F90 DATE_AND_TIME intrinsic
-    character(len=19) :: timestr
+    character(len=19)     :: timestr
 
     ! assume normal termination
     ierr = 0 
@@ -253,8 +253,8 @@ contains
     config = model%get_config()
 
     ! Get the model location
-!    allocate(location(config%get_nx()))
-!    location = model%get_location()
+    allocate(location(config%get_nx()))
+    location = model%get_location()
 
     ! Get the model state
     allocate(state(config%get_nx()))
@@ -310,7 +310,7 @@ contains
     call nc_check(nf90_put_var(ncFileID, CoordinatesVarID, (/ (i,i=1, config%get_nx()) /) ))
 
     ! Fill the location variable
-!    call nc_check(nf90_put_var(ncFileID, LocationVarID, (/ (location(i),i=1, config%get_nx()) /) ))
+    call nc_check(nf90_put_var(ncFileID, LocationVarID, (/ (location(i),i=1, config%get_nx()) /) ))
 
     ! Fill the state variable
     call nc_check(nf90_put_var(ncFileID, StateVarID, (/ (state(i),i=1, config%get_nx()) /) ))

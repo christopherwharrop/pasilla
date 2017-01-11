@@ -274,7 +274,7 @@ contains
          allocate (bkg_pos(tim_len, bkg_len))
        end if
        if (tt == 2) bkg_step = model%get_step()
-!       bkg_pos(t,:) = model%get_location()
+       bkg_pos(t,:) = model%get_location()
        bkg_vec(t,:) = model%get_state()
     end do
 

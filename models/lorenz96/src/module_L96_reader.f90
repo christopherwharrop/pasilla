@@ -20,10 +20,6 @@ module L96_Reader
       procedure :: read
       procedure, private :: ascii_read
       procedure, private :: netcdf_read
-!      procedure :: read_config
-!      procedure :: read_state
-!      procedure, private :: netcdf_read_state
-!      procedure, private :: ascii_read_state
   end type l96_reader_type
 
   interface l96_reader_type
@@ -185,7 +181,7 @@ contains
   end subroutine ascii_read
 
 
- !------------------------------------------------------------------
+  !------------------------------------------------------------------
   ! netcdf_read
   !
   ! Reads model state to NetCDF file

@@ -14,7 +14,7 @@ module L96_Model
     private
     type(l96_config_type)     :: config
     real(r8kind), allocatable :: state(:)
-!    real(r8kind), allocatable :: location(:)
+    real(r8kind), allocatable :: location(:)
     integer                   :: step
     real(r8kind)              :: clock
   contains
@@ -22,12 +22,12 @@ module L96_Model
     procedure, private :: comp_dt
     procedure          :: adv_nsteps
     procedure          :: get_config
-!    procedure          :: get_location
+    procedure          :: get_location
     procedure          :: get_state
     procedure          :: get_step
     procedure          :: get_clock
     procedure          :: print
-!    procedure          :: interpolate
+    procedure          :: interpolate
   end type l96_model_type
 
   interface l96_model_type
@@ -53,10 +53,10 @@ contains
     constructor_model%config = config
 
     ! Localize the model domain
-!    allocate(constructor_model%location(config%get_nx()))
-!    do j = 1, config%get_nx()
-!      constructor_model%location(j) = (j - 1.0_r8kind) / config%get_nx()
-!    end do
+    allocate(constructor_model%location(config%get_nx()))
+    do j = 1, config%get_nx()
+      constructor_model%location(j) = (j - 1.0_r8kind) / config%get_nx()
+    end do
 
     ! Initialize model state
     allocate(constructor_model%state(config%get_nx()))
@@ -191,14 +191,14 @@ contains
   !
   ! Return the model location vector
   !------------------------------------------------------------------
-!  pure function get_location(this)
-!
-!    class(l96_model_type), intent(in) :: this
-!    real(r8kind), dimension(this%config%get_nx()) :: get_location
-!
-!    get_location = this%location
-!
-!  end function get_location
+  pure function get_location(this)
+
+    class(l96_model_type), intent(in) :: this
+    real(r8kind), dimension(this%config%get_nx()) :: get_location
+
+    get_location = this%location
+
+  end function get_location
 
 
   !------------------------------------------------------------------
@@ -275,29 +275,32 @@ contains
   !------------------------------------------------------------------  
   ! Interpolates from state vector state to the location. 
   !------------------------------------------------------------------  
-!  subroutine interpolate(this, location, state_val)
-!
-!    class(l96_model_type), intent(in) :: this
-!    real(r8kind), intent(in)    :: location
-!    real(r8kind), intent(out)   :: state_val
-!
-!    integer :: lower_index, upper_index, i
-!    real(r8kind) :: lctn, lctnfrac
-!
-!    ! Scale the location to the size of the domain
-!    lctn = this%size * location
-!
-!    ! Compute grid indices bounding the location
-!    lower_index = int(lctn) + 1
-!    upper_index = lower_index + 1
-!    if(lower_index > this%size) lower_index = lower_index - this%size
-!    if(upper_index > this%size) upper_index = upper_index - this%size
-!
-!    ! Interpolate model value at the location
-!    lctnfrac = lctn - int(lctn)
-!    state_val = (1.0_r8kind - lctnfrac) * this%get_state()(lower_index) + lctnfrac * this%get_state()(upper_index)
-! 
-!  end subroutine interpolate
+  subroutine interpolate(this, location, state_val)
+
+    class(l96_model_type), intent(in) :: this
+    real(r8kind), intent(in)    :: location
+    real(r8kind), intent(out)   :: state_val
+
+    integer      :: lower_index, upper_index, i, size
+    real(r8kind) :: lctn, lctnfrac
+
+    ! Get the number of grid points
+    size = this%config%get_nx()
+
+    ! Scale the location to the size of the domain
+    lctn = size * location
+
+    ! Compute grid indices bounding the location
+    lower_index = int(lctn) + 1
+    upper_index = lower_index + 1
+    if(lower_index > size) lower_index = lower_index - size
+    if(upper_index > size) upper_index = upper_index - size
+
+    ! Interpolate model value at the location
+    lctnfrac = lctn - int(lctn)
+    state_val = (1.0_r8kind - lctnfrac) * this%state(lower_index) + lctnfrac * this%state(upper_index)
+
+  end subroutine interpolate
 
 
 end module L96_Model

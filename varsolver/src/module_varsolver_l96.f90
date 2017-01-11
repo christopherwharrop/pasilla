@@ -698,14 +698,14 @@ contains
       call writer%write(model, filename)
     end if
 
-40  FORMAT(A8,2I5,3F10.4)
+40  FORMAT(A8,2I5,2F10.4)
     do t=1,tim_len
        do i=1,bkg_len
 !         FOR 3DVAR
           if(mthd.le.2) then
-	     write(*,40) "FIN",2,i,anl_vec(t,i),bkg_vec(t,i),50.0+50.0*sin(((20.0*float(2-1)+float(i))/1000.0)*PI)
+	     write(*,40) "FIN",2,i,anl_vec(t,i),bkg_vec(t,i)
 	  else
-             write(*,40) "FIN",t,i,anl_vec(t,i),bkg_vec(t,i),50.0+50.0*sin(((20.0*float(t-1)+float(i))/1000.0)*PI)
+             write(*,40) "FIN",t,i,anl_vec(t,i),bkg_vec(t,i)
 	  end if
        end do
     end do
@@ -713,45 +713,6 @@ contains
     print *,"PUT_ANL_VEC COMPLETE"
 
   end subroutine put_anl_vec
-
-
-  ! THE FORWARD MODEL FOR MY LORENZ96 WAVE
-  ! MOVE IT 20 POINTS EVERY TIME STEP
-  subroutine forward_model(mod_vec,t,steps)
-
-    real(KIND=8), intent(inout)     :: mod_vec(:,:)
-    integer, intent(in)             :: t,steps
-    integer                         :: i
-    print *,"FORWARD MODEL"
-
-35  FORMAT (A4,3I4,2F10.5)
-    do i=1,bkg_len
-       mod_vec(i,1)=mod_vec(i,1)+PI*cos(((20.0*(float(t)-1.5)+float(i))/1000.0)*PI)*float(steps)
-    end do
-
-    print *,"END FORWARD_MODEL"
-
-  end subroutine forward_model
-
-
-  ! THE BACKWARD MODEL FOR MY LORENZ96 WAVE
-  ! MOVE IT 20 POINTS EVERY TIME STEP
-  subroutine backward_model(mod_vec,t,steps)
-
-    real(KIND=8), intent(inout)     :: mod_vec(:,:)
-    integer, intent(in)             :: t,steps
-    integer                         :: i
-
-    print *,"BACKWARD_MODEL"
-
-35  FORMAT (A4,3I4,2F10.5)
-    do i=1,bkg_len
-       mod_vec(i,1)=mod_vec(i,1)-PI*cos(((20.0*(float(t)-2.5)+float(i))/1000.0)*PI)*float(steps)
-    end do
-
-    print *,"END BACKWARD_MODEL"
-
-  end subroutine backward_model
 
 
   ! THAT IS ALL FOLKS!

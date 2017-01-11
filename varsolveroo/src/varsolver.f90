@@ -16,8 +16,6 @@ program adept
   use innovation_vector, only      : Innovation_Vector_Type
   use observation_operator, only   : Observation_Operator_Type
   use solver, only                 : Solver_Type
-  use model, only                  : model_type
-  use lorenz96, only               : lorenz96_type, lorenz96_TL_type, lorenz96_ADJ_type
 
   implicit none
 
@@ -66,7 +64,7 @@ program adept
   call varsolver%solve(bkg, bkg_cov, obs_cov, obs_opr, inno_vec)
 
   ! OUTPUT THE NEW ANALYSIS
-  call varsolver%put_anl_vec()
+  call varsolver%put_anl_vec(bkg)
 
   ! BJE
   ! END THE TIMER AND OUTPUT THE GPTL RESULTS

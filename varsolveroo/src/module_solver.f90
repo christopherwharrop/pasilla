@@ -8,7 +8,11 @@ module solver
   use observation_covariance, only : Observation_Covariance_Type
   use innovation_vector, only      : Innovation_Vector_Type
   use observation_operator, only   : Observation_Operator_Type
-  use lorenz96, only               : lorenz96_type, lorenz96_TL_type, lorenz96_ADJ_type
+  use L96_Config, only             : l96_config_type
+  use L96_Model,  only             : l96_model_type
+  use L96_TL,     only             : l96_tl_type
+  use L96_ADJ,    only             : l96_adj_type
+  use L96_Writer, only             : l96_writer_type
 
   implicit none
 
@@ -289,11 +293,13 @@ contains
     integer                     :: nthreads, tid
     integer                     :: OMP_GET_NUM_THREADS, OMP_GET_THREAD_NUM
     integer                     :: bkg_len
-    type(lorenz96_TL_type),  allocatable :: fwmod_vec(:)
-    type(lorenz96_ADJ_type), allocatable :: bwmod_vec(:)
-    type(lorenz96_type),     allocatable :: model(:)
-    type(lorenz96_TL_type)               :: model_TL
-    type(lorenz96_ADJ_type)              :: model_ADJ
+    type(l96_model_type)        :: model
+    type(l96_config_type)       :: model_config
+    type(l96_tl_type)           :: model_TL
+    type(l96_adj_type)          :: model_ADJ
+
+    ! Get the model configuration
+    model_config = bkg%get_config()
 
     ! Get the size of the background
     bkg_len = bkg%get_npoints()
@@ -337,29 +343,6 @@ contains
     allocate (grd_jvc(bkg_len,       1))
 
 
-    ! Allocate/initialize fw and bw models if we are doing 4DVar
-    if (this%method >= 3) then
-      ! Allocate the arrays to hold fw and bw models
-      allocate(model(this%ntimes))
-      allocate (fwmod_vec(2:this%ntimes))
-      allocate (bwmod_vec(1:this%ntimes - 1))
-
-      ! Initialize a real model for use in calculating trajectories
-      do t = 1, this%ntimes
-        model(t) = lorenz96_type(t,'NETCDF')
-      end do
-
-      ! Load fw models
-      do t = 2, this%ntimes
-         fwmod_vec(t) = lorenz96_TL_type(t - 1, "NETCDF")
-      end do
-
-      ! Load bw models
-      do t = 1, this%ntimes - 1
-         bwmod_vec(t) = lorenz96_ADJ_type(t + 1, "NETCDF")
-      end do
-    end if
-
     !   PARAMETERS FOR VAR - SHOULD BE FROM NAMELIST
     nitr = 0
     mxit = 50
@@ -390,8 +373,7 @@ contains
        new_vec(:,:) = 0.0
        tlm_vec = this%anl_vec
 
-!$OMP PARALLEL SHARED (bkg_cov, this, bkg, tlm_vec, jtim, new_vec, B, Q, fwmod_vec, model) DEFAULT(PRIVATE)
-!$OMP DO
+!$OMP PARALLEL DO SHARED (bkg_cov, this, bkg, tlm_vec, jtim, new_vec, B, Q, model_config) DEFAULT(PRIVATE)
        do t = 1, this%ntimes
           tid = OMP_GET_THREAD_NUM()
           tim_bkc(:,:) = bkg_cov%get_covariances_at_time(t)
@@ -406,13 +388,12 @@ contains
           else
              ! RUN THE FORWARD MODEL FOR ALL STEPS AFTER THE FIRST
              mdl_vec(:,1) = tlm_vec(t-1,:)
-             model_TL = fwmod_vec(t)
-             model_TL%state(:) = mdl_vec(:,1)
-             model(t)%state = model_TL%state
-             call model(t)%adv_nsteps(1)
-             model_TL%trajectory = model(t)%state - model_TL%state
+             model = l96_model_type(model_config, state=mdl_vec(:,1), step=t)
+             call model%adv_nsteps(1)
+             model_TL = l96_tl_type(model_config, state=mdl_vec(:,1), trajectory=model%get_state() - mdl_vec(:,1), step = t)
              call model_TL%adv_nsteps(10)
-             mdl_vec(:,1) = model_TL%state
+             mdl_vec(:,1) = model_TL%get_state()
+
              if (this%method == 4) new_vec(t,:) = mdl_vec(:,1)
              if (this%method /= 4) tlm_vec(t,:) = mdl_vec(:,1)
           end if
@@ -437,8 +418,7 @@ contains
           jtim(t) = 0.5 * (jvc_one(1,1) + jvc_two(1,1) - 2.0 * jvc_the(1,1))
 
        end do
-!$OMP END DO
-!$OMP END PARALLEL
+!$OMP END PARALLEL DO
 
        if(this%method == 4) tlm_vec = new_vec
        do t = 1, this%ntimes
@@ -447,8 +427,7 @@ contains
        jnew = jnew + this%jvc_for(1,1)
        new_vec(:,:) = 0.0
 
-!$OMP PARALLEL SHARED (this, bkg_cov, bkg, tlm_vec, new_vec, B, Q, bwmod_vec, model) DEFAULT(PRIVATE)
-!$OMP DO
+!$OMP PARALLEL DO SHARED (bkg_cov, this, bkg, tlm_vec, new_vec, B, Q, model_config) DEFAULT(PRIVATE)
        !   CALCULATE GRAD-J IN REVERSE TEMPORAL ORDER 
        do t = this%ntimes, 1, -1
           tim_bkc(:,:) = bkg_cov%get_covariances_at_time(t)
@@ -465,13 +444,11 @@ contains
              ! FOR ALL OTHER TIME STEPS - ADJOINT NEEDED
              if (this%method == 3) mdl_vec(:,1) = tlm_vec(t+1,:)
              if (this%method == 4) mdl_vec(:,1) = this%anl_vec(t+1,:)
-             model_ADJ = bwmod_vec(t)
-             model_ADJ%state(:) = mdl_vec(:,1)
-             model(t)%state = model_ADJ%state
-             call model(t)%adv_nsteps(1)
-             model_ADJ%trajectory(:) = -(model(t)%state - model_ADJ%state)
+             model = l96_model_type(model_config, state=mdl_vec(:,1), step=t)
+             call model%adv_nsteps(1)
+             model_ADJ = l96_adj_type(model_config, state=mdl_vec(:,1), trajectory=-(model%get_state() - mdl_vec(:,1)), step = t)
              call model_ADJ%adv_nsteps(10)
-             mdl_vec(:,1) = model_ADJ%state
+             mdl_vec(:,1) = model_ADJ%get_state()
           end if
 
           ! CHOOSE THE FIRST GUESS FIELD
@@ -495,8 +472,7 @@ contains
 
           if(this%method /= 4) tlm_vec(t,:) = new_vec(t,:)
        end do
-!$OMP END DO
-!$OMP END PARALLEL
+!$OMP END PARALLEL DO
 
        if(this%method == 4) tlm_vec = new_vec
        this%anl_vec = tlm_vec
@@ -514,23 +490,35 @@ contains
 
   ! BJE
   ! OUTPUT THE ANALYSIS VECTOR
-  subroutine put_anl_vec(this)
+  subroutine put_anl_vec(this, bkg)
 
     class(Solver_Type),     intent(in) :: this
+    class(Background_Type), intent(in) :: bkg
 
-    integer             :: i, t, ierr
-    type(lorenz96_type) :: model
+    integer               :: i, t, ierr
+    character(len=128)    :: filename
+    type(l96_model_type)  :: model
+    type(l96_config_type) :: model_config
+    type(l96_writer_type) :: writer
 
     print *,"PUT_ANL_VEC"
 
+    ! Create a Lorenz96 writer
+    writer = l96_writer_type('NETCDF')
+
+    ! Get the model configuration
+    model_config = bkg%get_config()
+
     ! Write new analysis to model output file
-    model=lorenz96_type(2, "NETCDF")
     if (this%method <= 2) then
-      model%state = this%anl_vec(1,:)
+      write(filename,'(A,I0.7)') 'bkgout_', 1
+       model = l96_model_type(model_config, state=this%anl_vec(1,:), step=bkg%get_step())
+      call writer%write(model, filename)
     else
-      model%state = this%anl_vec(2,:)
+      write(filename,'(A,I0.7)') 'bkgout_', 2
+       model = l96_model_type(model_config, state=this%anl_vec(2,:), step=bkg%get_step())
+      call writer%write(model, filename)
     end if
-    ierr = model%write_model_state("NETCDF")
 
 40  FORMAT(A8, 2I5, F10.4)
     do t = 1, size(this%anl_vec, 1)

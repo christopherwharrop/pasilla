@@ -282,39 +282,6 @@ contains
 
   end subroutine get_bkg_vec
 
-  ! CWH
-  ! Initialize vectors of forward/backward models at various times
-  subroutine get_fwbwmod_vec(fwmod_vec, bwmod_vec)
-
-    implicit none
-    type(l96_tl_type), intent(inout), allocatable  :: fwmod_vec(:)
-    type(l96_adj_type), intent(inout), allocatable :: bwmod_vec(:)
-!    class(model_type), intent(inout), allocatable  :: fwmod_vec(:)
-!    class(model_type), intent(inout), allocatable :: bwmod_vec(:)
-    integer :: t
-
-    print *,"GET_FWBWMOD_VEC"
-
-    ! Only allocate/initialize for 4DVar
-    if (mthd >= 3) then
-      ! Allocate the arrays to hold fw and bw models
-      allocate (fwmod_vec(2:tim_len))
-      allocate (bwmod_vec(1:tim_len-1))
-
-      ! Load fw models
-      do t=2,tim_len
-!         fwmod_vec(t) = l96_tl_type(t-1, "NETCDF")
-      end do
-
-      ! Load bw models
-      do t=1,tim_len-1
-!         bwmod_vec(t) = l96_adj_type(t+1, "NETCDF")
-      end do
-    end if
-
-    print *,"GET_FWBWMOD_VEC COMPLETE"
-
-  end subroutine get_fwbwmod_vec
 
   ! BJE
   ! GENERATE THE INNOVATION VECTOR (Y-HXb)

@@ -1,0 +1,1 @@
+../../varsolver/test/test_varsolver_l96.sh

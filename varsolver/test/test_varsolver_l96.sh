@@ -16,26 +16,27 @@ export OMP_NUM_THREADS=1
 export OMP_STACKSIZE=1G
 
 # Clean out previous results
-rm -f ./*.stdout*
-rm -f ./*.answer*
-rm -f ./timing.*
+workdir=./work
+rm -rf $workdir
+mkdir -p $workdir
+cd $workdir
 
-# Copy the executable
+# Link the executable
 VARSOLVER_EXE=varsolver_l96.exe
 rm -f ${VARSOLVER_EXE}
-cp ../exe/${VARSOLVER_EXE} .
+ln -s ../../exe/${VARSOLVER_EXE}
 
 # Copy the namelist
 VARSOLVER_NAMELIST=varsolver_l96.namelist
 rm -f ${VARSOLVER_NAMELIST}
-cp ../parm/${VARSOLVER_NAMELIST} .
+cp ../../parm/${VARSOLVER_NAMELIST} .
 
 # Copy the background input files
-cp -prd background/bkgin* .
-cp -prd background/lorenz96* .
+cp -prd ../background/bkgin* .
+cp -prd ../background/lorenz96* .
 
 # Copy the observation files
-cp obs/lorenz* .
+cp ../obs/lorenz* .
 
 # Test each solver method
 fail=0
@@ -59,13 +60,13 @@ for case in ${cases}; do
   ${GPTL_PATH}/hex2name.pl ./${VARSOLVER_EXE} ./timing.0 > ./timing.varsolver.${case}.txt
   ${PARSE_PATH}/parsetiming.rb -t 1 -d 6 timing.varsolver.${case}.txt > timing.varsolver.parse.${case}.txt
   mv timing.0 timing.varsolver.${case}.hex
-  basetime=`grep adept baseline/timing.varsolver.parse.${case}.txt | awk '{print $3}' `
+  basetime=`grep adept ../baseline/timing.varsolver.parse.${case}.txt | awk '{print $3}' `
   thistime=`grep adept timing.varsolver.parse.${case}.txt | awk '{print $3}' `
   echo "   Completed in ${thistime} seconds (baseline is ${basetime} seconds)"
 
   # Compare the standard output against the baseline
   egrep 'FIN|final cost' varsolver.${case}.stdout > varsolver.${case}.answer
-  cmp -s varsolver.${case}.answer baseline/varsolver.${case}.answer
+  cmp -s varsolver.${case}.answer ../baseline/varsolver.${case}.answer
   if [ $? -ne 0 ]; then
     fail=1
     echo "   stdout file does not match baseline"
@@ -74,11 +75,11 @@ for case in ${cases}; do
   # Compare the NetCDF output against the baseline
   if [ ${method} -lt 3 ]; then
     mv bkgout_0000001.nc bkgout_0000001.${case}.nc
-    nccmp -m -d bkgout_0000001.${case}.nc baseline/bkgout_0000001.${case}.nc
+    nccmp -m -d bkgout_0000001.${case}.nc ../baseline/bkgout_0000001.${case}.nc
     error=$?
   else
     mv bkgout_0000002.nc bkgout_0000002.${case}.nc
-    nccmp -m -d bkgout_0000002.${case}.nc baseline/bkgout_0000002.${case}.nc
+    nccmp -m -d bkgout_0000002.${case}.nc ../baseline/bkgout_0000002.${case}.nc
     error=$?
   fi
   if [ $error -ne 0 ]; then

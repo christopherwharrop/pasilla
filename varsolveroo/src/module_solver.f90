@@ -500,6 +500,7 @@ contains
     type(l96_model_type)  :: model
     type(l96_config_type) :: model_config
     type(l96_writer_type) :: writer
+    real(r8kind), allocatable :: bkg_vec(:,:)
 
     print *,"PUT_ANL_VEC"
 
@@ -520,14 +521,16 @@ contains
       call writer%write(model, filename)
     end if
 
-40  FORMAT(A8, 2I5, F10.4)
+40  FORMAT(A8, 2I5, 2F10.4)
+    allocate(bkg_vec(bkg%get_ntimes(), bkg%get_npoints()))
+    bkg_vec = bkg%get_state_vector()
     do t = 1, size(this%anl_vec, 1)
        do i = 1, size(this%anl_vec, 2)
           ! FOR 3DVAR
           if(this%method <=2) then
-             write(*, 40) "FIN", 2, i, this%anl_vec(t,i)
+             write(*, 40) "FIN", 2, i, this%anl_vec(t,i), bkg_vec(t,i)
           else
-             write(*, 40) "FIN", t, i, this%anl_vec(t,i)
+             write(*, 40) "FIN", t, i, this%anl_vec(t,i), bkg_vec(t,i)
           end if
        end do
     end do

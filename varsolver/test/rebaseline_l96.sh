@@ -46,7 +46,7 @@ for case in ${cases}; do
   method=`echo $case | cut -f1  -d_`
   threads=`echo $case | cut -f2  -d_`
 
-  echo "Testing method ${method} using ${threads} threads... "
+  echo "Creating new baseline for method ${method} using ${threads} threads... "
 
   # Set the number of threads for this case
   export OMP_NUM_THREADS=$threads
@@ -59,41 +59,19 @@ for case in ${cases}; do
 
   # Post-process timing information 
   ${GPTL_PATH}/hex2name.pl ./${VARSOLVER_EXE} ./timing.0 > ./timing.varsolver.${case}.txt
-  ${PARSE_PATH}/parsetiming.rb -t 1 -d 6 timing.varsolver.${case}.txt > timing.varsolver.parse.${case}.txt
+  ${PARSE_PATH}/parsetiming.rb -t 1 -d 6 timing.varsolver.${case}.txt > ../baseline/timing.varsolver.parse.${case}.txt
   mv timing.0 timing.varsolver.${case}.hex
-  basetime=`grep adept ../baseline/timing.varsolver.parse.${case}.txt | awk '{print $3}' `
-  thistime=`grep adept timing.varsolver.parse.${case}.txt | awk '{print $3}' `
-  echo "   Completed in ${thistime} seconds (baseline is ${basetime} seconds)"
 
   # Compare the standard output against the baseline
-  egrep 'FIN|final cost' varsolver.${case}.stdout > varsolver.${case}.answer
-  cmp -s varsolver.${case}.answer ../baseline/varsolver.${case}.answer
-  if [ $? -ne 0 ]; then
-    fail=1
-    echo "   stdout file does not match baseline"
-  fi
+  egrep 'FIN|final cost' varsolver.${case}.stdout > ../baseline/varsolver.${case}.answer
 
   # Compare the NetCDF output against the baseline
   if [ ${method} -lt 3 ]; then
-    mv bkgout_0000001.nc bkgout_0000001.${case}.nc
-    nccmp -m -d bkgout_0000001.${case}.nc ../baseline/bkgout_0000001.${case}.nc
-    error=$?
+    mv bkgout_0000001.nc ../baseline/bkgout_0000001.${case}.nc
   else
-    mv bkgout_0000002.nc bkgout_0000002.${case}.nc
-    nccmp -m -d bkgout_0000002.${case}.nc ../baseline/bkgout_0000002.${case}.nc
-    error=$?
-  fi
-  if [ $error -ne 0 ]; then
-    fail=1
-    echo "   NETCDF output does not match baseline"
-  fi
-
-  # Report PASS/FAIL
-  if [ ${fail} -eq 1 ]; then
-    echo "   FAIL"
-  else
-    echo "   PASS"
+    mv bkgout_0000002.nc ../baseline/bkgout_0000002.${case}.nc
   fi
 
 done
-exit $fail
+
+exit

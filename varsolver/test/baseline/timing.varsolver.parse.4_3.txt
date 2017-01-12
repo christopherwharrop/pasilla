@@ -1,8 +1,8 @@
 Routine                                      Calls      Walltime   % of Tot
-  adept                                          1      0.058000    100.0%
-    module_varsolver_l96_mp_get_method_          1      0.005220      9.0%
-    module_varsolver_l96_mp_get_bkg_vec_         1      0.013000     22.4%
-    module_varsolver_l96_mp_pre_sol_             1      0.005870     10.1%
-    module_varsolver_l96_mp_var_solver_          1      0.024000     41.4%
-      module_varsolver_l96_mp_pre_con_dif_      32      0.008430     14.5%
-    module_varsolver_l96_mp_put_anl_vec_         1      0.008880     15.3%
+  adept                                          1      0.023000    100.0%
+    module_varsolver_l96_mp_get_method_          1      0.002600     11.3%
+    module_varsolver_l96_mp_get_bkg_vec_         1      0.000983      4.3%
+    module_varsolver_l96_mp_pre_sol_             1      0.002100      9.1%
+    module_varsolver_l96_mp_var_solver_          1      0.012000     52.2%
+      module_varsolver_l96_mp_pre_con_dif_      32      0.007790     33.9%
+    module_varsolver_l96_mp_put_anl_vec_         1      0.004480     19.5%

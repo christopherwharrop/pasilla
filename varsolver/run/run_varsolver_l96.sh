@@ -1,6 +1,7 @@
 #!/bin/sh -l
 
 module load intel/16.1.150
+module load netcdf
 #module load pgi/16.10
 #module load netcdf/4.4.0
 
@@ -10,7 +11,7 @@ PARSE_PATH=/home/Christopher.W.Harrop/bin
 
 export OMP_STACKSIZE=1G
 
-../exe/varsolver_l96.exe < ../parm/varsolver_l96.namelist > varsolver_l96.stdout
+../exe/varsolver_l96.exe < ../parm/varsolver_l96.namelist > varsolver_l96.stdout 2> varsolver_l96.stderr
 
 ${GPTL_PATH}/hex2name.pl ../exe/varsolver_l96.exe ./timing.0 > ./timing.varsolver_l96.txt
 

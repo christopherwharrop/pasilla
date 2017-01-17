@@ -1,8 +1,11 @@
 #!/bin/sh -l
 
 module load intel/16.1.150
+#module load pgi/16.10
+#module load netcdf/4.4.0
 
 GPTL_PATH=/contrib/gptl/gptl-v5.5_nompi_noomp/bin
+#GPTL_PATH=/contrib/gptl/gptl-v5.5_nompi_noomp_pgi/bin
 PARSE_PATH=/home/Christopher.W.Harrop/bin
 
 export OMP_STACKSIZE=1G

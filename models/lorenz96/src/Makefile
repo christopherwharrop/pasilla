@@ -5,13 +5,13 @@ UTILITIES=../../../utilities
 INCLUDES=-I$(UTILITIES)/include $(NETCDF_INCLUDES) -I../../abstract/include -I.
 LIBS=-L$(UTILITIES)/lib -lpasilla_util $(NETCDF_LIBS)
 
-OBJS=module_L96_model.o module_L96_tl.o module_L96_adj.o module_L96_config.o module_L96_reader.o module_L96_writer.o module_netcdf_writer.o
+OBJS=module_L96_model.o module_L96_config.o module_L96_reader.o module_L96_writer.o module_netcdf_writer.o ../../abstract/src/module_model.o
 
 #all: lorenz96.exe lorenz96TL_test.exe lorenz96ADJ_test.exe harvest_lorenz96_obs.exe liblorenz96.a
 all: lorenz96.exe liblorenz96.a
 
-liblorenz96.a: $(OBJS)
-	ar rcs liblorenz96.a $(OBJS)
+liblorenz96.a: $(OBJS) module_L96_tl.o module_L96_adj.o
+	ar rcs liblorenz96.a $(OBJS) module_L96_tl.o module_L96_adj.o
 
 harvest_lorenz96_obs.exe: module_lorenz96.o harvest_lorenz96_obs.f90
 	$(FC) $(FFLAGS) -o harvest_lorenz96_obs.exe harvest_lorenz96_obs.f90 module_lorenz96.o $(INCLUDES) $(LIBS)

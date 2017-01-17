@@ -1,12 +1,16 @@
 #!/bin/sh -l
 
 # Load required modules
+module purge
 module load intel/16.1.150
-module load netcdf
+module load netcdf/4.3.0
+#module load pgi/16.10
+#module load netcdf/4.4.0
 module load nccmp
 
 # Set paths for GPTL and tools
 GPTL_PATH=/contrib/gptl/gptl-v5.5_nompi_noomp/bin
+#GPTL_PATH=/contrib/gptl/gptl-v5.5_nompi_noomp_pgi/bin
 PARSE_PATH=/home/Christopher.W.Harrop/bin
 
 # Set the cases (method_threads) to test
@@ -55,7 +59,7 @@ for case in ${cases}; do
   sed -i "s/mthd = [[:digit:]]/mthd = ${method}/" ${VARSOLVER_NAMELIST}
 
   # Run varsolver
-  ./${VARSOLVER_EXE} < ${VARSOLVER_NAMELIST} > varsolver.${case}.stdout
+  ./${VARSOLVER_EXE} < ${VARSOLVER_NAMELIST} > varsolver.${case}.stdout 2> varsolver.${case}.stderr
 
   # Post-process timing information 
   ${GPTL_PATH}/hex2name.pl ./${VARSOLVER_EXE} ./timing.0 > ./timing.varsolver.${case}.txt
@@ -74,19 +78,23 @@ for case in ${cases}; do
   fi
 
   # Compare the NetCDF output against the baseline
+#module swap pgi intel/16.1.150 2> /dev/null
+#module load netcdf/4.3.0 2> /dev/null
   if [ ${method} -lt 3 ]; then
     mv bkgout_0000001.nc bkgout_0000001.${case}.nc
-    nccmp -m -d bkgout_0000001.${case}.nc ../baseline/bkgout_0000001.${case}.nc
+    nccmp -m -d -t 1e-15 bkgout_0000001.${case}.nc ../baseline/bkgout_0000001.${case}.nc
     error=$?
   else
     mv bkgout_0000002.nc bkgout_0000002.${case}.nc
-    nccmp -m -d bkgout_0000002.${case}.nc ../baseline/bkgout_0000002.${case}.nc
+    nccmp -m -d -t 1e-12 bkgout_0000002.${case}.nc ../baseline/bkgout_0000002.${case}.nc
     error=$?
   fi
   if [ $error -ne 0 ]; then
     fail=1
     echo "   NETCDF output does not match baseline"
   fi
+#module swap intel pgi/16.10 2> /dev/null
+#module load netcdf/4.4.0 2> /dev/null
 
   # Report PASS/FAIL
   if [ ${fail} -eq 1 ]; then

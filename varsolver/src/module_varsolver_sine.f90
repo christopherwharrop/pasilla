@@ -1,7 +1,7 @@
 ! BJE = 12 SEPT 2016
 ! PROGRAM TO DO VARIATIONAL ASSIMILATION
 
-module module_varsolver
+module module_varsolver_sine
 
   use gptl
   use module_constants
@@ -763,4 +763,4 @@ contains
 
   ! THAT IS ALL FOLKS!
   !
-end module module_varsolver
+end module module_varsolver_sine

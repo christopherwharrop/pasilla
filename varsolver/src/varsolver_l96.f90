@@ -5,7 +5,6 @@ program adept
 
   use gptl
   use module_varsolver_l96
- ! use lorenz96, only : lorenz96_TL_type, lorenz96_ADJ_type
   use model, only : model_type
 
   implicit none
@@ -53,6 +52,17 @@ program adept
   allocate (anl_vec(tim_len,bkg_len))
   allocate (htr_ino(tim_len,bkg_len,1))
   allocate (bht_ino(tim_len,bkg_len,1))
+
+  ! CWH
+  ! INITIALIZE THE ALLOCATED VECTORS/MATRICES
+  obs_opr(:,:,:) = 0.0
+  obs_cov(:,:,:) = 0.0
+  bkg_cov(:,:,:) = 0.0
+  hrh_cov(:,:,:) = 0.0
+  brh_cov(:,:,:) = 0.0
+  anl_vec(:,:)   = 0.0
+  htr_ino(:,:,:) = 0.0
+  bht_ino(:,:,:) = 0.0
 
   ! BJE
   ! GET THE INNOVATION VECTOR - (Y-HXb) - OVERWRITE OBS_VEC

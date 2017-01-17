@@ -4,7 +4,7 @@
 program adept
 
   use gptl
-  use module_varsolver
+  use module_varsolver_sine
   use sine, only : sine_TL_type, sine_ADJ_type
   use model, only : model_type
 

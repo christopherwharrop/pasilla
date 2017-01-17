@@ -321,22 +321,23 @@ contains
   subroutine pre_sol(obs_opr,obs_cov,bkg_cov,hrh_cov,brh_cov,obs_vec,htr_ino,bht_ino,jvc_for)
 
     implicit none
-    real(KIND=8), intent(in)    :: obs_cov(:,:,:) 
-    real(KIND=8), intent(in)    :: bkg_cov(:,:,:)
-    real(KIND=8), intent(inout) :: hrh_cov(:,:,:) 
-    real(KIND=8), intent(inout) :: brh_cov(:,:,:)
-    real(KIND=8), intent(in)    :: obs_vec(:) 
-    real(KIND=8), intent(in)    :: obs_opr(:,:,:) 
-    real(KIND=8), intent(inout) :: htr_ino(:,:,:) 
-    real(KIND=8), intent(inout) :: bht_ino(:,:,:)
-    real(KIND=8), intent(inout) :: jvc_for(:,:) 
-    integer                     :: i,j,t 
+    real(KIND=8), intent( in)   :: obs_cov(:,:,:)
+    real(KIND=8), intent( in)   :: bkg_cov(:,:,:)
+    real(KIND=8), intent(out)   :: hrh_cov(:,:,:)
+    real(KIND=8), intent(out)   :: brh_cov(:,:,:)
+    real(KIND=8), intent( in)   :: obs_vec(:)
+    real(KIND=8), intent( in)   :: obs_opr(:,:,:)
+    real(KIND=8), intent(out)   :: htr_ino(:,:,:)
+    real(KIND=8), intent(out)   :: bht_ino(:,:,:)
+    real(KIND=8), intent(out)   :: jvc_for(:,:)
 
+    integer                     :: t,i
     real(KIND=8), allocatable   :: tmp_mat(:,:)
     real(KIND=8), allocatable   :: tmp_vec(:,:)
 
     real(KIND=8), allocatable   :: tim_bkc(:,:)
     real(KIND=8), allocatable   :: tim_obc(:,:)
+    real(KIND=8), allocatable   :: tmp_obc(:,:)
     real(KIND=8), allocatable   :: tim_hrh(:,:)
     real(KIND=8), allocatable   :: tim_opr(:,:)
     real(KIND=8), allocatable   :: tim_htr(:,:)
@@ -353,6 +354,7 @@ contains
 
     allocate (tim_bkc(bkg_len,bkg_len))
     allocate (tim_obc(obs_len,obs_len))
+    allocate (tmp_obc(obs_len,obs_len))
     allocate (tim_hrh(bkg_len,bkg_len))
     allocate (tim_opr(obs_len,bkg_len))
     allocate (tim_htr(bkg_len,      1))
@@ -362,6 +364,20 @@ contains
     allocate (obs_opt(bkg_len,obs_len))
     allocate (tmp_rhh(obs_len,bkg_len))
     allocate (tmp_hrr(bkg_len,obs_len))
+
+    tmp_mat(:,:) = 0.0
+    tmp_vec(:,:) = 0.0
+    tim_bkc(:,:) = 0.0
+    tim_obc(:,:) = 0.0
+    tmp_obc(:,:) = 0.0
+    tim_hrh(:,:) = 0.0
+    tim_opr(:,:) = 0.0
+    tim_htr(:,:) = 0.0
+    obs_vvc(:,:) = 0.0
+    tmp_jfo(:,:) = 0.0
+    obs_opt(:,:) = 0.0
+    tmp_rhh(:,:) = 0.0
+    tmp_hrr(:,:) = 0.0
 
     jvc_for(1,1)=0.0
     do t=1,tim_len
@@ -376,6 +392,7 @@ contains
 !      R(-1/2)H 
        call dgemm("N","N",obs_len,bkg_len,obs_len,1.d0,tim_obc,obs_len,tim_opr,obs_len,0.d0,tmp_rhh,obs_len)
        obs_opt=transpose(tmp_rhh)            ! H(T)R(-1/2)
+
 !      H(T)R(-1)H 
        call dgemm("N","N",bkg_len,bkg_len,obs_len,1.d0,obs_opt,bkg_len,tmp_rhh,obs_len,0.d0,tim_hrh,bkg_len)
        hrh_cov(t,:,:)=tim_hrh(:,:)
@@ -387,9 +404,11 @@ contains
        end do
 
 !      CREATE R(-1) from R(-1/2) 
-       call dgemm("N","N",obs_len,obs_len,obs_len,1.d0,tim_obc,obs_len,tim_obc,obs_len,0.d0,tim_obc,obs_len)
+       call dgemm("N","N",obs_len,obs_len,obs_len,1.d0,tim_obc,obs_len,tim_obc,obs_len,0.d0,tmp_obc,obs_len)
+
 !      H(T)R(-1) 
-       call dgemm("N","N",bkg_len,obs_len,obs_len,1.d0,obs_opt,bkg_len,tim_obc,obs_len,0.d0,tmp_hrr,bkg_len)
+       call dgemm("N","N",bkg_len,obs_len,obs_len,1.d0,obs_opt,bkg_len,tmp_obc,obs_len,0.d0,tmp_hrr,bkg_len)
+
 !      H(T)R(-1)(Y-HXb)
        call dgemv("N",bkg_len,obs_len,1.d0,tmp_hrr,bkg_len,obs_vvc,1,0.d0,tim_htr,1)
        htr_ino(t,:,1)=tim_htr(:,1) 
@@ -397,6 +416,7 @@ contains
        ! CREATE THE UNPRECONDITIONED MATRICES, FOR THE GRADIENT OF J
 !      B(1/2)*H(T)R(-1) 
        call dgemv("N",bkg_len,bkg_len,1.d0,tim_bkc,bkg_len,tim_htr,1,0.d0,tmp_vec,1)
+
 !      B(1/2)*H(T)R(-1)H
        call dgemm("N","N",bkg_len,bkg_len,bkg_len,1.d0,tim_bkc,bkg_len,tim_hrh,bkg_len,0.d0,tmp_mat,bkg_len)
        bht_ino(t,:,1)=tmp_vec(:,1)
@@ -595,7 +615,6 @@ contains
           jvc_the=matmul(dif_tra,tim_htr)
           !   COST FUNCTION
           jtim(t) = 0.5*(jvc_one(1,1)+jvc_two(1,1)-2.0*jvc_the(1,1)) 
-
        end do
 !$OMP END PARALLEL DO
 
@@ -658,12 +677,12 @@ contains
        if(mthd.eq.4) tlm_vec=new_vec
        anl_vec=tlm_vec
        if (nitr.gt.0 .and. jnew.gt.jold) jnew=jold
-       if (nitr.eq.0) print *,'initial cost = ',jnew
+       if (nitr.eq.0) write(*,'(A,F16.12)') 'initial cost = ', jnew
        nitr = nitr + 1 
-       print *,"Cost at ",nitr,jnew
+       write(*,'(A,I,F16.12)') "Cost at ", nitr, jnew
     end do
 
-    print *,'final cost = ',jnew,' after ',nitr,' iterations'
+    write(*,'(A,F16.12,A,I,A)') 'final cost = ', jnew, ' after ', nitr, ' iterations'
     print *,"SOLVER COMPLETE"
 
   end subroutine var_solver

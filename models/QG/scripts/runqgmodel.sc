@@ -21,7 +21,7 @@ GPTLFLAGS='-I/contrib/gptl/gptl-v5.5_nompi_noomp/include -L/contrib/gptl/gptl-v5
 fflags='-extend_source 132 -g -traceback -O2 -convert big_endian -finstrument-functions'
 ## qgdir="/Users/seltini/Werk/qgmodel42"
 #qgdir="/scratch3/BMC/gsd-hpcs/Brian.Etherton/superQG/"
-qgdir="/scratch4/BMC/gsd-hpcs/Christopher.W.Harrop/pasilla.dev/models/QG.new"
+qgdir="/scratch4/BMC/gsd-hpcs/Christopher.W.Harrop/pasilla.dev/models/QG"
 outdir="${qgdir}/outputdata"
 expid='harr'
 rundir="${qgdir}/rundir/run${expid}"
@@ -41,6 +41,10 @@ if [ -e ${outdir}/$expid ]; then
   fi
 fi
 
+# Copy the inputdata into place
+cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/* ${qgdir}/inputdata/
+
+# Make sure obs file exists.
 if [ ! -e ${qgdir}/inputdata/$obsfile ]; then
   echo "${qgdir}/inputdata/$obsfile does not exist" ; exit 1
 fi

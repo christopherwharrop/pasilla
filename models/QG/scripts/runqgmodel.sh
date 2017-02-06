@@ -42,8 +42,6 @@ if [ -e ${outdir}/$expid ]; then
   fi
 fi
 
-# Copy the inputdata into place
-cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/* ${qgdir}/inputdata/
 
 # Make sure obs file exists.
 if [ ! -e ${qgdir}/inputdata/$obsfile ]; then
@@ -59,14 +57,18 @@ rm -rf ${rundir}
 mkdir -p ${rundir}
 cd ${rundir}
 
+# Copy the inputdata into place
+#cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/* ${qgdir}/inputdata/
+cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/* .
+
 # Copy the namelist into the run directory
 cp ${parmdir}/namelist namelist.input
 
 # Set the experiment id in the namelist
-sed -i "s/expid = '.*'/expid = '${expid}'/" namelist.input
+sed -i "s/expid = '.*'/expid = \'${expid}\'/" namelist.input
 
 # Set the obs file in the namelist
-sed -i "s/obsfile = '.*'/obsfile = '${obsfile}'/" namelist.input
+sed -i "s/obsfile = '.*'/obsfile = \'${obsfile}\'/" namelist.input
 
 # Write header file 
 cat > truncation.h <<==

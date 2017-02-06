@@ -57,11 +57,11 @@ c *** real parameters
       write(16, NML = param)
       close(16)
       
-      OPEN(11,FILE=rootdir(1:rootdirl)//'/inputdata/qgcoefT'//ft//'.dat',FORM='FORMATTED')
-      OPEN(12,FILE=rootdir(1:rootdirl)//'/inputdata/qgstartT'//ft//'.dat',FORM='FORMATTED')
-      OPEN(13,FILE=rootdir(1:rootdirl)//'/inputdata/qgbergT'//ft//'.dat',FORM='FORMATTED')
+      OPEN(11,FILE='./qgcoefT'//ft//'.dat',FORM='FORMATTED')
+      OPEN(12,FILE='./qgstartT'//ft//'.dat',FORM='FORMATTED')
+      OPEN(13,FILE='./qgbergT'//ft//'.dat',FORM='FORMATTED')
       if (inf) then
-        OPEN(14,FILE=rootdir(1:rootdirl)//'/inputdata/qgpvforT'//ft//'.dat',FORM='FORMATTED')
+        OPEN(14,FILE='./qgpvforT'//ft//'.dat',FORM='FORMATTED')
       endif
       
       do i=0,nm
@@ -1312,9 +1312,9 @@ c------------------------------------------------------------------------
       real*8 eddf(nsh2,3),totf(nsh2,3),climf(nsh2,3),forg(nlat,nlon)
       
       
-      open(unit=46,file=rootdir(1:rootdirl)//'/inputdata/qgmodelT42.T21',status='old',
+      open(unit=46,file='./qgmodelT42.T21',status='old',
      *       form='formatted')
-      open(unit=32,file=rootdir(1:rootdirl)//'/inputdata/qgpvforT42world.grads',
+      open(unit=32,file='./qgpvforT42world.grads',
      *       form='unformatted')
       
       nyb=83
@@ -1522,14 +1522,14 @@ c------------------------------------------------------------------------
       OPEN(14,FILE=rootdir(1:rootdirl)//'/outputdata/'//expid//'/qgpvforT'//ft//'.dat',
      *     FORM='FORMATTED')
       
-      open(unit=46,file=rootdir(1:rootdirl)//'/inputdata/'//obsfile,
+      open(unit=46,file='./'//obsfile,
      *     status='old',form='unformatted')
       fl=index(obsfile," ")-1
       open(unit=32,
      *     file=rootdir(1:rootdirl)//'/outputdata/'//expid//'/qgpvforT'//ft//'.grads',
      *       form='unformatted')
      
-      open(unit=99,file=rootdir(1:rootdirl)//'/inputdata/'//obsfile(1:fl)//ft//'.grads',
+      open(unit=99,file='./'//obsfile(1:fl)//ft//'.grads',
      *  form='unformatted')
      
       write(*,'(A,A)') "Calculating forcing from ",obsfile
@@ -1589,7 +1589,7 @@ c *** calculate the mean tendency
       close(46)
       close(32)
       
-      open(50,file=rootdir(1:rootdirl)//'/inputdata/'//obsfile(1:fl)//ft//'.ctl',
+      open(50,file='./'//obsfile(1:fl)//ft//'.ctl',
      *          form='formatted')
         write(50,'(A)') 'dset ^'//obsfile(1:fl)//ft//'.grads'
         write(50,'(A)') 'undef 9.99e+10'
@@ -1642,9 +1642,9 @@ c-----------------------------------------------------------------------
       scalesf=1d0/(radius*radius*om)
       nsh2ntr=22*23
       
-      open(98,file=rootdir(1:rootdirl)//'/inputdata/anwin79_10T42.dat',form='formatted')
-      open(96,file=rootdir(1:rootdirl)//'/inputdata/anwin79_10T21.dat',form='formatted')
-c      open(unit=97,file=rootdir(1:rootdirl)//'/inputdata/eracheck.grads',
+      open(98,file='./anwin79_10T42.dat',form='formatted')
+      open(96,file='./anwin79_10T21.dat',form='formatted')
+c      open(unit=97,file='./eracheck.grads',
 c     *  form='unformatted')
       
       nyb=1979
@@ -1655,7 +1655,7 @@ c     *  form='unformatted')
 
       do iy=nyb,nye
         write(fy,'(I4.4)') iy
-        open(unit=99,file=rootdir(1:rootdirl)//'/inputdata/era'//fy//'djf.grads',
+        open(unit=99,file='./era'//fy//'djf.grads',
      *  form='unformatted',access='direct',recl=nlat*nlon*4)
 
         do id=1,npw

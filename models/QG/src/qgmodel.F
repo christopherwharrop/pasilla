@@ -45,14 +45,14 @@ c *** real parameters
       rrdef2=.070
 
       
-      OPEN(15,FILE='namelist',status='old',FORM='FORMATTED')
+      OPEN(15,FILE='namelist.input',status='old',FORM='FORMATTED')
 
       read(15, NML = control)
       read(15, NML = param)
       
       close(15)
       
-      OPEN(16,FILE=rootdir(1:rootdirl)//'/outputdata/'//expid//'/namelist')
+      OPEN(16,FILE=rootdir(1:rootdirl)//'/outputdata/'//expid//'/namelist.output')
       write(16, NML = control)
       write(16, NML = param)
       close(16)

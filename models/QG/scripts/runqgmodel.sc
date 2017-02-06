@@ -55,18 +55,18 @@ mkdir -p "${outdir}/$expid"
 rm -f ${outdir}/$expid/*
 
 # Create an empty run directory and cd into it
-rm -f ${rundir}
+rm -rf ${rundir}
 mkdir -p ${rundir}
 cd ${rundir}
 
 # Copy the namelist into the run directory
-cp ${parmdir}/namelist .
+cp ${parmdir}/namelist namelist.input
 
 # Set the experiment id in the namelist
-sed -i "s/expid = '.*'/expid = '${expid}'/" namelist
+sed -i "s/expid = '.*'/expid = '${expid}'/" namelist.input
 
 # Set the obs file in the namelist
-sed -i "s/obsfile = '.*'/obsfile = '${obsfile}'/" namelist
+sed -i "s/obsfile = '.*'/obsfile = '${obsfile}'/" namelist.input
 
 # Write header file 
 cat > truncation.h <<==

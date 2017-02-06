@@ -1,0 +1,41 @@
+
+Last updated
+2012-05-11
+Language
+Fortran
+Access level
+Read
+1
+Branch  
+1
+Tag
+0
+Forks  
+2
+Watchers
+== How to compile the QG model ==
+
+To compile the model you need to have CMake installed. In almost
+any modern Linux distro, and even in Cygwin, CMake is either pre-installed or can 
+be installed from the repositories. In addition, gfortran needs to be
+installed, which is also often pre installed. 
+
+To compile the QG model, please give the following commands (assuming that you have 
+a directory called 'qgmodel' that contains the QG code):
+
+cd qgmodel
+mkdir build
+cd build
+cmake ..
+make
+
+This should be all that is necssary to compile the model. In principle, any platform 
+that supports CMake (Windows, Solaris, OS X, Linux etc) could follow these exact steps
+to compile the QG model.
+
+After make is done compiling the program, there are two executables present in the 
+../bin directory. One is runqgmodels, which is the main executable to run 'n' qg models
+simultaneously. The other is sphToGrid, which I use from within an R script to be able to 
+convert spherical harmonics to a gaussian grid on the fly outside the model.
+
+Running the model can be done either from the command line, or from R.

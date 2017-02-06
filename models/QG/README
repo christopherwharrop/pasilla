@@ -1,0 +1,34 @@
+This distribution contains code to integrate the spectral quasi-geostrophic
+model on the sphere of Marshal and Molteni (1983) at resolution
+T21, T42, T63 or T106
+
+All binary files are big_endian
+
+see scripts/runqgmodel.sc how to compile, configure and run the model
+
+./scripts: contains scripts that compile and execute the model and produce plots of
+       the output and auxiliary scripts to produce inputfiles
+			 
+./scripts/runqgmodel.sc: compiles and runs the model at a specified resolution with standard
+                     parameter values and forcing calculated from observations			 
+./scripts/qgcoef.sc    : produces legendre function inputfiles for the qg model 			 
+./scripts/genoro.sc    : produces orography and land-sea mask inputfile for the qg model		 
+./scripts/genobs.sc    : produces a file with observed streamfunction values from relative
+                 vorticity obtained from ERA interim		 
+			 
+			 
+./inputdata: contains inputdata for the model
+
+./inputdata/qgcoefT??.dat   : file with legendre functions on the grid
+./inputdata/qgbergT??.dat   : file with topography on the grid
+./inputdata/qgpvforT??.dat  : file potential vorticity forcing 
+./inputdata/qgstartT??.dat  : file with initial state for streamfunction
+./inputdata/sf7910T106.shfs : file with observed daily streamfunction data in 
+                              spherical harmonics
+
+./outputdata: the output of model integrations are placed in subdirectory $expid
+
+./src : contains comqg.h with declarations and qgmodel.F and nag.f with subroutines
+
+./rundir : temporary run directories are created here
+

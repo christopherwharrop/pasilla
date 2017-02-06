@@ -1,0 +1,46 @@
+! expid               = Four digit number used to specify the outputdata directory
+! inf                 = Logical if true then the forcing is read from file inputdata/qgpvforT??.dat
+! obsf                = Logical if true then the forcing is calculated from obsfile
+! readstart           = Logical if true initial state is read from qgstartT??.dat else state of rest
+! nstepsperday        = Number of timesteps the model takes for one day
+! nstepsbetweenoutput = Number of timesteps between the outputted states to the datafile
+! ndayskip            = Length of the transient integration in days; model starts from inputdata/qgstartT??.dat
+! nday                = Length of the trajectory in days that is outputted to the datafile
+! obsfile             = Inputdata/$obsfile contains the observed states from which to calculate the forcing
+!
+! tdis   = Time scale in days of the Ekman damping (linear damping on vorticity at lowest level)
+! addisl = Parameter of the land-seamask dependent Ekman damping (more friction over land)
+! addish = Parameter of the orography dependent Ekman damping (more friction over slopes)
+! trel   = Time scale of the temperature cooling in days
+! tdif   = Time scale in days of the scale selective damping at the three levels for the smallest wavenumber
+! idif   = Power of the laplacian for the scale selective damping
+! h0     = Scale height of the topography
+! rrdef1 = Rossby radius of deformation of the 200-500 hpa layer
+! rrdef2 = Rossby radius of deformation of the 500-800 hPa layer
+!
+! NOTE: Depending on resolution the scale selective damping should be set differently as
+!       well as the nstepsperday
+
+&control
+expid = 'foo',
+inf = .false.,
+obsf = .true.,
+readstart=.true.,
+nstepsperday = 72,
+nstepsbetweenoutput = 3,
+ndayskip = 10,
+nday = 20,
+obsfile = 'obsfile' ,
+/
+
+&param
+tdis=5.0,
+addisl=0.6,
+addish=0.4,
+trel=25.,
+tdif=3,
+idif=2,
+h0=6.,
+rrdef1=.110,
+rrdef2=.070,
+/

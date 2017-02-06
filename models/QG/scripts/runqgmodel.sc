@@ -22,6 +22,7 @@ fflags='-extend_source 132 -g -traceback -O2 -convert big_endian -finstrument-fu
 ## qgdir="/Users/seltini/Werk/qgmodel42"
 #qgdir="/scratch3/BMC/gsd-hpcs/Brian.Etherton/superQG/"
 qgdir="/scratch4/BMC/gsd-hpcs/Christopher.W.Harrop/pasilla.dev/models/QG"
+parmdir="${qgdir}/parm"
 outdir="${qgdir}/outputdata"
 expid='harr'
 rundir="${qgdir}/rundir/run${expid}"
@@ -49,63 +50,25 @@ if [ ! -e ${qgdir}/inputdata/$obsfile ]; then
   echo "${qgdir}/inputdata/$obsfile does not exist" ; exit 1
 fi
 
+# Create an empty output directory
 mkdir -p "${outdir}/$expid"
 rm -f ${outdir}/$expid/*
+
+# Create an empty run directory and cd into it
+rm -f ${rundir}
 mkdir -p ${rundir}
 cd ${rundir}
 
-# now produce the namelist file to configure the model
-#
-# expid = four digit number used to specify the outputdata directory
-# inf = logical if true then the forcing is read from file inputdata/qgpvforT??.dat
-# obsf = logical if true then the forcing is calculated from obsfile
-# readstart = logical if true initial state is read from qgstartT??.dat else state of rest
-# nstepsperday = number of timesteps the model takes for one day
-# nstepsbetweenoutput = number of timesteps between the outputted states to the datafile
-# ndayskip = length of the transient integration in days; model starts from inputdata/qgstartT??.dat
-# nday = length of the trajectory in days that is outputted to the datafile
-# obsfile = inputdata/$obsfile contains the observed states from which to calculate the forcing
-#
-# tdis= time scale in days of the Ekman damping (linear damping on vorticity at lowest level)
-# addisl= parameter of the land-seamask dependent Ekman damping (more friction over land)
-# addish= parameter of the orography dependent Ekman damping (more friction over slopes)
-# trel= time scale of the temperature cooling in days
-# tdif= time scale in days of the scale selective damping at the three levels for the smallest wavenumber
-# idif= power of the laplacian for the scale selective damping 
-# h0= scale height of the topography
-# rrdef1= Rossby radius of deformation of the 200-500 hpa layer
-# rrdef2= Rossby radius of deformation of the 500-800 hPa layer
-#
-# NOTE: depending on resolution the scale selective damping should be set differently as
-# well as the nstepsperday
-#
-# 
+# Copy the namelist into the run directory
+cp ${parmdir}/namelist .
 
+# Set the experiment id in the namelist
+sed -i "s/expid = '.*'/expid = '${expid}'/" namelist
 
-cat > namelist <<==
- &control
- expid = '$expid',
- inf = .false.,
- obsf = .true.,
- readstart=.true.,
- nstepsperday = 72,
- nstepsbetweenoutput = 3,
- ndayskip = 10,
- nday = 20,
- obsfile = '$obsfile' ,
- /
- &param
- tdis=5.0,
- addisl=0.6,
- addish=0.4,
- trel=25.,
- tdif=3,
- idif=2,
- h0=6.,
- rrdef1=.110,
- rrdef2=.070,
- /
-==
+# Set the obs file in the namelist
+sed -i "s/obsfile = '.*'/obsfile = '${obsfile}'/" namelist
+
+# Write header file 
 cat > truncation.h <<==
 c *** PARAMETERS
 c     nm  :   the truncation is of type T(riangular) nm. 

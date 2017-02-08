@@ -52,7 +52,7 @@ c *** real parameters
       
       close(15)
       
-      OPEN(16,FILE=rootdir(1:rootdirl)//'/outputdata/'//expid//'/namelist.output')
+      OPEN(16,FILE='namelist.output')
       write(16, NML = control)
       write(16, NML = param)
       close(16)
@@ -308,12 +308,12 @@ C
       close(13)
       close(14)
       
-      OPEN(13,FILE=rootdir(1:rootdirl)//'/outputdata/'//expid//'/qgbergT'//ft//'.grads',
+      OPEN(13,FILE='qgbergT'//ft//'.grads',
      *        FORM='UNFORMATTED')
       write(13) ((real(agg1(j,i)),i=1,nlon),j=1,nlat)
       write(13) ((real(agg2(j,i)),i=1,nlon),j=1,nlat)
       close(13)
-      open(50,file=rootdir(1:rootdirl)//'/outputdata/'//expid//'/qgbergT'//ft//'.ctl',
+      open(50,file='qgbergT'//ft//'.ctl',
      *          form='formatted')
         write(50,'(A)') 'dset ^qgbergT'//ft//'.grads'
         write(50,'(A)') 'undef 9.99e+10'
@@ -337,7 +337,7 @@ C
 
       close(50)
       
-      OPEN(14,FILE=rootdir(1:rootdirl)//'/outputdata/'//expid//'/qgpvforT'//ft//'.grads',
+      OPEN(14,FILE='qgpvforT'//ft//'.grads',
      * FORM='UNFORMATTED')
       do l=1,nvl
         call sptogg(for(1,l),agg1,pp)
@@ -345,7 +345,7 @@ C
       enddo
       close(14)
       
-      open(50,file=rootdir(1:rootdirl)//'/outputdata/'//expid//'/qgpvforT'//ft//'.ctl',
+      open(50,file='qgpvforT'//ft//'.ctl',
      *          form='formatted')
         write(50,'(A)') 'dset ^qgpvforT'//ft//'.grads'
         write(50,'(A)') 'undef 9.99e+10'
@@ -1519,14 +1519,14 @@ c------------------------------------------------------------------------
 
       dlon=360d0/real(nlon)
       
-      OPEN(14,FILE=rootdir(1:rootdirl)//'/outputdata/'//expid//'/qgpvforT'//ft//'.dat',
+      OPEN(14,FILE='qgpvforT'//ft//'.dat',
      *     FORM='FORMATTED')
       
       open(unit=46,file='./'//obsfile,
      *     status='old',form='unformatted')
       fl=index(obsfile," ")-1
       open(unit=32,
-     *     file=rootdir(1:rootdirl)//'/outputdata/'//expid//'/qgpvforT'//ft//'.grads',
+     *     file='qgpvforT'//ft//'.grads',
      *       form='unformatted')
      
       open(unit=99,file='./'//obsfile(1:fl)//ft//'.grads',
@@ -1615,8 +1615,8 @@ c *** calculate the mean tendency
       write(*,'(A,I6)') 
      *  "Number of states used to calculate forcing: ",iday
       write(*,'(A)') "Forcing saved in files: "
-      write(*,'(A)') rootdir(1:rootdirl)//'/outputdata/'//expid//'/qgpvforT'//ft//'.grads'
-      write(*,'(A)') rootdir(1:rootdirl)//'/outputdata/'//expid//'/qgpvforT'//ft//'.dat'
+      write(*,'(A)') 'qgpvforT'//ft//'.grads'
+      write(*,'(A)') 'qgpvforT'//ft//'.dat'
  
       return
       end
@@ -1709,7 +1709,7 @@ c-----------------------------------------------------------------------
       
       if (istep.eq.0) then
         open(52,
-     *  file=rootdir(1:rootdirl)//'/outputdata/'//expid//'/qgmodelsfT'//ft//'.ctl',
+     *  file='qgmodelsfT'//ft//'.ctl',
      *          form='formatted')
         write(52,'(A)') 'dset ^qgmodelsfT'//ft//'.grads'
         write(52,'(A)') 'undef 9.99e+10'
@@ -1732,7 +1732,7 @@ c-----------------------------------------------------------------------
 
         close(52)
         open(52,
-     *       file=rootdir(1:rootdirl)//'/outputdata/'//expid//'/qgmodelsfT'//ft//'.grads',
+     *       file='qgmodelsfT'//ft//'.grads',
      *          form='unformatted')
       endif
       
@@ -1764,7 +1764,7 @@ c-----------------------------------------------------------------------
       dlon=360d0/real(nlon)
       
       if (istep.eq.0) then
-        open(50,file=rootdir(1:rootdirl)//'/outputdata/'//expid//'/qgmodelT'//ft//'.ctl',
+        open(50,file='qgmodelT'//ft//'.ctl',
      *          form='formatted')
         write(50,'(A)') 'dset ^qgmodelT'//ft//'.grads'
         write(50,'(A)') 'undef 9.99e+10'
@@ -1791,7 +1791,7 @@ c-----------------------------------------------------------------------
 
         close(50)
         open(50,
-     *  file=rootdir(1:rootdirl)//'/outputdata/'//expid//'/qgmodelT'//ft//'.grads',
+     *  file='qgmodelT'//ft//'.grads',
      *          form='unformatted')
       endif
       
@@ -1834,7 +1834,7 @@ c-----------------------------------------------------------------------
       nsh2ntr=22*23
       if (istep.eq.0) then
         open(51,
-     *file=rootdir(1:rootdirl)//'/outputdata/'//expid//'/qgmodelT42.'//expid//'.T21.dat',
+     *file='qgmodelT42.'//expid//'.T21.dat',
      *form='formatted')
       endif
             
@@ -1860,7 +1860,7 @@ c-----------------------------------------------------------------------
 
       integer i,j,k,l
 
-      OPEN(12,FILE=rootdir(1:rootdirl)//'/outputdata/'//expid//'/qgendT'//ft//'.dat',
+      OPEN(12,FILE='qgendT'//ft//'.dat',
      *        FORM='FORMATTED')
       do l=1,3
         do k=1,nsh2

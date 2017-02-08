@@ -21,7 +21,7 @@ GPTLFLAGS='-I/contrib/gptl/gptl-v5.5_nompi_noomp/include -L/contrib/gptl/gptl-v5
 fflags='-extend_source 132 -g -traceback -O2 -convert big_endian -finstrument-functions'
 ## qgdir="/Users/seltini/Werk/qgmodel42"
 #qgdir="/scratch3/BMC/gsd-hpcs/Brian.Etherton/superQG/"
-qgdir="/scratch4/BMC/gsd-hpcs/Christopher.W.Harrop/pasilla.dev/models/QG"
+qgdir="/scratch4/BMC/gsd-hpcs/Christopher.W.Harrop/pasilla.top/models/QG"
 parmdir="${qgdir}/parm"
 outdir="${qgdir}/outputdata"
 expid='harr'
@@ -30,23 +30,18 @@ obsfile="sf7910T106.shfs"
 
 plot=0
 
-if [ ${plot} == 0 ]; then
+#if [ ${plot} == 0 ]; then
 
 
-if [ -e ${outdir}/$expid ]; then
-  echo "${outdir}/$expid already exists" 
-  read -p "Are you sure to continue ? [YN]" -n 1 -r
-  echo 
-  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    exit 1
-  fi
-fi
+#if [ -e ${outdir}/$expid ]; then
+#  echo "${outdir}/$expid already exists" 
+#  read -p "Are you sure to continue ? [YN]" -n 1 -r
+#  echo 
+#  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+#    exit 1
+#  fi
+#fi
 
-
-# Make sure obs file exists.
-if [ ! -e ${qgdir}/inputdata/$obsfile ]; then
-  echo "${qgdir}/inputdata/$obsfile does not exist" ; exit 1
-fi
 
 # Create an empty output directory
 mkdir -p "${outdir}/$expid"
@@ -58,8 +53,15 @@ mkdir -p ${rundir}
 cd ${rundir}
 
 # Copy the inputdata into place
-#cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/* ${qgdir}/inputdata/
-cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/* .
+cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/${obsfile} .
+cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/qgcoefT${resol}.dat .
+cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/qgbergT${resol}.dat .
+cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/qgstartT${resol}.dat .
+
+# Make sure obs file exists.
+if [ ! -e $obsfile ]; then
+  echo "${qgdir}/inputdata/$obsfile does not exist" ; exit 1
+fi
 
 # Copy the namelist into the run directory
 cp ${parmdir}/namelist namelist.input
@@ -186,8 +188,8 @@ $compiler $fflags -I${qgdir}/src -o runqgmodel runqgmodel.F qgmodel.o nag.o $GPT
 
 ./runqgmodel 
 
-rm *.o runqgmodel.F runqgmodel
-fi
+#rm *.o runqgmodel.F runqgmodel
+#fi
 
 
 cd ${outdir}/$expid

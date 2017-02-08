@@ -74,19 +74,19 @@ sed -i "s/obsfile = '.*'/obsfile = \'${obsfile}\'/" namelist.input
 
 # Write header file 
 cat > truncation.h <<==
-c *** PARAMETERS
-c     nm  :   the truncation is of type T(riangular) nm. 
-c     nlon:   number of longitude points of the Gaussian grid
-c     nlat:   number of latitude  points of the Gaussian grid
-c     nvl :   number of vorticity levels in the vertical 
-c             (should be set to 3)
-c     ntl :   number of temperature levels in the vertical 
-c             (equal to nvl-1)
-c     nsh :   half of nsh2
-c     nsh2:   number of coefficients needed to define one level of the 
-c             T nm model
-c     ngp:    number of grid points of the Gaussian grid
-c 
+! *** PARAMETERS
+!     nm  :   the truncation is of type T(riangular) nm. 
+!     nlon:   number of longitude points of the Gaussian grid
+!     nlat:   number of latitude  points of the Gaussian grid
+!     nvl :   number of vorticity levels in the vertical 
+!             (should be set to 3)
+!     ntl :   number of temperature levels in the vertical 
+!             (equal to nvl-1)
+!     nsh :   half of nsh2
+!     nsh2:   number of coefficients needed to define one level of the 
+!             T nm model
+!     ngp:    number of grid points of the Gaussian grid
+! 
       integer nm,nlon,nlat,nvl,ntl,nsh,nsh2,ngp
 ==
 
@@ -132,14 +132,13 @@ cat >> truncation.h <<==
 fi
 
 cp ${qgdir}/src/comqg.h .
-cp ${qgdir}/src/qgmodel.F .
-cp ${qgdir}/src/runqgmodel.F .
+cp ${qgdir}/src/qgmodel.f90 .
+cp ${qgdir}/src/runqgmodel.f90 .
 cp ${qgdir}/src/nag.f .
 
-$compiler $fflags -c  qgmodel.F -o qgmodel.o
+$compiler $fflags -c  qgmodel.f90 -o qgmodel.o
 $compiler $fflags -c  nag.f -o nag.o
-
-$compiler $fflags -I${qgdir}/src -o runqgmodel runqgmodel.F qgmodel.o nag.o $GPTLFLAGS
+$compiler $fflags -I${qgdir}/src -o runqgmodel runqgmodel.f90 qgmodel.o nag.o $GPTLFLAGS
 
 ./runqgmodel 
 

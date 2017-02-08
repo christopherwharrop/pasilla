@@ -1,13 +1,13 @@
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine initqg
-c-----------------------------------------------------------------------
-c *** initialise parameters and operators and read initial state
-c-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+! *** initialise parameters and operators and read initial state
+!-----------------------------------------------------------------------
 
       implicit none
 
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
 
       integer i,j,k1,k2,k,l,m,n,ifail,ii,jj,i1,j1,nn
       real*8  pigr4,dis,dif,rll,ininag(nlat,nlon)
@@ -16,10 +16,10 @@ c-----------------------------------------------------------------------
       real*8  agg(nlat,nlon), agg1(nlat,nlon), agg2(nlat,nlon) 
       real*8  fmu(nlat,2),wsx(nsh2)
       
-      namelist /param/ tdis,addisl,addish,trel,tdif,idif,h0,
-     *                 rrdef1,rrdef2
-      namelist /control/nstepsperday,nstepsbetweenoutput,
-     *                  ndayskip,nday,obsfile,expid,inf,obsf,readstart
+      namelist /param/ tdis,addisl,addish,trel,tdif,idif,h0, &
+     &                 rrdef1,rrdef2
+      namelist /control/nstepsperday,nstepsbetweenoutput, &
+     &                  ndayskip,nday,obsfile,expid,inf,obsf,readstart
       
       rootdirl=index(rootdir,' ')-1
       
@@ -32,7 +32,7 @@ c-----------------------------------------------------------------------
       ndayskip = 0
       nday = 10
 
-c *** real parameters
+! *** real parameters
 
       tdis=3.0
       addisl=0.5
@@ -84,16 +84,16 @@ c *** real parameters
       rll=dble(ll(nsh))
       dif=max(0.0d0,1.0d0/(tdif*pigr4*(rll*(rll+1))**idif))
       
-c *** time step of the model: 
-c *** dt    : fraction of one day
-c *** dtime : in seconds
-c *** dtt   : dimensionless
+! *** time step of the model: 
+! *** dt    : fraction of one day
+! *** dtime : in seconds
+! *** dtt   : dimensionless
  
       dt     = 1d0/real(nstepsperday)
       dtime  = dt*(24d0*3600d0)
       dtt    = dt*pi*4d0
 
-c *** zonal derivative operator
+! *** zonal derivative operator
 
       k2=0
       do m=0,nm
@@ -104,7 +104,7 @@ c *** zonal derivative operator
         enddo
       enddo
 
-c *** laplace/helmholtz direct and inverse operators
+! *** laplace/helmholtz direct and inverse operators
 
       do j=0,5
         rinhel(1,j)=0.0d0
@@ -142,7 +142,7 @@ c *** laplace/helmholtz direct and inverse operators
         enddo
       enddo
 
-c *** legendre associated functions and derivatives
+! *** legendre associated functions and derivatives
 
       do k=1,nsh
         do j=1,nlat
@@ -160,7 +160,7 @@ c *** legendre associated functions and derivatives
         enddo
       enddo
 
-c *** compensation for normalization in nag fft routines
+! *** compensation for normalization in nag fft routines
 
       sqn=sqrt(dble(nlon))
       rsqn=1d0/sqn
@@ -172,7 +172,7 @@ c *** compensation for normalization in nag fft routines
         enddo
       enddo
 
-c *** initialization of coefficients for fft
+! *** initialization of coefficients for fft
 
 
       do j=1,nlon
@@ -187,10 +187,10 @@ c *** initialization of coefficients for fft
       ifail=0
       call c06fqf (nlat,nlon,ininag,'i',trigi,wgg,ifail)
 
-c *** orography and dissipation terms
+! *** orography and dissipation terms
       
-c *** fmu(i,1): sin(phi(i))
-c *** fmu(i,2): 1-sin**2(phi(i))      
+! *** fmu(i,1): sin(phi(i))
+! *** fmu(i,2): 1-sin**2(phi(i))      
 
       rnorm=1.0d0/sqrt(3.0d0*nlon)
       do i=1,nlat
@@ -203,7 +203,7 @@ c *** fmu(i,2): 1-sin**2(phi(i))
       enddo
       dlon=360d0/real(nlon)
       
-c *** height of orography in meters
+! *** height of orography in meters
       
       do i=1,nlon
         do j=1,nlat
@@ -215,12 +215,12 @@ c *** height of orography in meters
       do j=1,nlon
         do i=1,nlat
           agg(i,j)=fmu(i,1)*agg1(i,j)*rh0
-c          agg(i,j) = agg1(i,j)*rh0
+!          agg(i,j) = agg1(i,j)*rh0
         enddo
       enddo
 
               
-c *** surface dependent friction
+! *** surface dependent friction
 
       lgdiss=((addisl.gt.0.0).or.(addish.gt.0.0))
 
@@ -239,7 +239,7 @@ c *** surface dependent friction
         
         do j=1,nlon
           do i=1,nlat
-            agg(i,j)=1.0d0+addisl*agg2(i,j)+
+            agg(i,j)=1.0d0+addisl*agg2(i,j)+ &
      &                addish*(1.0d0-exp(-0.001d0*agg1(i,j)))
           enddo
         enddo
@@ -261,7 +261,7 @@ c *** surface dependent friction
 
       endif
 
-c *** forcing term
+! *** forcing term
 
       do l=1,3
         do k=1,nsh2
@@ -281,7 +281,7 @@ c *** forcing term
         
       endif
 
-c *** input initial streamfunction
+! *** input initial streamfunction
 
       if (readstart) then
         do l=1,3
@@ -297,9 +297,9 @@ c *** input initial streamfunction
         enddo
       endif
       
-C
-C *** Potential vorticity and streamfunction fields
-C
+!
+! *** Potential vorticity and streamfunction fields
+!
 
       call psitoq
              
@@ -308,20 +308,20 @@ C
       close(13)
       close(14)
       
-      OPEN(13,FILE='qgbergT'//ft//'.grads',
-     *        FORM='UNFORMATTED')
+      OPEN(13,FILE='qgbergT'//ft//'.grads', &
+     &        FORM='UNFORMATTED')
       write(13) ((real(agg1(j,i)),i=1,nlon),j=1,nlat)
       write(13) ((real(agg2(j,i)),i=1,nlon),j=1,nlat)
       close(13)
-      open(50,file='qgbergT'//ft//'.ctl',
-     *          form='formatted')
+      open(50,file='qgbergT'//ft//'.ctl', &
+     &          form='formatted')
         write(50,'(A)') 'dset ^qgbergT'//ft//'.grads'
         write(50,'(A)') 'undef 9.99e+10'
         write(50,'(A)') 'options sequential big_endian'
         write(50,'(A)') 'title three level QG model'
         write(50,'(A)') '*'
-        write(50,'(A,i4,A,F19.14)') 
-     *            'xdef ',nlon,' linear  0.000 ',dlon
+        write(50,'(A,i4,A,F19.14)') &
+     &            'xdef ',nlon,' linear  0.000 ',dlon
         write(50,'(A)') '*'
         write(50,'(A,I4,A,1F19.14)') 'ydef ',nlat,' levels ',phi(1)
         write(50,'(F19.14)') (phi(j),j=2,nlat)
@@ -337,23 +337,23 @@ C
 
       close(50)
       
-      OPEN(14,FILE='qgpvforT'//ft//'.grads',
-     * FORM='UNFORMATTED')
+      OPEN(14,FILE='qgpvforT'//ft//'.grads', &
+     & FORM='UNFORMATTED')
       do l=1,nvl
         call sptogg(for(1,l),agg1,pp)
         write(14) ((real(agg1(j,i)),i=1,nlon),j=1,nlat)
       enddo
       close(14)
       
-      open(50,file='qgpvforT'//ft//'.ctl',
-     *          form='formatted')
+      open(50,file='qgpvforT'//ft//'.ctl', &
+     &          form='formatted')
         write(50,'(A)') 'dset ^qgpvforT'//ft//'.grads'
         write(50,'(A)') 'undef 9.99e+10'
         write(50,'(A)') 'options sequential big_endian'
         write(50,'(A)') 'title three level QG model'
         write(50,'(A)') '*'
-        write(50,'(A,i4,A,F19.14)') 
-     *            'xdef ',nlon,' linear  0.000 ',dlon
+        write(50,'(A,i4,A,F19.14)') &
+     &            'xdef ',nlon,' linear  0.000 ',dlon
         write(50,'(A)') '*'
         write(50,'(A,I4,A,1F19.14)') 'ydef ',nlat,' levels ',phi(1)
         write(50,'(F19.14)') (phi(j),j=2,nlat)
@@ -371,13 +371,13 @@ C
       return
       end
 
-c1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
+!1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
       subroutine addperturb
       
       implicit none
       
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
       
       integer ipert,i,j,l
       
@@ -397,14 +397,14 @@ c1234567890123456789012345678901234567890123456789012345678901234567890123456789
       
       end
       
-c1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
-C  (C) Copr. 1986-92 Numerical Recipes Software +.-).
+!1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
+!  (C) Copr. 1986-92 Numerical Recipes Software +.-).
       FUNCTION ran1(idum)
       implicit none
       INTEGER idum,IA,IM,IQ,IR,NTAB,NDIV
       REAL*8 ran1,AM,EPS,RNMX
-      PARAMETER (IA=16807,IM=2147483647,AM=1./IM,IQ=127773,IR=2836,
-     *NTAB=32,NDIV=1+(IM-1)/NTAB,EPS=1.2e-7,RNMX=1.-EPS)
+      PARAMETER (IA=16807,IM=2147483647,AM=1./IM,IQ=127773,IR=2836, &
+     & NTAB=32,NDIV=1+(IM-1)/NTAB,EPS=1.2e-7,RNMX=1.-EPS)
       INTEGER j,k,iv(NTAB),iy
       SAVE iv,iy
       DATA iv /NTAB*0/, iy /0/
@@ -429,35 +429,35 @@ C  (C) Copr. 1986-92 Numerical Recipes Software +.-).
       END
 
 
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine ddt
-c----------------------------------------------------------------------
-c *** computation of time derivative of the potential vorticity fields
-c *** input qprime, psi, psit
-c *** output dqprdt
-c *** NOTE psit is destroyed
-c----------------------------------------------------------------------
+!----------------------------------------------------------------------
+! *** computation of time derivative of the potential vorticity fields
+! *** input qprime, psi, psit
+! *** output dqprdt
+! *** NOTE psit is destroyed
+!----------------------------------------------------------------------
 
       implicit none
 
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
       integer k,l,i,j
       real*8  dum1,dum2
       
-c *** advection of potential vorticity at upper level
+! *** advection of potential vorticity at upper level
  
       call jacob (psi(1,1),qprime(1,1),dqprdt(1,1))
  
-c *** advection of potential vorticity at middle level
+! *** advection of potential vorticity at middle level
  
       call jacob (psi(1,2),qprime(1,2),dqprdt(1,2))
  
-c *** advection of potential vorticity and dissipation at lower level
+! *** advection of potential vorticity and dissipation at lower level
 
       call jacobd (psi(1,3),qprime(1,3),dqprdt(1,3))
  
-c *** relaxation of temperature and forcing
+! *** relaxation of temperature and forcing
 
       do k=1,nsh2
         dum1=relt1*psit(k,1)
@@ -467,7 +467,7 @@ c *** relaxation of temperature and forcing
         dqprdt(k,3)=dqprdt(k,3)          -dum2    +for(k,3)
       enddo
  
-c *** explicit horizontal diffusion
+! *** explicit horizontal diffusion
  
       do l=1,3
         do k=1,nsh2
@@ -480,35 +480,35 @@ c *** explicit horizontal diffusion
 
 
 
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine jacob (psiloc,pvor,sjacob)
-c----------------------------------------------------------------------
-c *** advection of potential vorticity
-c *** input psiloc, pvor
-c *** output sjacob
-c----------------------------------------------------------------------
+!----------------------------------------------------------------------
+! *** advection of potential vorticity
+! *** input psiloc, pvor
+! *** output sjacob
+!----------------------------------------------------------------------
       implicit none
 
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
       integer i,j,k
       real*8  psiloc(nsh2), pvor(nsh2), sjacob(nsh2),vv(nsh2)
-      real*8  dpsidl(nlat,nlon), dpsidm(nlat,nlon), dvordl(nlat,nlon),
-     *        dvordm(nlat,nlon), gjacob(nlat,nlon), dpsidls(nsh2)
+      real*8  dpsidl(nlat,nlon), dpsidm(nlat,nlon), dvordl(nlat,nlon), &
+     &        dvordm(nlat,nlon), gjacob(nlat,nlon), dpsidls(nsh2)
  
-c *** space derivatives of potential vorticity
+! *** space derivatives of potential vorticity
  
       call ddl (pvor,vv)
       call sptogg (vv,dvordl,pp)
       call sptogg (pvor,dvordm,pd)
  
-c *** space derivatives of streamfunction
+! *** space derivatives of streamfunction
  
       call ddl (psiloc,dpsidls)
       call sptogg (dpsidls,dpsidl,pp)
       call sptogg (psiloc,dpsidm,pd)
  
-c *** jacobian term
+! *** jacobian term
  
       do j=1,nlon
         do i=1,nlat
@@ -518,7 +518,7 @@ c *** jacobian term
  
       call ggtosp (gjacob,sjacob)
  
-c *** planetary vorticity advection
+! *** planetary vorticity advection
  
       do k=1,nsh2
         sjacob(k)=sjacob(k)-dpsidls(k)
@@ -527,50 +527,50 @@ c *** planetary vorticity advection
       return
       end
 
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine jacobd (psiloc,pvor,sjacob)
-c----------------------------------------------------------------------
-c *** advection of potential vorticity and dissipation on gaussian grid
-c *** input psiloc, pvor
-c *** output sjacob
-c----------------------------------------------------------------------
+!----------------------------------------------------------------------
+! *** advection of potential vorticity and dissipation on gaussian grid
+! *** input psiloc, pvor
+! *** output sjacob
+!----------------------------------------------------------------------
       implicit none
 
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
       integer i,j,k
       real*8  psiloc(nsh2), pvor(nsh2), sjacob(nsh2)
-      real*8  dpsidl(nlat,nlon), dpsidm(nlat,nlon), dvordl(nlat,nlon),
-     *        dvordm(nlat,nlon), gjacob(nlat,nlon), vv(nsh2),
-     *        azeta(nlat,nlon),dpsidls(nsh2)
+      real*8  dpsidl(nlat,nlon), dpsidm(nlat,nlon), dvordl(nlat,nlon), &
+     &        dvordm(nlat,nlon), gjacob(nlat,nlon), vv(nsh2), &
+     &        azeta(nlat,nlon),dpsidls(nsh2)
  
-c *** space derivatives of potential vorticity
+! *** space derivatives of potential vorticity
  
       call ddl (pvor,vv)
       call sptogg (vv,dvordl,pp)
       call sptogg (pvor,dvordm,pd)
  
-c *** space derivatives of streamfunction
+! *** space derivatives of streamfunction
  
       call ddl (psiloc,dpsidls)
       call sptogg (dpsidls,dpsidl,pp)
       call sptogg (psiloc,dpsidm,pd)
  
-c *** jacobian term + orographic forcing
+! *** jacobian term + orographic forcing
  
       do j=1,nlon
         do i=1,nlat
-          gjacob(i,j)=dpsidm(i,j)*(dvordl(i,j)+sinfi(i)*dorodl(i,j))-
-     *                dpsidl(i,j)*(dvordm(i,j)+sinfi(i)*dorodm(i,j))
+          gjacob(i,j)=dpsidm(i,j)*(dvordl(i,j)+sinfi(i)*dorodl(i,j))- &
+     &                dpsidl(i,j)*(dvordm(i,j)+sinfi(i)*dorodm(i,j))
         enddo
       enddo
 
-c *** dissipation 
+! *** dissipation 
  
  
       if (lgdiss) then
 
-c ***   spatially varying dissipation 
+! ***   spatially varying dissipation 
 
         do k=1,nsh2
           vv(k)=diss(k,2)*psiloc(k)
@@ -580,9 +580,9 @@ c ***   spatially varying dissipation
  
         do j=1,nlon
           do i=1,nlat
-            gjacob(i,j)=gjacob(i,j) - dpsidm(i,j)*ddisdy(i,j)
-     *              -dpsidl(i,j)*ddisdx(i,j)
-     *              +rdiss(i,j)*azeta(i,j)       
+            gjacob(i,j)=gjacob(i,j) - dpsidm(i,j)*ddisdy(i,j) &
+     &              -dpsidl(i,j)*ddisdx(i,j) &
+     &              +rdiss(i,j)*azeta(i,j)       
           enddo
         enddo
 
@@ -590,7 +590,7 @@ c ***   spatially varying dissipation
 
       else
 
-c ***   uniform dissipation
+! ***   uniform dissipation
 
         call ggtosp (gjacob,sjacob)
 
@@ -600,7 +600,7 @@ c ***   uniform dissipation
 
       endif
   
-c *** planetary vorticity advection
+! *** planetary vorticity advection
  
       do k=1,nsh2
         sjacob(k)=sjacob(k)-dpsidls(k)
@@ -610,18 +610,18 @@ c *** planetary vorticity advection
       end
 
 
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine ddl (as,dadl)
-c-----------------------------------------------------------------------
-c *** zonal derivative in spectral space
-c *** input spectral field as
-c *** output spectral field dadl which is as differentiated wrt lambda
-c-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+! *** zonal derivative in spectral space
+! *** input spectral field as
+! *** output spectral field dadl which is as differentiated wrt lambda
+!-----------------------------------------------------------------------
 
       implicit none
 
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
       integer k
       real*8 as(nsh,2), dadl(nsh,2)
  
@@ -633,25 +633,25 @@ c-----------------------------------------------------------------------
       return
       end
 
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine sptogg (as,agg,pploc)
  
-c-----------------------------------------------------------------------
-c *** conversion from spectral coefficients to gaussian grid
-c *** input  spectral field as, legendre polynomials pploc (pp or pd) 
-c ***        where pp are legendre polynomials and pd derivatives with
-c ***        respect to sin(fi)
-c *** output gaussian grid agg
-c-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+! *** conversion from spectral coefficients to gaussian grid
+! *** input  spectral field as, legendre polynomials pploc (pp or pd) 
+! ***        where pp are legendre polynomials and pd derivatives with
+! ***        respect to sin(fi)
+! *** output gaussian grid agg
+!-----------------------------------------------------------------------
  
       implicit none
 
-#include "truncation.h"
-#include "comqg.h"      
+include 'truncation.h'
+include 'comqg.h'      
       integer i,ifail,j,k,k1,k2,m,mi,mr,nlon1
       real*8  as(nsh,2), agg(nlat,nlon), pploc(nlat,nsh)
  
-c *** inverse legendre transform
+! *** inverse legendre transform
  
       do j=1,nlon
         do i=1,nlat
@@ -683,7 +683,7 @@ c *** inverse legendre transform
         enddo
       enddo
  
-c *** inverse fourier transform
+! *** inverse fourier transform
  
       ifail=0
       call c06fqf (nlat,nlon,agg,'r',trigi,wgg,ifail)
@@ -691,28 +691,28 @@ c *** inverse fourier transform
       return
       end
  
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine ggtosp (agg,as)
-c-----------------------------------------------------------------------
-c *** conversion from gaussian grid (agg) to spectral coefficients (as)
-c *** input array agg is destroyed
-c *** output as contains spectral coefficients
-c-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+! *** conversion from gaussian grid (agg) to spectral coefficients (as)
+! *** input array agg is destroyed
+! *** output as contains spectral coefficients
+!-----------------------------------------------------------------------
 
       implicit none
 
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
       integer ir,ifail,j,k,k1,k2,m,mi,mr,nlon1,i
       real*8  as(nsh,2), agg(nlat,nlon)
-c
-c *** fourier transform
-c
+!
+! *** fourier transform
+!
       ifail=0
       call c06fpf (nlat,nlon,agg,'r',trigd,wgg,ifail)
-c
-c *** legendre transform
-c
+!
+! *** legendre transform
+!
       do ir=1,2
         do k=1,nsh
           as(k,ir)=0.0d0
@@ -746,18 +746,18 @@ c
       end
  
 
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine qtopsi
-c-----------------------------------------------------------------------
-c *** computation of streamfunction from potential vorticity
-c *** input  qprime which is potential vorticity field
-c *** output psi, the streamfunction and psit, the layer thicknesses
-c-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+! *** computation of streamfunction from potential vorticity
+! *** input  qprime which is potential vorticity field
+! *** output psi, the streamfunction and psit, the layer thicknesses
+!-----------------------------------------------------------------------
  
       implicit none
 
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
       integer k
       real*8  r3
 
@@ -783,17 +783,17 @@ c-----------------------------------------------------------------------
       return
       end
 
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine psitoq 
-c-----------------------------------------------------------------------
-c *** computation of potential vorticity from stream function
-c *** input psi streamfunction
-c *** output qprime, the potential vorticity and psit, the layer thick.
-c-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+! *** computation of potential vorticity from stream function
+! *** input psi streamfunction
+! *** output qprime, the potential vorticity and psit, the layer thick.
+!-----------------------------------------------------------------------
 
       implicit none
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
       integer k
        
       do k=1,nsh2
@@ -806,15 +806,15 @@ c-----------------------------------------------------------------------
       return
       end
 
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine psiq(sfin,qout)
-c-----------------------------------------------------------------------
-c ***  computation of potential vorticity qout from stream function sfin
-c-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+! ***  computation of potential vorticity qout from stream function sfin
+!-----------------------------------------------------------------------
 
       implicit none
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
       integer k
       real*8  sfin(nsh2,nvl),qout(nsh2,nvl),tus(nsh2)
 
@@ -840,15 +840,15 @@ c-----------------------------------------------------------------------
       end
 
 
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine qpsi(qin,sfout)
-c-----------------------------------------------------------------------
-c *** computation of streamfunction bb from potential vorticity qin
-c-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+! *** computation of streamfunction bb from potential vorticity qin
+!-----------------------------------------------------------------------
 
       implicit none
-#include "truncation.h"
-#include "comqg.h"     
+include 'truncation.h'
+include 'comqg.h'     
       real*8  qin(nsh2,nvl),sfout(nsh2,nvl), tus(nsh2,ntl), r3
       integer k
 
@@ -874,15 +874,15 @@ c-----------------------------------------------------------------------
       return
       end
 
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine qpsit(qin,tus)
-c-----------------------------------------------------------------------
-c *** computation of thickness tus from potential vorticity qin
-c-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+! *** computation of thickness tus from potential vorticity qin
+!-----------------------------------------------------------------------
 
       implicit none
-#include "truncation.h"
-#include "comqg.h"     
+include 'truncation.h'
+include 'comqg.h'     
       real*8  qin(nsh2,nvl),tus(nsh2,ntl), r3,sfout(nsh2,nvl)
       integer k
 
@@ -902,44 +902,44 @@ c-----------------------------------------------------------------------
       end
 
  
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine fmtofs (y,z)
-c-----------------------------------------------------------------------
-c *** transforms francos format to the french format for global fields
-c *** input  y spectral coefficients in francos format
-c *** output z spectral coefficients in french format
-c *** fm format:
-c *** k       m  n
-c *** 1       0  0
-c *** 2       0  1
-c *** 3       0  2
-c *** :       :  :
-c *** nm+1    0  nm
-c *** nm+2    1  1 --> real part
-c *** nm+3    1  2 --> real part
-c *** :       :  :
-c *** nm+nm+1 1  nm --> real part
-c *** :       :  :
-c *** :       nm nm --> real part
-c ***  repeat for imaginary part
-c ***  disadvantage: 0 0 mode and imaginary parts of m=0 modes are obsolete
-c *** fs format stores all m for every n first and has no obsolete indices
-c *** 
-c *** k       m  n
-c *** 1       0  1
-c *** 2       1  1 --> real part
-c *** 3       1  1 --> imaginary part: k=1-3 is T1 truncation
-c *** 4       0  2
-c *** 5       1  2 --> real part
-c *** 6       1  2 --> imaginary part
-c *** 7       2  2 --> real part
-c *** 8       2  2 --> imaginary part: k=1-8 is T2 truncation
-c *** etcetera
-c-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+! *** transforms francos format to the french format for global fields
+! *** input  y spectral coefficients in francos format
+! *** output z spectral coefficients in french format
+! *** fm format:
+! *** k       m  n
+! *** 1       0  0
+! *** 2       0  1
+! *** 3       0  2
+! *** :       :  :
+! *** nm+1    0  nm
+! *** nm+2    1  1 --> real part
+! *** nm+3    1  2 --> real part
+! *** :       :  :
+! *** nm+nm+1 1  nm --> real part
+! *** :       :  :
+! *** :       nm nm --> real part
+! ***  repeat for imaginary part
+! ***  disadvantage: 0 0 mode and imaginary parts of m=0 modes are obsolete
+! *** fs format stores all m for every n first and has no obsolete indices
+! *** 
+! *** k       m  n
+! *** 1       0  1
+! *** 2       1  1 --> real part
+! *** 3       1  1 --> imaginary part: k=1-3 is T1 truncation
+! *** 4       0  2
+! *** 5       1  2 --> real part
+! *** 6       1  2 --> imaginary part
+! *** 7       2  2 --> real part
+! *** 8       2  2 --> imaginary part: k=1-8 is T2 truncation
+! *** etcetera
+!-----------------------------------------------------------------------
 
       implicit none
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
 
       integer   m,n,k,indx,l
       real*8    y(nsh2,nvl),z(nsh2,nvl)
@@ -962,44 +962,44 @@ c-----------------------------------------------------------------------
       return
       end
 
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine fstofm (y,z,ntr)
-c-----------------------------------------------------------------------
-c *** transforms the french format to francos format for global fields
-c *** input  y spectral coef. in french format, ntr is truncation limit
-c *** output z spectral coefficients in francos format
-c *** fm format:
-c *** k       m  n
-c *** 1       0  0
-c *** 2       0  1
-c *** 3       0  2
-c *** :       :  :
-c *** nm+1    0  nm
-c *** nm+2    1  1 --> real part
-c *** nm+3    1  2 --> real part
-c *** :       :  :
-c *** nm+nm+1 1  nm --> real part
-c *** :       :  :
-c *** :       nm nm --> real part
-c ***  repeat for imaginary part
-c ***  disadvantage: 0 0 mode and imaginary parts of m=0 modes are obsolete
-c *** fs format stores all m for every n first and has no obsolete indices
-c *** 
-c *** k       m  n
-c *** 1       0  1
-c *** 2       1  1 --> real part
-c *** 3       1  1 --> imaginary part: k=1-3 is T1 truncation
-c *** 4       0  2
-c *** 5       1  2 --> real part
-c *** 6       1  2 --> imaginary part
-c *** 7       2  2 --> real part
-c *** 8       2  2 --> imaginary part: k=1-8 is T2 truncation
-c *** etcetera
-c-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+! *** transforms the french format to francos format for global fields
+! *** input  y spectral coef. in french format, ntr is truncation limit
+! *** output z spectral coefficients in francos format
+! *** fm format:
+! *** k       m  n
+! *** 1       0  0
+! *** 2       0  1
+! *** 3       0  2
+! *** :       :  :
+! *** nm+1    0  nm
+! *** nm+2    1  1 --> real part
+! *** nm+3    1  2 --> real part
+! *** :       :  :
+! *** nm+nm+1 1  nm --> real part
+! *** :       :  :
+! *** :       nm nm --> real part
+! ***  repeat for imaginary part
+! ***  disadvantage: 0 0 mode and imaginary parts of m=0 modes are obsolete
+! *** fs format stores all m for every n first and has no obsolete indices
+! *** 
+! *** k       m  n
+! *** 1       0  1
+! *** 2       1  1 --> real part
+! *** 3       1  1 --> imaginary part: k=1-3 is T1 truncation
+! *** 4       0  2
+! *** 5       1  2 --> real part
+! *** 6       1  2 --> imaginary part
+! *** 7       2  2 --> real part
+! *** 8       2  2 --> imaginary part: k=1-8 is T2 truncation
+! *** etcetera
+!-----------------------------------------------------------------------
 
       implicit none
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
 
       integer   m,n,k,indx,i,l,ntr
       real*8    y(nsh2,nvl),z(nsh2,nvl)
@@ -1027,16 +1027,16 @@ c-----------------------------------------------------------------------
       return
       end
 
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine truncate(y,yt,ntr)
-c-----------------------------------------------------------------------
-c *** truncates y to ntr and writes to z which is formatted for
-c *** lower resolution model Tntr.
-c-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+! *** truncates y to ntr and writes to z which is formatted for
+! *** lower resolution model Tntr.
+!-----------------------------------------------------------------------
 
       implicit none
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
 
       integer   m,n,k,indx,l,ntr,nshntr,i
       real*8    y(nsh2,nvl),z(nsh2,nvl),yt(nsh2,nvl)
@@ -1080,18 +1080,18 @@ c-----------------------------------------------------------------------
       return
       end
 
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine forward
-c-----------------------------------------------------------------------
-c *** performs a fourth order runge kutta time step at truncation nm
-c *** with time step dt
-c *** dqdt calculates the time derivative
-c *** input  qprime at current time
-c *** output qprime at current time plus dt
-c-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+! *** performs a fourth order runge kutta time step at truncation nm
+! *** with time step dt
+! *** dqdt calculates the time derivative
+! *** input  qprime at current time
+! *** output qprime at current time plus dt
+!-----------------------------------------------------------------------
       implicit none
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
       integer  k,l,nvar
       real*8   dt2,dt6
       real*8   y(nsh2,nvl),dydt(nsh2,nvl),yt(nsh2,nvl)
@@ -1130,18 +1130,18 @@ c-----------------------------------------------------------------------
       return
       end
 
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine dqdt(y,dydt)
-c-----------------------------------------------------------------------
-c *** computation of time derivative of the potential vorticity field
-c *** input  y potential vorticity in french format
-c *** output dydt time derivative of y in french format
-c *** values of qprime, psi and psit are changed
-c-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+! *** computation of time derivative of the potential vorticity field
+! *** input  y potential vorticity in french format
+! *** output dydt time derivative of y in french format
+! *** values of qprime, psi and psit are changed
+!-----------------------------------------------------------------------
 
       implicit none
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
       real*8  y(nsh2,nvl),dydt(nsh2,nvl)
 
       call fstofm(y,qprime,nm)
@@ -1152,20 +1152,20 @@ c-----------------------------------------------------------------------
       end
 
 
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine gridfields
-c-----------------------------------------------------------------------
-c *** computation of geostrophic winds at all levels
-c *** computes geopotential height in [m2/s2[=[gz] from streamfunction 
-c *** by solving the linear balance equation: 
-c *** del phi = (1 - mu**2 ) d psi/dmu + mu del psi
-c *** the global mean value is not determined and set to zero
-c  
-c-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+! *** computation of geostrophic winds at all levels
+! *** computes geopotential height in [m2/s2[=[gz] from streamfunction 
+! *** by solving the linear balance equation: 
+! *** del phi = (1 - mu**2 ) d psi/dmu + mu del psi
+! *** the global mean value is not determined and set to zero
+!  
+!-----------------------------------------------------------------------
       implicit none
 
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
       integer i,j,k,l
       real*8  facwind,facsf,facgp,facpv
       real*8  dpsdl(nlat,nlon),dpsdm(nlat,nlon),psik(nsh2),vv(nsh2)
@@ -1177,7 +1177,7 @@ c-----------------------------------------------------------------------
 
       call qtopsi      
       
-c *** space derivatives of streamfunction
+! *** space derivatives of streamfunction
  
       facwind=radius*om
       facsf=om*(radius)**2
@@ -1219,7 +1219,7 @@ c *** space derivatives of streamfunction
           enddo
         enddo
         
-c *** solve linear balance equation
+! *** solve linear balance equation
 
 
         call lap(psi(1,l),delpsis)
@@ -1228,8 +1228,8 @@ c *** solve linear balance equation
 
         do j=1,nlon
           do i=1,nlat
-            delgeog(i,j)=fmu(i)*dmupsig(i,j)+
-     *                      sinfi(i)*delpsig(i,j)
+            delgeog(i,j)=fmu(i)*dmupsig(i,j)+ &
+     &                      sinfi(i)*delpsig(i,j)
           enddo
         enddo
         call ggtosp(delgeog,delgeos)
@@ -1250,16 +1250,16 @@ c *** solve linear balance equation
       end
 
       
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine lap(xs,xsl)
-c-----------------------------------------------------------------------
-c *** computation of laplace operator in spectral domain
-c *** input  xs  field in spectral form
-c *** output xsl laplace of xs in spectral form
-c-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+! *** computation of laplace operator in spectral domain
+! *** input  xs  field in spectral form
+! *** output xsl laplace of xs in spectral form
+!-----------------------------------------------------------------------
       implicit none
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
       integer k
       real*8  xs(nsh2),xsl(nsh2)
 
@@ -1272,16 +1272,16 @@ c-----------------------------------------------------------------------
 
       
 
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine lapinv(xsl,xs)
-c-----------------------------------------------------------------------
-c *** computation of laplace operator in spectral domain
-c *** input  xsl field in spectral form
-c *** output xs  inverse laplace of xs in spectral form
-c-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+! *** computation of laplace operator in spectral domain
+! *** input  xsl field in spectral form
+! *** output xs  inverse laplace of xs in spectral form
+!-----------------------------------------------------------------------
       implicit none
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
       integer k
       real*8  xs(nsh2),xsl(nsh2)
 
@@ -1292,19 +1292,19 @@ c-----------------------------------------------------------------------
       return
       end
 
-c-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
       subroutine artiforc_iter
-c-----------------------------------------------------------------------
-c computation of artifical forcing according to roads(1987)
-c the forcing is computed from daily ecmwf data for the winter season
-c the forcing is composed of a climatological forcing and a contribution
-c of the eddy terms.
-c------------------------------------------------------------------------
+!-----------------------------------------------------------------------
+! computation of artifical forcing according to roads(1987)
+! the forcing is computed from daily ecmwf data for the winter season
+! the forcing is composed of a climatological forcing and a contribution
+! of the eddy terms.
+!------------------------------------------------------------------------
 
       implicit none
       
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
       
       integer i,j,k,l,iy,id,iday,nyb,nye,nd
       real*4 psi4(nsh2,3)
@@ -1312,10 +1312,10 @@ c------------------------------------------------------------------------
       real*8 eddf(nsh2,3),totf(nsh2,3),climf(nsh2,3),forg(nlat,nlon)
       
       
-      open(unit=46,file='./qgmodelT42.T21',status='old',
-     *       form='formatted')
-      open(unit=32,file='./qgpvforT42world.grads',
-     *       form='unformatted')
+      open(unit=46,file='./qgmodelT42.T21',status='old', &
+     &       form='formatted')
+      open(unit=32,file='./qgpvforT42world.grads', &
+     &       form='unformatted')
       
       nyb=83
       nye=92
@@ -1353,7 +1353,7 @@ c------------------------------------------------------------------------
         enddo
       enddo
 
-c *** calculate the climatological forcing
+! *** calculate the climatological forcing
 
       do l=1,3
         do k=1,nsh2
@@ -1371,7 +1371,7 @@ c *** calculate the climatological forcing
         enddo
       enddo
 
-c *** calculate the eddy forcing
+! *** calculate the eddy forcing
       rewind(46)
       
       do l=1,3
@@ -1411,7 +1411,7 @@ c *** calculate the eddy forcing
         enddo
       enddo
       
-c***  compute the total forcing
+!***  compute the total forcing
 
       do l=1,3
         do k=1,nsh2
@@ -1432,16 +1432,16 @@ c***  compute the total forcing
       return
       end
 
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine eddforc
-c-----------------------------------------------------------------------
-c***  computation of the eddy forcing
-c-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+!***  computation of the eddy forcing
+!-----------------------------------------------------------------------
 
       implicit none
       
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
 
 
       call jacobedd (psi(1,1),qprime(1,1),dqprdt(1,1))
@@ -1453,20 +1453,20 @@ c-----------------------------------------------------------------------
       return
       end
       
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine jacobedd (psiloc,pvor,sjacob)
-c-----------------------------------------------------------------------
-c *** advection of potential vorticity
-c *** input psiloc, pvor
-c *** output sjacob
-c *** the only difference with the routine jacob 
-c *** is that the planetary vorticity advection is omitted.
-c-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+! *** advection of potential vorticity
+! *** input psiloc, pvor
+! *** output sjacob
+! *** the only difference with the routine jacob 
+! *** is that the planetary vorticity advection is omitted.
+!-----------------------------------------------------------------------
 
       implicit none
       
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
 
       integer i,j,k
 
@@ -1476,19 +1476,19 @@ c-----------------------------------------------------------------------
       real*8  gjacob(ngp)
 
 
-c *** space derivatives of potential vorticity
+! *** space derivatives of potential vorticity
 
       call ddl (pvor,vv)
       call sptogg (vv,dvordl,pp)
       call sptogg (pvor,dvordm,pd)
 
-c *** space derivatives of streamfunction
+! *** space derivatives of streamfunction
 
       call ddl (psiloc,dpsidls)
       call sptogg (dpsidls,dpsidl,pp)
       call sptogg (psiloc,dpsidm,pd)
 
-c *** jacobian term
+! *** jacobian term
 
       do j=1,ngp
           gjacob(j)=dpsidm(j)*dvordl(j)-dpsidl(j)*dvordm(j)
@@ -1499,17 +1499,17 @@ c *** jacobian term
       return
       end
 
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine artiforc
-c-----------------------------------------------------------------------
-c computation of artifical forcing according to roads(1987)
-c the forcing is computed from file obsfile
-c------------------------------------------------------------------------
+!-----------------------------------------------------------------------
+! computation of artifical forcing according to roads(1987)
+! the forcing is computed from file obsfile
+!------------------------------------------------------------------------
 
       implicit none
       
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
       
       integer i,j,k,l,iday,fl,nvar
       real*4 psi4(nsh2,3)
@@ -1519,18 +1519,18 @@ c------------------------------------------------------------------------
 
       dlon=360d0/real(nlon)
       
-      OPEN(14,FILE='qgpvforT'//ft//'.dat',
-     *     FORM='FORMATTED')
+      OPEN(14,FILE='qgpvforT'//ft//'.dat', &
+     &     FORM='FORMATTED')
       
-      open(unit=46,file='./'//obsfile,
-     *     status='old',form='unformatted')
+      open(unit=46,file='./'//obsfile, &
+     &     status='old',form='unformatted')
       fl=index(obsfile," ")-1
-      open(unit=32,
-     *     file='qgpvforT'//ft//'.grads',
-     *       form='unformatted')
+      open(unit=32, &
+     &     file='qgpvforT'//ft//'.grads', &
+     &       form='unformatted')
      
-      open(unit=99,file='./'//obsfile(1:fl)//ft//'.grads',
-     *  form='unformatted')
+      open(unit=99,file='./'//obsfile(1:fl)//ft//'.grads', &
+     &  form='unformatted')
      
       write(*,'(A,A)') "Calculating forcing from ",obsfile
       
@@ -1542,7 +1542,7 @@ c------------------------------------------------------------------------
       enddo
       
 
-c *** calculate the mean tendency
+! *** calculate the mean tendency
 
       iday=0
 
@@ -1589,15 +1589,15 @@ c *** calculate the mean tendency
       close(46)
       close(32)
       
-      open(50,file='./'//obsfile(1:fl)//ft//'.ctl',
-     *          form='formatted')
+      open(50,file='./'//obsfile(1:fl)//ft//'.ctl', &
+     &          form='formatted')
         write(50,'(A)') 'dset ^'//obsfile(1:fl)//ft//'.grads'
         write(50,'(A)') 'undef 9.99e+10'
         write(50,'(A)') 'options sequential big_endian'
         write(50,'(A)') 'title three level QG model'
         write(50,'(A)') '*'
-        write(50,'(A,i4,A,F19.14)') 
-     *            'xdef ',nlon,' linear  0.000 ',dlon
+        write(50,'(A,i4,A,F19.14)') &
+     &            'xdef ',nlon,' linear  0.000 ',dlon
         write(50,'(A)') '*'
         write(50,'(A,I4,A,1F19.14)') 'ydef ',nlat,' levels ',phi(1)
         write(50,'(F19.14)') (phi(j),j=2,nlat)
@@ -1612,8 +1612,8 @@ c *** calculate the mean tendency
 
       close(50)
       
-      write(*,'(A,I6)') 
-     *  "Number of states used to calculate forcing: ",iday
+      write(*,'(A,I6)') &
+     &  "Number of states used to calculate forcing: ",iday
       write(*,'(A)') "Forcing saved in files: "
       write(*,'(A)') 'qgpvforT'//ft//'.grads'
       write(*,'(A)') 'qgpvforT'//ft//'.dat'
@@ -1621,17 +1621,17 @@ c *** calculate the mean tendency
       return
       end
 
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine analyses
-c-----------------------------------------------------------------------
-c *** convert ecmwf winter analyses files to asc file to be read by
-c *** artiforc
-c-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+! *** convert ecmwf winter analyses files to asc file to be read by
+! *** artiforc
+!-----------------------------------------------------------------------
 
       implicit none
       
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
 
       integer i,j,k,nyb,nye,npw,iy,id,l,iday,irec,nsh2ntr
 
@@ -1644,8 +1644,8 @@ c-----------------------------------------------------------------------
       
       open(98,file='./anwin79_10T42.dat',form='formatted')
       open(96,file='./anwin79_10T21.dat',form='formatted')
-c      open(unit=97,file='./eracheck.grads',
-c     *  form='unformatted')
+!      open(unit=97,file='./eracheck.grads',
+!     *  form='unformatted')
       
       nyb=1979
       nye=2010
@@ -1655,8 +1655,8 @@ c     *  form='unformatted')
 
       do iy=nyb,nye
         write(fy,'(I4.4)') iy
-        open(unit=99,file='./era'//fy//'djf.grads',
-     *  form='unformatted',access='direct',recl=nlat*nlon*4)
+        open(unit=99,file='./era'//fy//'djf.grads', &
+     &  form='unformatted',access='direct',recl=nlat*nlon*4)
 
         do id=1,npw
           do l=nvl,1,-1
@@ -1669,7 +1669,7 @@ c     *  form='unformatted')
                 psig(j,i,l)=psig4(j,i,l)*scalesf
               enddo
             enddo
-c            write(97) ((real(psig(j,i,l)),i=1,nlon),j=1,nlat)
+!            write(97) ((real(psig(j,i,l)),i=1,nlon),j=1,nlat)
           enddo
           do l=1,nvl
             call ggtosp(psig(1,1,l),psiloc(1,l))
@@ -1683,20 +1683,20 @@ c            write(97) ((real(psig(j,i,l)),i=1,nlon),j=1,nlat)
         close(99)
       enddo
       close(98)
-c      close(97)
+!      close(97)
       
       end
 
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine diagsf(istep)
-c-----------------------------------------------------------------------
-c *** output streamfunction data to outputfile
-c-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+! *** output streamfunction data to outputfile
+!-----------------------------------------------------------------------
 
       implicit none
       
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
 
       integer istep,i,j,k,nout
 
@@ -1708,16 +1708,16 @@ c-----------------------------------------------------------------------
       dlon=360d0/real(nlon)
       
       if (istep.eq.0) then
-        open(52,
-     *  file='qgmodelsfT'//ft//'.ctl',
-     *          form='formatted')
+        open(52, &
+     &  file='qgmodelsfT'//ft//'.ctl', &
+     &          form='formatted')
         write(52,'(A)') 'dset ^qgmodelsfT'//ft//'.grads'
         write(52,'(A)') 'undef 9.99e+10'
         write(52,'(A)') 'options sequential big_endian'
         write(52,'(A)') 'title T'//ft//' QG model exp '//expid
         write(52,'(A)') '*'
-        write(52,'(A,I6,A,F19.14)') 
-     *                       'xdef ',nlon,' linear  0.000 ',dlon
+        write(52,'(A,I6,A,F19.14)')  &
+     &                       'xdef ',nlon,' linear  0.000 ',dlon
         write(52,'(A)') '*'
         write(52,'(A,I4,A,1F19.14)') 'ydef ',nlat,' levels ',phi(1)
         write(52,'(F19.14)') (phi(j),j=2,nlat)
@@ -1731,9 +1731,9 @@ c-----------------------------------------------------------------------
         write(52,'(A)') 'endvars'
 
         close(52)
-        open(52,
-     *       file='qgmodelsfT'//ft//'.grads',
-     *          form='unformatted')
+        open(52, &
+     &       file='qgmodelsfT'//ft//'.grads', &
+     &          form='unformatted')
       endif
       
       if (mod(istep,nstepsbetweenoutput).eq.0) then
@@ -1744,16 +1744,16 @@ c-----------------------------------------------------------------------
       endif
       
       end
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine diag(istep)
-c-----------------------------------------------------------------------
-c *** output model data to outputfile
-c-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+! *** output model data to outputfile
+!-----------------------------------------------------------------------
 
       implicit none
       
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
 
       integer istep,i,j,k,nout
 
@@ -1764,15 +1764,15 @@ c-----------------------------------------------------------------------
       dlon=360d0/real(nlon)
       
       if (istep.eq.0) then
-        open(50,file='qgmodelT'//ft//'.ctl',
-     *          form='formatted')
+        open(50,file='qgmodelT'//ft//'.ctl', &
+     &          form='formatted')
         write(50,'(A)') 'dset ^qgmodelT'//ft//'.grads'
         write(50,'(A)') 'undef 9.99e+10'
         write(50,'(A)') 'options sequential big_endian'
         write(50,'(A)') 'title T'//ft//' QG model exp '//expid
         write(50,'(A)') '*'
-        write(50,'(A,i4,A,F19.14)') 
-     *            'xdef ',nlon,' linear  0.000 ',dlon
+        write(50,'(A,i4,A,F19.14)') &
+     &            'xdef ',nlon,' linear  0.000 ',dlon
         write(50,'(A)') '*'
         write(50,'(A,I4,A,1F19.14)') 'ydef ',nlat,' levels ',phi(1)
         write(50,'(F19.14)') (phi(j),j=2,nlat)
@@ -1790,9 +1790,9 @@ c-----------------------------------------------------------------------
         write(50,'(A)') 'endvars'
 
         close(50)
-        open(50,
-     *  file='qgmodelT'//ft//'.grads',
-     *          form='unformatted')
+        open(50, &
+     &  file='qgmodelT'//ft//'.grads', &
+     &          form='unformatted')
       endif
       
       if (mod(istep,nstepsbetweenoutput).eq.0) then
@@ -1816,26 +1816,26 @@ c-----------------------------------------------------------------------
       
       end
       
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine outputT21(istep)
-c-----------------------------------------------------------------------
-c *** output T21 truncated data to an ascci outputfile that can be
-c *** read by artiforc
-c-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+! *** output T21 truncated data to an ascci outputfile that can be
+! *** read by artiforc
+!-----------------------------------------------------------------------
 
       implicit none
       
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
 
       integer istep,k,l,nsh2ntr
       real*8  psiT21(nsh2,nvl),y(nsh2,nvl)
 
       nsh2ntr=22*23
       if (istep.eq.0) then
-        open(51,
-     *file='qgmodelT42.'//expid//'.T21.dat',
-     *form='formatted')
+        open(51, &
+     &file='qgmodelT42.'//expid//'.T21.dat', &
+     &form='formatted')
       endif
             
       if (mod(istep,nstepsbetweenoutput).eq.0) then
@@ -1847,21 +1847,21 @@ c-----------------------------------------------------------------------
       
       end
       
-c23456789012345678901234567890123456789012345678901234567890123456789012
+!23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine writestate
-c-----------------------------------------------------------------------
-c *** output streamfunction state that can be read as initial state
-c-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+! *** output streamfunction state that can be read as initial state
+!-----------------------------------------------------------------------
 
       implicit none
       
-#include "truncation.h"
-#include "comqg.h"
+include 'truncation.h'
+include 'comqg.h'
 
       integer i,j,k,l
 
-      OPEN(12,FILE='qgendT'//ft//'.dat',
-     *        FORM='FORMATTED')
+      OPEN(12,FILE='qgendT'//ft//'.dat', &
+     &        FORM='FORMATTED')
       do l=1,3
         do k=1,nsh2
            write(12,*) psi(k,l)

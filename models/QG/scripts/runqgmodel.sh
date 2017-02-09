@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 
 # this script produces a main fortran program that links with the ../src/qgmodel.F routines
 # to calculate the forcing from a datafile with observations (given by obsfile)
@@ -13,14 +13,11 @@
 # expid identifies the directory where the output of the run will be stored
 # obsfile is the datafile with observations used to calculate the forcing from
 
+module load intel/16.1.150
+module load netcdf
+
 resol="21"
-## compiler='gfortran'
-## fflags="-O2 -ffixed-line-length-none -fconvert=big-endian"
-compiler=ifort
-GPTLFLAGS='-I/contrib/gptl/gptl-v5.5_nompi_noomp/include -L/contrib/gptl/gptl-v5.5_nompi_noomp/lib -lgptl'
-fflags='-extend_source 132 -g -traceback -O2 -convert big_endian -finstrument-functions'
-## qgdir="/Users/seltini/Werk/qgmodel42"
-#qgdir="/scratch3/BMC/gsd-hpcs/Brian.Etherton/superQG/"
+
 qgdir="/scratch4/BMC/gsd-hpcs/Christopher.W.Harrop/pasilla.top/models/QG"
 parmdir="${qgdir}/parm"
 outdir="${qgdir}/outputdata"
@@ -29,19 +26,6 @@ rundir="${qgdir}/rundir/run${expid}"
 obsfile="sf7910T106.shfs"
 
 plot=0
-
-#if [ ${plot} == 0 ]; then
-
-
-#if [ -e ${outdir}/$expid ]; then
-#  echo "${outdir}/$expid already exists" 
-#  read -p "Are you sure to continue ? [YN]" -n 1 -r
-#  echo 
-#  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-#    exit 1
-#  fi
-#fi
-
 
 # Create an empty output directory
 mkdir -p "${outdir}/$expid"
@@ -66,26 +50,20 @@ fi
 # Copy the namelist into the run directory
 cp ${parmdir}/namelist namelist.input
 
+# Set the resolution in the namelist
+sed -i "s/resolution = [[:digit:]]*/resolution = ${resol}/" namelist.input
+
 # Set the experiment id in the namelist
 sed -i "s/expid = '.*'/expid = \'${expid}\'/" namelist.input
 
 # Set the obs file in the namelist
 sed -i "s/obsfile = '.*'/obsfile = \'${obsfile}\'/" namelist.input
 
-# Copy source files to run directory
-cp ${qgdir}/src/comqg.f90 .
-cp ${qgdir}/src/qgmodel.f90 .
-cp ${qgdir}/src/runqgmodel.f90 .
-cp ${qgdir}/src/nag.f .
-
-# Build the code
-$compiler $fflags -c comqg.f90
-$compiler $fflags -c qgmodel.f90 -I.
-$compiler $fflags -c nag.f
-$compiler $fflags -I${qgdir}/src -I. -o runqgmodel runqgmodel.f90 qgmodel.o comqg.o nag.o $GPTLFLAGS
+# Copy the executable to the run directory
+cp ${qgdir}/exe/QG.exe .
 
 # Run the model
-./runqgmodel 
+./QG.exe
 
 cd ${outdir}/$expid
 

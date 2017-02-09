@@ -8,3 +8,4 @@ GPTL=/contrib/gptl/gptl-v5.5_nompi_noomp_pgi
 NETCDF_INCLUDES=-I$(NETCDF)/include
 NETCDF_LIBS=-L$(NETCDF)/lib -lnetcdf -lnetcdff
 OPENMP=-mp
+ENDIAN_FLAG=-byteswapio

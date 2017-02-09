@@ -3,14 +3,14 @@
 !-----------------------------------------------------------------------
 ! *** integrates the qgmodel with parameters from inputdata/namelist
 !-----------------------------------------------------------------------
+      use ComQG
+
       implicit none
       
-      include 'truncation.h' 
-      include 'comqg.h'
-
       integer istep,nstep
-      
+
       call initqg
+
       write(*,*) 'Experiment ',expid
       write(*,*) 
       write(*,*) 'Integrating transient days: ',ndayskip
@@ -37,5 +37,4 @@
       
       call writestate
  
-!     return
-      end
+    end program runqgmodel

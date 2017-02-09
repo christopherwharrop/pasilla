@@ -1,3 +1,23 @@
+module ComQG
+
+  implicit none
+
+! *** PARAMETERS
+!     nm  :   the truncation is of type T(riangular) nm.
+!     nlon:   number of longitude points of the Gaussian grid
+!     nlat:   number of latitude  points of the Gaussian grid
+!     nvl :   number of vorticity levels in the vertical
+!             (should be set to 3)
+!     ntl :   number of temperature levels in the vertical
+!             (equal to nvl-1)
+!     nsh :   half of nsh2
+!     nsh2:   number of coefficients needed to define one level of the
+!             T nm model
+!     ngp:    number of grid points of the Gaussian grid
+!
+      integer :: nm, nlon, nlat, nvl, ntl, nsh, nsh2, ngp
+      character(len=3) ::  ft
+
 !23456789012345678901234567890123456789012345678901234567890123456789012
 !-----------------------------------------------------------------------
 ! *** File:     comqg.h
@@ -108,47 +128,88 @@
 !     geopg: geopotential on the grid
 !-----------------------------------------------------------------------
 
-      character*4 expid
-      character*32 obsfile
-      character*256 rootdir
-      integer nstepsperday,nstepsbetweenoutput,ndayskip,nday,rootdirl
-      real*8  pi,fzero,dp,om,rgas,grav,radius
-      real*8  phi(nlat),cosfi(nlat),sinfi(nlat)
-      real*8  dt,dtime,dtt
+      character*4 :: expid
+      character*32 :: obsfile
+      character*256 :: rootdir
+      integer :: nstepsperday, nstepsbetweenoutput, ndayskip, nday, rootdirl
+      real*8  :: pi, fzero, dp, om, rgas, grav, radius
+      real*8, allocatable  :: phi(:), cosfi(:), sinfi(:)
+      real*8  :: dt, dtime, dtt
 
-      common /ch/expid,obsfile,rootdir
-      common /rvari/ pi,fzero,dp,om,rgas,grav,radius
-      common /ggrid/ phi,cosfi,sinfi
-      common /ctstep/ dt,dtime,dtt
-     
-      integer nshm(0:nm),ll(nsh)
-      real*8  rm(nsh),rinhel(nsh2,0:5),diss(nsh2,2)
-      logical lgdiss,inf,obsf,readstart
-      real*8  pp(nlat,nsh),pd(nlat,nsh),pw(nlat,nsh)
-      real*8  rdiss(nlat,nlon),ddisdx(nlat,nlon),ddisdy(nlat,nlon)
-      real*8  rrdef1,rrdef2,rl1,rl2,relt1,relt2,tdis,trel,tdif
-      real*8  addisl,addish,h0
-      integer idif
+      integer, allocatable :: nshm(:), ll(:)
+      real*8, allocatable  :: rm(:), rinhel(:,:), diss(:,:)
+      logical :: lgdiss, inf, obsf, readstart
+      real*8, allocatable  :: pp(:,:), pd(:,:), pw(:,:)
+      real*8, allocatable  :: rdiss(:,:), ddisdx(:,:), ddisdy(:,:)
+      real*8  :: rrdef1, rrdef2, rl1, rl2, relt1, relt2, tdis, trel, tdif
+      real*8  :: addisl, addish, h0
+      integer :: idif
 
-      common /intpar/ nshm,ll,nstepsperday,nstepsbetweenoutput, &
-     &                ndayskip,nday,rootdirl
-      common /linopr/ rm, rinhel, diss 
-      common /logpar/ lgdiss,inf,obsf,readstart
-      common /metras/ pp, pd, pw
-      common /phypar/ rdiss, ddisdx, ddisdy
-      common /modpar/ rrdef1,rrdef2,rl1,rl2,relt1,relt2 , &
-     &                tdis,trel,tdif,addisl,addish,h0,idif
-			
-			
-      real*8  psi(nsh2,nvl),psit(nsh2,ntl)
-      real*8  qprime(nsh2,nvl),dqprdt(nsh2,nvl),for(nsh2,nvl),ws(nsh2)
-      real*8  orog(nsh2),dorodl(nlat,nlon),dorodm(nlat,nlon)
-      real*8  trigd(nlon,2),trigi(nlon,2),wgg(nlat,nlon)
-      real*8  psig(nlat,nlon,nvl),qgpv(nlat,nlon,nvl)
-      real*8  ug(nlat,nlon,nvl),vg(nlat,nlon,nvl),geopg(nlat,nlon,nvl)
+      real*8, allocatable  :: psi(:,:), psit(:,:)
+      real*8, allocatable  :: qprime(:,:), dqprdt(:,:), for(:,:), ws(:)
+      real*8, allocatable  :: orog(:), dorodl(:,:), dorodm(:,:)
+      real*8, allocatable  :: trigd(:,:), trigi(:,:), wgg(:,:)
+      real*8, allocatable  :: psig(:,:,:), qgpv(:,:,:)
+      real*8, allocatable  :: ug(:,:,:), vg(:,:,:), geopg(:,:,:)
+
+contains
+
+  subroutine init_comqg(resolution)
+
+    integer :: resolution
+
+    select case (resolution)
+
+      case(106)
+        nm = 106
+        nlon = 320
+        nlat = 160
+        ft = "106"
+
+      case(63)
+        nm = 63
+        nlon = 192
+        nlat = 96
+        ft = "63"
+
+      case(42)
+        nm = 42
+        nlon = 128
+        nlat = 64
+        ft = "42"
+
+      case(21)
+        nm = 21
+        nlon = 64
+        nlat = 32
+        ft = "21"
+
+      case DEFAULT
+        stop 'ERROR: Unsupported resolution'
+
+    end select
+
+    nvl = 3
+    ntl = nvl - 1
+    nsh = ((nm + 1) * (nm + 2)) / 2
+    nsh2 = 2 * nsh
+    ngp = nlon * nlat
+
+    allocate(phi(nlat), cosfi(nlat), sinfi(nlat))
+    allocate(nshm(0:nm), ll(nsh))
+    allocate(rm(nsh), rinhel(nsh2,0:5), diss(nsh2,2))
+    allocate(pp(nlat,nsh), pd(nlat,nsh), pw(nlat,nsh))
+    allocate(rdiss(nlat,nlon), ddisdx(nlat,nlon), ddisdy(nlat,nlon))
+
+    allocate(psi(nsh2,nvl), psit(nsh2,ntl))
+    allocate(qprime(nsh2,nvl), dqprdt(nsh2,nvl), for(nsh2,nvl), ws(nsh2))
+    allocate(orog(nsh2), dorodl(nlat,nlon), dorodm(nlat,nlon))
+    allocate(trigd(nlon,2), trigi(nlon,2), wgg(nlat,nlon))
+    allocate(psig(nlat,nlon,nvl), qgpv(nlat,nlon,nvl))
+    allocate(ug(nlat,nlon,nvl), vg(nlat,nlon,nvl), geopg(nlat,nlon,nvl))
 
 
-      common /sfield/ psi, psit, qprime, dqprdt, for, ws
-      common /corog/  orog, dorodl , dorodm
-      common /zotras/ trigd, trigi, wgg
-      common /cgpsi/  psig,qgpv,ug,vg,geopg
+  end subroutine init_comqg
+
+
+end module ComQG

@@ -3,26 +3,28 @@
 !-----------------------------------------------------------------------
 ! *** initialise parameters and operators and read initial state
 !-----------------------------------------------------------------------
-
+      use ComQG
       implicit none
 
-include 'truncation.h'
-include 'comqg.h'
 
+
+      integer :: resolution
       integer i,j,k1,k2,k,l,m,n,ifail,ii,jj,i1,j1,nn
-      real*8  pigr4,dis,dif,rll,ininag(nlat,nlon)
+      real*8  pigr4,dis,dif,rll
+      real*8, allocatable :: ininag(:,:)
       real*8  r1,a,b,c,d,e,sqn,rsqn
       real*8  rnorm,rh0,dd,dlon
-      real*8  agg(nlat,nlon), agg1(nlat,nlon), agg2(nlat,nlon) 
-      real*8  fmu(nlat,2),wsx(nsh2)
+      real*8, allocatable :: agg(:,:), agg1(:,:), agg2(:,:) 
+      real*8, allocatable :: fmu(:,:), wsx(:)
       
       namelist /param/ tdis,addisl,addish,trel,tdif,idif,h0, &
      &                 rrdef1,rrdef2
-      namelist /control/nstepsperday,nstepsbetweenoutput, &
+      namelist /control/resolution,nstepsperday,nstepsbetweenoutput, &
      &                  ndayskip,nday,obsfile,expid,inf,obsf,readstart
       
       rootdirl=index(rootdir,' ')-1
       
+      resolution=21
       inf=.false.
       obsf=.false.
       readstart=.false.
@@ -56,14 +58,20 @@ include 'comqg.h'
       write(16, NML = control)
       write(16, NML = param)
       close(16)
-      
-      OPEN(11,FILE='./qgcoefT'//ft//'.dat',FORM='FORMATTED')
-      OPEN(12,FILE='./qgstartT'//ft//'.dat',FORM='FORMATTED')
-      OPEN(13,FILE='./qgbergT'//ft//'.dat',FORM='FORMATTED')
+
+      call init_comqg(resolution)
+
+      allocate(ininag(nlat,nlon))
+      allocate(agg(nlat,nlon), agg1(nlat,nlon), agg2(nlat,nlon))
+      allocate(fmu(nlat,2),wsx(nsh2))
+
+      OPEN(11,FILE='./qgcoefT'//trim(ft)//'.dat',FORM='FORMATTED')
+      OPEN(12,FILE='./qgstartT'//trim(ft)//'.dat',FORM='FORMATTED')
+      OPEN(13,FILE='./qgbergT'//trim(ft)//'.dat',FORM='FORMATTED')
       if (inf) then
-        OPEN(14,FILE='./qgpvforT'//ft//'.dat',FORM='FORMATTED')
+        OPEN(14,FILE='./qgpvforT'//trim(ft)//'.dat',FORM='FORMATTED')
       endif
-      
+
       do i=0,nm
         read(11,*) nshm(i)
       enddo
@@ -308,14 +316,14 @@ include 'comqg.h'
       close(13)
       close(14)
       
-      OPEN(13,FILE='qgbergT'//ft//'.grads', &
+      OPEN(13,FILE='qgbergT'//trim(ft)//'.grads', &
      &        FORM='UNFORMATTED')
       write(13) ((real(agg1(j,i)),i=1,nlon),j=1,nlat)
       write(13) ((real(agg2(j,i)),i=1,nlon),j=1,nlat)
       close(13)
-      open(50,file='qgbergT'//ft//'.ctl', &
+      open(50,file='qgbergT'//trim(ft)//'.ctl', &
      &          form='formatted')
-        write(50,'(A)') 'dset ^qgbergT'//ft//'.grads'
+        write(50,'(A)') 'dset ^qgbergT'//trim(ft)//'.grads'
         write(50,'(A)') 'undef 9.99e+10'
         write(50,'(A)') 'options sequential big_endian'
         write(50,'(A)') 'title three level QG model'
@@ -337,7 +345,7 @@ include 'comqg.h'
 
       close(50)
       
-      OPEN(14,FILE='qgpvforT'//ft//'.grads', &
+      OPEN(14,FILE='qgpvforT'//trim(ft)//'.grads', &
      & FORM='UNFORMATTED')
       do l=1,nvl
         call sptogg(for(1,l),agg1,pp)
@@ -345,9 +353,9 @@ include 'comqg.h'
       enddo
       close(14)
       
-      open(50,file='qgpvforT'//ft//'.ctl', &
+      open(50,file='qgpvforT'//trim(ft)//'.ctl', &
      &          form='formatted')
-        write(50,'(A)') 'dset ^qgpvforT'//ft//'.grads'
+        write(50,'(A)') 'dset ^qgpvforT'//trim(ft)//'.grads'
         write(50,'(A)') 'undef 9.99e+10'
         write(50,'(A)') 'options sequential big_endian'
         write(50,'(A)') 'title three level QG model'
@@ -374,10 +382,11 @@ include 'comqg.h'
 !1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
       subroutine addperturb
       
+      use ComQG
       implicit none
       
-include 'truncation.h'
-include 'comqg.h'
+
+
       
       integer ipert,i,j,l
       
@@ -400,6 +409,7 @@ include 'comqg.h'
 !1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
 !  (C) Copr. 1986-92 Numerical Recipes Software +.-).
       FUNCTION ran1(idum)
+      use ComQG
       implicit none
       INTEGER idum,IA,IM,IQ,IR,NTAB,NDIV
       REAL*8 ran1,AM,EPS,RNMX
@@ -438,10 +448,11 @@ include 'comqg.h'
 ! *** NOTE psit is destroyed
 !----------------------------------------------------------------------
 
+      use ComQG
       implicit none
 
-include 'truncation.h'
-include 'comqg.h'
+
+
       integer k,l,i,j
       real*8  dum1,dum2
       
@@ -487,10 +498,11 @@ include 'comqg.h'
 ! *** input psiloc, pvor
 ! *** output sjacob
 !----------------------------------------------------------------------
+      use ComQG
       implicit none
 
-include 'truncation.h'
-include 'comqg.h'
+
+
       integer i,j,k
       real*8  psiloc(nsh2), pvor(nsh2), sjacob(nsh2),vv(nsh2)
       real*8  dpsidl(nlat,nlon), dpsidm(nlat,nlon), dvordl(nlat,nlon), &
@@ -534,10 +546,11 @@ include 'comqg.h'
 ! *** input psiloc, pvor
 ! *** output sjacob
 !----------------------------------------------------------------------
+      use ComQG
       implicit none
 
-include 'truncation.h'
-include 'comqg.h'
+
+
       integer i,j,k
       real*8  psiloc(nsh2), pvor(nsh2), sjacob(nsh2)
       real*8  dpsidl(nlat,nlon), dpsidm(nlat,nlon), dvordl(nlat,nlon), &
@@ -618,10 +631,11 @@ include 'comqg.h'
 ! *** output spectral field dadl which is as differentiated wrt lambda
 !-----------------------------------------------------------------------
 
+      use ComQG
       implicit none
 
-include 'truncation.h'
-include 'comqg.h'
+
+
       integer k
       real*8 as(nsh,2), dadl(nsh,2)
  
@@ -644,10 +658,11 @@ include 'comqg.h'
 ! *** output gaussian grid agg
 !-----------------------------------------------------------------------
  
+      use ComQG
       implicit none
 
-include 'truncation.h'
-include 'comqg.h'      
+
+      
       integer i,ifail,j,k,k1,k2,m,mi,mr,nlon1
       real*8  as(nsh,2), agg(nlat,nlon), pploc(nlat,nsh)
  
@@ -699,10 +714,11 @@ include 'comqg.h'
 ! *** output as contains spectral coefficients
 !-----------------------------------------------------------------------
 
+      use ComQG
       implicit none
 
-include 'truncation.h'
-include 'comqg.h'
+
+
       integer ir,ifail,j,k,k1,k2,m,mi,mr,nlon1,i
       real*8  as(nsh,2), agg(nlat,nlon)
 !
@@ -754,10 +770,11 @@ include 'comqg.h'
 ! *** output psi, the streamfunction and psit, the layer thicknesses
 !-----------------------------------------------------------------------
  
+      use ComQG
       implicit none
 
-include 'truncation.h'
-include 'comqg.h'
+
+
       integer k
       real*8  r3
 
@@ -791,9 +808,10 @@ include 'comqg.h'
 ! *** output qprime, the potential vorticity and psit, the layer thick.
 !-----------------------------------------------------------------------
 
+      use ComQG
       implicit none
-include 'truncation.h'
-include 'comqg.h'
+
+
       integer k
        
       do k=1,nsh2
@@ -812,9 +830,10 @@ include 'comqg.h'
 ! ***  computation of potential vorticity qout from stream function sfin
 !-----------------------------------------------------------------------
 
+      use ComQG
       implicit none
-include 'truncation.h'
-include 'comqg.h'
+
+
       integer k
       real*8  sfin(nsh2,nvl),qout(nsh2,nvl),tus(nsh2)
 
@@ -846,9 +865,10 @@ include 'comqg.h'
 ! *** computation of streamfunction bb from potential vorticity qin
 !-----------------------------------------------------------------------
 
+      use ComQG
       implicit none
-include 'truncation.h'
-include 'comqg.h'     
+
+     
       real*8  qin(nsh2,nvl),sfout(nsh2,nvl), tus(nsh2,ntl), r3
       integer k
 
@@ -880,9 +900,10 @@ include 'comqg.h'
 ! *** computation of thickness tus from potential vorticity qin
 !-----------------------------------------------------------------------
 
+      use ComQG
       implicit none
-include 'truncation.h'
-include 'comqg.h'     
+
+     
       real*8  qin(nsh2,nvl),tus(nsh2,ntl), r3,sfout(nsh2,nvl)
       integer k
 
@@ -937,9 +958,10 @@ include 'comqg.h'
 ! *** etcetera
 !-----------------------------------------------------------------------
 
+      use ComQG
       implicit none
-include 'truncation.h'
-include 'comqg.h'
+
+
 
       integer   m,n,k,indx,l
       real*8    y(nsh2,nvl),z(nsh2,nvl)
@@ -997,9 +1019,10 @@ include 'comqg.h'
 ! *** etcetera
 !-----------------------------------------------------------------------
 
+      use ComQG
       implicit none
-include 'truncation.h'
-include 'comqg.h'
+
+
 
       integer   m,n,k,indx,i,l,ntr
       real*8    y(nsh2,nvl),z(nsh2,nvl)
@@ -1034,9 +1057,10 @@ include 'comqg.h'
 ! *** lower resolution model Tntr.
 !-----------------------------------------------------------------------
 
+      use ComQG
       implicit none
-include 'truncation.h'
-include 'comqg.h'
+
+
 
       integer   m,n,k,indx,l,ntr,nshntr,i
       real*8    y(nsh2,nvl),z(nsh2,nvl),yt(nsh2,nvl)
@@ -1089,9 +1113,10 @@ include 'comqg.h'
 ! *** input  qprime at current time
 ! *** output qprime at current time plus dt
 !-----------------------------------------------------------------------
+      use ComQG
       implicit none
-include 'truncation.h'
-include 'comqg.h'
+
+
       integer  k,l,nvar
       real*8   dt2,dt6
       real*8   y(nsh2,nvl),dydt(nsh2,nvl),yt(nsh2,nvl)
@@ -1139,9 +1164,10 @@ include 'comqg.h'
 ! *** values of qprime, psi and psit are changed
 !-----------------------------------------------------------------------
 
+      use ComQG
       implicit none
-include 'truncation.h'
-include 'comqg.h'
+
+
       real*8  y(nsh2,nvl),dydt(nsh2,nvl)
 
       call fstofm(y,qprime,nm)
@@ -1162,10 +1188,11 @@ include 'comqg.h'
 ! *** the global mean value is not determined and set to zero
 !  
 !-----------------------------------------------------------------------
+      use ComQG
       implicit none
 
-include 'truncation.h'
-include 'comqg.h'
+
+
       integer i,j,k,l
       real*8  facwind,facsf,facgp,facpv
       real*8  dpsdl(nlat,nlon),dpsdm(nlat,nlon),psik(nsh2),vv(nsh2)
@@ -1257,9 +1284,10 @@ include 'comqg.h'
 ! *** input  xs  field in spectral form
 ! *** output xsl laplace of xs in spectral form
 !-----------------------------------------------------------------------
+      use ComQG
       implicit none
-include 'truncation.h'
-include 'comqg.h'
+
+
       integer k
       real*8  xs(nsh2),xsl(nsh2)
 
@@ -1279,9 +1307,10 @@ include 'comqg.h'
 ! *** input  xsl field in spectral form
 ! *** output xs  inverse laplace of xs in spectral form
 !-----------------------------------------------------------------------
+      use ComQG
       implicit none
-include 'truncation.h'
-include 'comqg.h'
+
+
       integer k
       real*8  xs(nsh2),xsl(nsh2)
 
@@ -1301,10 +1330,11 @@ include 'comqg.h'
 ! of the eddy terms.
 !------------------------------------------------------------------------
 
+      use ComQG
       implicit none
       
-include 'truncation.h'
-include 'comqg.h'
+
+
       
       integer i,j,k,l,iy,id,iday,nyb,nye,nd
       real*4 psi4(nsh2,3)
@@ -1438,10 +1468,11 @@ include 'comqg.h'
 !***  computation of the eddy forcing
 !-----------------------------------------------------------------------
 
+      use ComQG
       implicit none
       
-include 'truncation.h'
-include 'comqg.h'
+
+
 
 
       call jacobedd (psi(1,1),qprime(1,1),dqprdt(1,1))
@@ -1463,10 +1494,11 @@ include 'comqg.h'
 ! *** is that the planetary vorticity advection is omitted.
 !-----------------------------------------------------------------------
 
+      use ComQG
       implicit none
       
-include 'truncation.h'
-include 'comqg.h'
+
+
 
       integer i,j,k
 
@@ -1506,10 +1538,11 @@ include 'comqg.h'
 ! the forcing is computed from file obsfile
 !------------------------------------------------------------------------
 
+      use ComQG
       implicit none
       
-include 'truncation.h'
-include 'comqg.h'
+
+
       
       integer i,j,k,l,iday,fl,nvar
       real*4 psi4(nsh2,3)
@@ -1519,17 +1552,17 @@ include 'comqg.h'
 
       dlon=360d0/real(nlon)
       
-      OPEN(14,FILE='qgpvforT'//ft//'.dat', &
+      OPEN(14,FILE='qgpvforT'//trim(ft)//'.dat', &
      &     FORM='FORMATTED')
       
       open(unit=46,file='./'//obsfile, &
      &     status='old',form='unformatted')
       fl=index(obsfile," ")-1
       open(unit=32, &
-     &     file='qgpvforT'//ft//'.grads', &
+     &     file='qgpvforT'//trim(ft)//'.grads', &
      &       form='unformatted')
      
-      open(unit=99,file='./'//obsfile(1:fl)//ft//'.grads', &
+      open(unit=99,file='./'//obsfile(1:fl)//trim(ft)//'.grads', &
      &  form='unformatted')
      
       write(*,'(A,A)') "Calculating forcing from ",obsfile
@@ -1589,9 +1622,9 @@ include 'comqg.h'
       close(46)
       close(32)
       
-      open(50,file='./'//obsfile(1:fl)//ft//'.ctl', &
+      open(50,file='./'//obsfile(1:fl)//trim(ft)//'.ctl', &
      &          form='formatted')
-        write(50,'(A)') 'dset ^'//obsfile(1:fl)//ft//'.grads'
+        write(50,'(A)') 'dset ^'//obsfile(1:fl)//trim(ft)//'.grads'
         write(50,'(A)') 'undef 9.99e+10'
         write(50,'(A)') 'options sequential big_endian'
         write(50,'(A)') 'title three level QG model'
@@ -1615,8 +1648,8 @@ include 'comqg.h'
       write(*,'(A,I6)') &
      &  "Number of states used to calculate forcing: ",iday
       write(*,'(A)') "Forcing saved in files: "
-      write(*,'(A)') 'qgpvforT'//ft//'.grads'
-      write(*,'(A)') 'qgpvforT'//ft//'.dat'
+      write(*,'(A)') 'qgpvforT'//trim(ft)//'.grads'
+      write(*,'(A)') 'qgpvforT'//trim(ft)//'.dat'
  
       return
       end
@@ -1628,10 +1661,11 @@ include 'comqg.h'
 ! *** artiforc
 !-----------------------------------------------------------------------
 
+      use ComQG
       implicit none
       
-include 'truncation.h'
-include 'comqg.h'
+
+
 
       integer i,j,k,nyb,nye,npw,iy,id,l,iday,irec,nsh2ntr
 
@@ -1693,10 +1727,11 @@ include 'comqg.h'
 ! *** output streamfunction data to outputfile
 !-----------------------------------------------------------------------
 
+      use ComQG
       implicit none
       
-include 'truncation.h'
-include 'comqg.h'
+
+
 
       integer istep,i,j,k,nout
 
@@ -1709,12 +1744,12 @@ include 'comqg.h'
       
       if (istep.eq.0) then
         open(52, &
-     &  file='qgmodelsfT'//ft//'.ctl', &
+     &  file='qgmodelsfT'//trim(ft)//'.ctl', &
      &          form='formatted')
-        write(52,'(A)') 'dset ^qgmodelsfT'//ft//'.grads'
+        write(52,'(A)') 'dset ^qgmodelsfT'//trim(ft)//'.grads'
         write(52,'(A)') 'undef 9.99e+10'
         write(52,'(A)') 'options sequential big_endian'
-        write(52,'(A)') 'title T'//ft//' QG model exp '//expid
+        write(52,'(A)') 'title T'//trim(ft)//' QG model exp '//expid
         write(52,'(A)') '*'
         write(52,'(A,I6,A,F19.14)')  &
      &                       'xdef ',nlon,' linear  0.000 ',dlon
@@ -1732,7 +1767,7 @@ include 'comqg.h'
 
         close(52)
         open(52, &
-     &       file='qgmodelsfT'//ft//'.grads', &
+     &       file='qgmodelsfT'//trim(ft)//'.grads', &
      &          form='unformatted')
       endif
       
@@ -1750,10 +1785,11 @@ include 'comqg.h'
 ! *** output model data to outputfile
 !-----------------------------------------------------------------------
 
+      use ComQG
       implicit none
       
-include 'truncation.h'
-include 'comqg.h'
+
+
 
       integer istep,i,j,k,nout
 
@@ -1764,12 +1800,12 @@ include 'comqg.h'
       dlon=360d0/real(nlon)
       
       if (istep.eq.0) then
-        open(50,file='qgmodelT'//ft//'.ctl', &
+        open(50,file='qgmodelT'//trim(ft)//'.ctl', &
      &          form='formatted')
-        write(50,'(A)') 'dset ^qgmodelT'//ft//'.grads'
+        write(50,'(A)') 'dset ^qgmodelT'//trim(ft)//'.grads'
         write(50,'(A)') 'undef 9.99e+10'
         write(50,'(A)') 'options sequential big_endian'
-        write(50,'(A)') 'title T'//ft//' QG model exp '//expid
+        write(50,'(A)') 'title T'//trim(ft)//' QG model exp '//expid
         write(50,'(A)') '*'
         write(50,'(A,i4,A,F19.14)') &
      &            'xdef ',nlon,' linear  0.000 ',dlon
@@ -1791,7 +1827,7 @@ include 'comqg.h'
 
         close(50)
         open(50, &
-     &  file='qgmodelT'//ft//'.grads', &
+     &  file='qgmodelT'//trim(ft)//'.grads', &
      &          form='unformatted')
       endif
       
@@ -1823,10 +1859,11 @@ include 'comqg.h'
 ! *** read by artiforc
 !-----------------------------------------------------------------------
 
+      use ComQG
       implicit none
       
-include 'truncation.h'
-include 'comqg.h'
+
+
 
       integer istep,k,l,nsh2ntr
       real*8  psiT21(nsh2,nvl),y(nsh2,nvl)
@@ -1853,14 +1890,15 @@ include 'comqg.h'
 ! *** output streamfunction state that can be read as initial state
 !-----------------------------------------------------------------------
 
+      use ComQG
       implicit none
       
-include 'truncation.h'
-include 'comqg.h'
+
+
 
       integer i,j,k,l
 
-      OPEN(12,FILE='qgendT'//ft//'.dat', &
+      OPEN(12,FILE='qgendT'//trim(ft)//'.dat', &
      &        FORM='FORMATTED')
       do l=1,3
         do k=1,nsh2

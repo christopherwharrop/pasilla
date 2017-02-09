@@ -72,78 +72,20 @@ sed -i "s/expid = '.*'/expid = \'${expid}\'/" namelist.input
 # Set the obs file in the namelist
 sed -i "s/obsfile = '.*'/obsfile = \'${obsfile}\'/" namelist.input
 
-# Write header file 
-cat > truncation.h <<==
-! *** PARAMETERS
-!     nm  :   the truncation is of type T(riangular) nm. 
-!     nlon:   number of longitude points of the Gaussian grid
-!     nlat:   number of latitude  points of the Gaussian grid
-!     nvl :   number of vorticity levels in the vertical 
-!             (should be set to 3)
-!     ntl :   number of temperature levels in the vertical 
-!             (equal to nvl-1)
-!     nsh :   half of nsh2
-!     nsh2:   number of coefficients needed to define one level of the 
-!             T nm model
-!     ngp:    number of grid points of the Gaussian grid
-! 
-      integer nm,nlon,nlat,nvl,ntl,nsh,nsh2,ngp
-==
-
-# https://climatedataguide.ucar.edu/climate-model-evaluation/common-spectral-model-grid-resolutions
-# if [ $resol == 85 ]; then
-# cat >> truncation.h <<==
-#       character*2 ft
-#       parameter ( nm=85, nlon=256, nlat=128, nvl=3, ntl=nvl-1, ft="85")
-#       parameter ( nsh=((nm+1)*(nm+2))/2, nsh2=2*nsh, ngp=nlon*nlat)
-# ==
-# fi
-
-if [ $resol == 106 ]; then
-cat >> truncation.h <<==
-      character*3 ft
-      parameter ( nm=106,nlon=320,nlat=160,nvl=3,ntl=nvl-1,ft="106")
-      parameter ( nsh=((nm+1)*(nm+2))/2, nsh2=2*nsh, ngp=nlon*nlat)
-==
-fi
-
-if [ $resol == 63 ]; then
-cat >> truncation.h <<==
-      character*2 ft
-      parameter ( nm=63, nlon=192, nlat=96, nvl=3, ntl=nvl-1, ft="63")
-      parameter ( nsh=((nm+1)*(nm+2))/2, nsh2=2*nsh, ngp=nlon*nlat)
-==
-fi
-
-if [ $resol == 42 ]; then
-cat >> truncation.h <<==
-      character*2 ft
-      parameter ( nm=42, nlon=128, nlat=64, nvl=3, ntl=nvl-1, ft="42")
-      parameter ( nsh=((nm+1)*(nm+2))/2, nsh2=2*nsh, ngp=nlon*nlat)
-==
-fi
-
-if [ $resol == 21 ]; then
-cat >> truncation.h <<==
-      character*2 ft
-      parameter ( nm=21, nlon=64, nlat=32, nvl=3, ntl=nvl-1, ft="21")
-      parameter ( nsh=((nm+1)*(nm+2))/2, nsh2=2*nsh, ngp=nlon*nlat)
-==
-fi
-
-cp ${qgdir}/src/comqg.h .
+# Copy source files to run directory
+cp ${qgdir}/src/comqg.f90 .
 cp ${qgdir}/src/qgmodel.f90 .
 cp ${qgdir}/src/runqgmodel.f90 .
 cp ${qgdir}/src/nag.f .
 
-$compiler $fflags -c  qgmodel.f90 -o qgmodel.o
-$compiler $fflags -c  nag.f -o nag.o
-$compiler $fflags -I${qgdir}/src -o runqgmodel runqgmodel.f90 qgmodel.o nag.o $GPTLFLAGS
+# Build the code
+$compiler $fflags -c comqg.f90
+$compiler $fflags -c qgmodel.f90 -I.
+$compiler $fflags -c nag.f
+$compiler $fflags -I${qgdir}/src -I. -o runqgmodel runqgmodel.f90 qgmodel.o comqg.o nag.o $GPTLFLAGS
 
+# Run the model
 ./runqgmodel 
-
-#rm *.o runqgmodel.F runqgmodel
-#fi
 
 cd ${outdir}/$expid
 

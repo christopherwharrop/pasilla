@@ -1,9 +1,223 @@
+module QG
+
+  implicit none
+
+! *** PARAMETERS
+!     nm  :   the truncation is of type T(riangular) nm.
+!     nlon:   number of longitude points of the Gaussian grid
+!     nlat:   number of latitude  points of the Gaussian grid
+!     nvl :   number of vorticity levels in the vertical
+!             (should be set to 3)
+!     ntl :   number of temperature levels in the vertical
+!             (equal to nvl-1)
+!     nsh :   half of nsh2
+!     nsh2:   number of coefficients needed to define one level of the
+!             T nm model
+!     ngp:    number of grid points of the Gaussian grid
+!
+      integer :: nm, nlon, nlat, nvl, ntl, nsh, nsh2, ngp
+      character(len=3) ::  ft
+
+!23456789012345678901234567890123456789012345678901234567890123456789012
+!-----------------------------------------------------------------------
+! *** File:     comqg.h
+! *** Contents: Common declarations for three level qg model
+!-----------------------------------------------------------------------
+! *** COMMON  /ch/ ft,expid
+!     ft :     character string with truncation
+!     expid:   character string with experiment identifier used to create
+!              the outputdata data directory
+!     rootdir: path of qgmodel directory
+!
+!
+! *** COMMON  /rvari/ pi,dp,om,rgas,grav,radius
+!     pi :     value of pi
+!     fzero:   value of f at 45 degrees
+!     dp :     layer thicknesses [Pa]
+!     om :     angular velocity of earth [rad/s]
+!     rgas :   gas constant
+!     grav :   gravity acceleration [m/s^2]
+!     radius:  radius of earth [m]
+!
+!
+! *** COMMON  /ggrid/ phi,cosfi,sinfi
+!     phi :    Gauss points in radians
+!     cosfi:   cosine of phi
+!     sinfi:   sine of phi
+!
+! *** COMMON  /ctstep/ dt,dtime,dtt
+!     dt :     timestep in fraction of one day
+!     dtime :  timestep in seconds
+!     dtt :    timestep in non-dimensional units
+!
+! *** COMMON  /intpar/ nshm, ll
+!     nshm:   contains numbers 22 down to 1 for index 0 to 21
+!     ll:     contains total wavenumber n of each spherical harmonic of
+!             the corresponding index
+!
+! *** COMMON  /linopr/ rm, rinhel, diss 
+!     rm:     contains zonal wavenumber m of each spherical harmonic of
+!             the corresponding index for zonal derivative operator
+!     rinhel: Laplace and Helmholtz operator for Q-PSI inversion
+!     diss:   dissipation coefficients for each spherical harmonic
+!             diss(k,1) : hyperviscosity at the three levels 
+!                         (tdif sets timescale)
+!             diss(k,2) : Ekman friction at lower level 
+!                         (tdis sets timescale)
+!
+! *** COMMON  /logpar/ lgdiss,inf,readfor
+!     lgdiss: if .true. then orography and land-sea mask dependent 
+!             friction at the lower level plus Ekman friction, 
+!             else only Ekman friction
+!     inf:    if .true. then artificial PV forcing read from file
+!     obsf:   if .true. PV forcing is calculated from observations in routine artiforc
+!     readstart: if .true. initial state is read from inputfile
+!
+! *** COMMON  /metras/
+!     pp:     Legendre polynomials defined at Gausian latitudes
+!     pd:     mu derivative of Legendre polynomials
+!     pw:     weights for Legendre integrals
+!
+! *** COMMON  /phypar/ rdiss, ddisdx, ddisdy
+!     rdiss:  landsea-mask/orography dependent friction
+!     ddisdx: landsea-mask/orography dependent friction
+!     ddisdy: landsea-mask/orography dependent friction
+!
+! *** COMMON  /modpar/ rrdef1,rrdef2,rl1,rl2,relt1,relt2 ,
+!                      tdis,trel,tdif,addisl,addish,h0,idif
+!     rrdef1: Rossby radius of deformation of 200-500 thickness
+!     rrdef2: Rossby radius of deformation of 500-800 thickness
+!     rl1:    one over Rossby rad. of def. squared of 200-500 thickness
+!     rl2:    one over Rossby rad. of def. squared of 500-800 thickness
+!     relt1:  nondimensional relaxation coefficient of 200-500 thickness
+!     relt2:  nondimensional relaxation coefficient of 500-800 thickness
+!     tdis:   Ekman dissipation timescale in days at lower level
+!     trel:   relaxation time scale in days of the temperature
+!     tdif:   dissipation timescale of scale-selective diffusion in
+!             days for wavenumber nm
+!     addisl: parameter used in the computation of the dissipation
+!             timescale at the lower level over land
+!     addish: parameter used in the computation of the dissipation
+!             timescale at the lower level as a function of topography
+!     h0:     scale factor for the topographically induced upward motion
+!             at the lower level
+!     idif:   determines scale-selectivity of hyperviscosity; power of
+!             laplace operator
+! 
+! *** COMMON  /sfield/ psi, psit, qprime, dqprdt, for, ws
+!     psi:    stream function at the nvl levels
+!     psit:   thickness at the ntl levels
+!     qprime: potential vorticity
+!     dqprdt: time derivative of qprime
+!     for:    constant potential vorticity forcing at the nvl levels
+!     ws:     only used as portable workspace
+!
+! *** COMMON  /corog/ orog, dorodl, dorodm
+!     orog:   orography in m. divided by h0
+!     dorodl: derivative of orog wrt lambda
+!     dorodm: derivative of orag wrt sin(fi)
+!
+! *** COMMON  /zotras/ trigd, trigi, wgg
+!             arrays used by the nag version of the fft
+!
+! *** COMMON /cgpsi/  psig,qgpv,ug,vg
+!     psig: grid values of dimensional streamfunction at the three levels
+!     qgpv: grid values of dimensional pv at the three levels
+!     ug:   grid values of zonal velocity at the three levels in m/s
+!     vg:   grid values of meridional velocity at the three levels in m/s
+!     geopg: geopotential on the grid
+!-----------------------------------------------------------------------
+
+      character*4 :: expid
+      character*32 :: obsfile
+      character*256 :: rootdir
+      integer :: nstepsperday, nstepsbetweenoutput, ndayskip, nday, rootdirl
+      real*8  :: pi, fzero, dp, om, rgas, grav, radius
+      real*8, allocatable  :: phi(:), cosfi(:), sinfi(:)
+      real*8  :: dt, dtime, dtt
+
+      integer, allocatable :: nshm(:), ll(:)
+      real*8, allocatable  :: rm(:), rinhel(:,:), diss(:,:)
+      logical :: lgdiss, inf, obsf, readstart
+      real*8, allocatable  :: pp(:,:), pd(:,:), pw(:,:)
+      real*8, allocatable  :: rdiss(:,:), ddisdx(:,:), ddisdy(:,:)
+      real*8  :: rrdef1, rrdef2, rl1, rl2, relt1, relt2, tdis, trel, tdif
+      real*8  :: addisl, addish, h0
+      integer :: idif
+
+      real*8, allocatable  :: psi(:,:), psit(:,:)
+      real*8, allocatable  :: qprime(:,:), dqprdt(:,:), for(:,:), ws(:)
+      real*8, allocatable  :: orog(:), dorodl(:,:), dorodm(:,:)
+      real*8, allocatable  :: trigd(:,:), trigi(:,:), wgg(:,:)
+      real*8, allocatable  :: psig(:,:,:), qgpv(:,:,:)
+      real*8, allocatable  :: ug(:,:,:), vg(:,:,:), geopg(:,:,:)
+
+contains
+
+  subroutine allocate_comqg(resolution)
+
+    integer :: resolution
+
+    select case (resolution)
+
+      case(106)
+        nm = 106
+        nlon = 320
+        nlat = 160
+        ft = "106"
+
+      case(63)
+        nm = 63
+        nlon = 192
+        nlat = 96
+        ft = "63"
+
+      case(42)
+        nm = 42
+        nlon = 128
+        nlat = 64
+        ft = "42"
+
+      case(21)
+        nm = 21
+        nlon = 64
+        nlat = 32
+        ft = "21"
+
+      case DEFAULT
+        stop 'ERROR: Unsupported resolution'
+
+    end select
+
+    nvl = 3
+    ntl = nvl - 1
+    nsh = ((nm + 1) * (nm + 2)) / 2
+    nsh2 = 2 * nsh
+    ngp = nlon * nlat
+
+    allocate(phi(nlat), cosfi(nlat), sinfi(nlat))
+    allocate(nshm(0:nm), ll(nsh))
+    allocate(rm(nsh), rinhel(nsh2,0:5), diss(nsh2,2))
+    allocate(pp(nlat,nsh), pd(nlat,nsh), pw(nlat,nsh))
+    allocate(rdiss(nlat,nlon), ddisdx(nlat,nlon), ddisdy(nlat,nlon))
+
+    allocate(psi(nsh2,nvl), psit(nsh2,ntl))
+    allocate(qprime(nsh2,nvl), dqprdt(nsh2,nvl), for(nsh2,nvl), ws(nsh2))
+    allocate(orog(nsh2), dorodl(nlat,nlon), dorodm(nlat,nlon))
+    allocate(trigd(nlon,2), trigi(nlon,2), wgg(nlat,nlon))
+    allocate(psig(nlat,nlon,nvl), qgpv(nlat,nlon,nvl))
+    allocate(ug(nlat,nlon,nvl), vg(nlat,nlon,nvl), geopg(nlat,nlon,nvl))
+
+
+  end subroutine allocate_comqg
+
+
 !23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine initqg
 !-----------------------------------------------------------------------
 ! *** initialise parameters and operators and read initial state
 !-----------------------------------------------------------------------
-      use ComQG
+      
       implicit none
 
 
@@ -59,7 +273,7 @@
       write(16, NML = param)
       close(16)
 
-      call init_comqg(resolution)
+      call allocate_comqg(resolution)
 
       allocate(ininag(nlat,nlon))
       allocate(agg(nlat,nlon), agg1(nlat,nlon), agg2(nlat,nlon))
@@ -377,39 +591,13 @@
       close(50)
       
       return
-      end
 
-!1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
-      subroutine addperturb
-      
-      use ComQG
-      implicit none
-      
+      end subroutine initqg
 
-
-      
-      integer ipert,i,j,l
-      
-      real*8 qpgg(nlat,nlon),ran1
-      
-      ipert=-1
-      
-      do l=1,nvl
-        call sptogg(qprime(1,l), qpgg,pp)
-        do j=1,nlon
-          do i=1,nlat
-            qpgg(i,j)=qpgg(i,j)*(1.025-0.05*ran1(ipert))
-          enddo
-        enddo
-        call ggtosp(qpgg,qprime(1,l))
-      enddo
-      
-      end
-      
 !1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
 !  (C) Copr. 1986-92 Numerical Recipes Software +.-).
-      FUNCTION ran1(idum)
-      use ComQG
+      function ran1(idum)
+      
       implicit none
       INTEGER idum,IA,IM,IQ,IR,NTAB,NDIV
       REAL*8 ran1,AM,EPS,RNMX
@@ -436,9 +624,37 @@
       iv(j)=idum
       ran1=min(AM*iy,RNMX)
       return
-      END
+
+      end function ran1
 
 
+!1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
+      subroutine addperturb
+      
+      
+      implicit none
+      
+
+
+      
+      integer ipert,i,j,l
+      
+      real*8 qpgg(nlat,nlon)
+      
+      ipert=-1
+      
+      do l=1,nvl
+        call sptogg(qprime(1,l), qpgg,pp)
+        do j=1,nlon
+          do i=1,nlat
+            qpgg(i,j)=qpgg(i,j)*(1.025-0.05*ran1(ipert))
+          enddo
+        enddo
+        call ggtosp(qpgg,qprime(1,l))
+      enddo
+      
+      end subroutine addperturb
+      
 !23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine ddt
 !----------------------------------------------------------------------
@@ -448,7 +664,7 @@
 ! *** NOTE psit is destroyed
 !----------------------------------------------------------------------
 
-      use ComQG
+      
       implicit none
 
 
@@ -487,7 +703,7 @@
       enddo
                   
       return
-      end
+      end subroutine ddt
 
 
 
@@ -498,7 +714,7 @@
 ! *** input psiloc, pvor
 ! *** output sjacob
 !----------------------------------------------------------------------
-      use ComQG
+      
       implicit none
 
 
@@ -537,7 +753,8 @@
       enddo
  
       return
-      end
+
+      end subroutine jacob
 
 !23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine jacobd (psiloc,pvor,sjacob)
@@ -546,7 +763,7 @@
 ! *** input psiloc, pvor
 ! *** output sjacob
 !----------------------------------------------------------------------
-      use ComQG
+      
       implicit none
 
 
@@ -620,7 +837,8 @@
       enddo
  
       return
-      end
+
+      end subroutine jacobd
 
 
 !23456789012345678901234567890123456789012345678901234567890123456789012
@@ -631,7 +849,7 @@
 ! *** output spectral field dadl which is as differentiated wrt lambda
 !-----------------------------------------------------------------------
 
-      use ComQG
+      
       implicit none
 
 
@@ -645,7 +863,7 @@
       enddo
  
       return
-      end
+      end subroutine ddl
 
 !23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine sptogg (as,agg,pploc)
@@ -658,7 +876,7 @@
 ! *** output gaussian grid agg
 !-----------------------------------------------------------------------
  
-      use ComQG
+      
       implicit none
 
 
@@ -704,7 +922,8 @@
       call c06fqf (nlat,nlon,agg,'r',trigi,wgg,ifail)
  
       return
-      end
+
+      end subroutine sptogg
  
 !23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine ggtosp (agg,as)
@@ -714,7 +933,7 @@
 ! *** output as contains spectral coefficients
 !-----------------------------------------------------------------------
 
-      use ComQG
+      
       implicit none
 
 
@@ -759,7 +978,8 @@
       enddo
  
       return
-      end
+
+      end subroutine ggtosp
  
 
 !23456789012345678901234567890123456789012345678901234567890123456789012
@@ -770,7 +990,7 @@
 ! *** output psi, the streamfunction and psit, the layer thicknesses
 !-----------------------------------------------------------------------
  
-      use ComQG
+      
       implicit none
 
 
@@ -798,7 +1018,8 @@
       enddo
  
       return
-      end
+
+      end subroutine qtopsi
 
 !23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine psitoq 
@@ -808,7 +1029,7 @@
 ! *** output qprime, the potential vorticity and psit, the layer thick.
 !-----------------------------------------------------------------------
 
-      use ComQG
+      
       implicit none
 
 
@@ -822,7 +1043,8 @@
         qprime(k,3)=rinhel(k,0)*psi(k,3)+rl2*psit(k,2)
       enddo
       return
-      end
+
+      end subroutine psitoq
 
 !23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine psiq(sfin,qout)
@@ -830,7 +1052,7 @@
 ! ***  computation of potential vorticity qout from stream function sfin
 !-----------------------------------------------------------------------
 
-      use ComQG
+      
       implicit none
 
 
@@ -856,7 +1078,8 @@
       enddo
 
       return
-      end
+
+      end subroutine psiq
 
 
 !23456789012345678901234567890123456789012345678901234567890123456789012
@@ -865,7 +1088,7 @@
 ! *** computation of streamfunction bb from potential vorticity qin
 !-----------------------------------------------------------------------
 
-      use ComQG
+      
       implicit none
 
      
@@ -892,7 +1115,8 @@
       enddo
 
       return
-      end
+
+      end subroutine qpsi
 
 !23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine qpsit(qin,tus)
@@ -900,7 +1124,7 @@
 ! *** computation of thickness tus from potential vorticity qin
 !-----------------------------------------------------------------------
 
-      use ComQG
+      
       implicit none
 
      
@@ -920,7 +1144,8 @@
       enddo
 
       return
-      end
+
+      end subroutine qpsit
 
  
 !23456789012345678901234567890123456789012345678901234567890123456789012
@@ -958,7 +1183,7 @@
 ! *** etcetera
 !-----------------------------------------------------------------------
 
-      use ComQG
+      
       implicit none
 
 
@@ -982,7 +1207,8 @@
         enddo
       enddo
       return
-      end
+
+      end subroutine fmtofs
 
 !23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine fstofm (y,z,ntr)
@@ -1019,7 +1245,7 @@
 ! *** etcetera
 !-----------------------------------------------------------------------
 
-      use ComQG
+      
       implicit none
 
 
@@ -1048,7 +1274,8 @@
         enddo
       enddo
       return
-      end
+
+      end subroutine fstofm
 
 !23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine truncate(y,yt,ntr)
@@ -1057,7 +1284,7 @@
 ! *** lower resolution model Tntr.
 !-----------------------------------------------------------------------
 
-      use ComQG
+      
       implicit none
 
 
@@ -1102,7 +1329,8 @@
         enddo
       enddo
       return
-      end
+
+      end subroutine truncate
 
 !23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine forward
@@ -1113,7 +1341,7 @@
 ! *** input  qprime at current time
 ! *** output qprime at current time plus dt
 !-----------------------------------------------------------------------
-      use ComQG
+      
       implicit none
 
 
@@ -1153,7 +1381,8 @@
       enddo
       call fstofm(y,qprime,nm)
       return
-      end
+
+      end subroutine forward
 
 !23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine dqdt(y,dydt)
@@ -1164,7 +1393,7 @@
 ! *** values of qprime, psi and psit are changed
 !-----------------------------------------------------------------------
 
-      use ComQG
+      
       implicit none
 
 
@@ -1175,7 +1404,8 @@
       call ddt
       call fmtofs(dqprdt,dydt)      
       return
-      end
+
+      end subroutine dqdt
 
 
 !23456789012345678901234567890123456789012345678901234567890123456789012
@@ -1188,7 +1418,7 @@
 ! *** the global mean value is not determined and set to zero
 !  
 !-----------------------------------------------------------------------
-      use ComQG
+      
       implicit none
 
 
@@ -1274,7 +1504,8 @@
       enddo
 
       return
-      end
+
+      end subroutine gridfields
 
       
 !23456789012345678901234567890123456789012345678901234567890123456789012
@@ -1284,7 +1515,7 @@
 ! *** input  xs  field in spectral form
 ! *** output xsl laplace of xs in spectral form
 !-----------------------------------------------------------------------
-      use ComQG
+      
       implicit none
 
 
@@ -1296,7 +1527,8 @@
       enddo
 
       return
-      end
+
+      end subroutine lap
 
       
 
@@ -1307,7 +1539,7 @@
 ! *** input  xsl field in spectral form
 ! *** output xs  inverse laplace of xs in spectral form
 !-----------------------------------------------------------------------
-      use ComQG
+      
       implicit none
 
 
@@ -1319,7 +1551,8 @@
       enddo
 
       return
-      end
+
+      end subroutine lapinv
 
 !-----------------------------------------------------------------------
       subroutine artiforc_iter
@@ -1330,7 +1563,7 @@
 ! of the eddy terms.
 !------------------------------------------------------------------------
 
-      use ComQG
+      
       implicit none
       
 
@@ -1460,7 +1693,8 @@
       close(32)
  
       return
-      end
+
+      end subroutine artiforc_iter
 
 !23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine eddforc
@@ -1468,7 +1702,7 @@
 !***  computation of the eddy forcing
 !-----------------------------------------------------------------------
 
-      use ComQG
+      
       implicit none
       
 
@@ -1482,7 +1716,8 @@
       call jacobedd (psi(1,3),qprime(1,3),dqprdt(1,3))
 
       return
-      end
+
+      end subroutine eddforc
       
 !23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine jacobedd (psiloc,pvor,sjacob)
@@ -1494,7 +1729,7 @@
 ! *** is that the planetary vorticity advection is omitted.
 !-----------------------------------------------------------------------
 
-      use ComQG
+      
       implicit none
       
 
@@ -1529,7 +1764,8 @@
       call ggtosp (gjacob,sjacob)
 
       return
-      end
+
+      end subroutine jacobedd
 
 !23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine artiforc
@@ -1538,7 +1774,7 @@
 ! the forcing is computed from file obsfile
 !------------------------------------------------------------------------
 
-      use ComQG
+      
       implicit none
       
 
@@ -1652,7 +1888,8 @@
       write(*,'(A)') 'qgpvforT'//trim(ft)//'.dat'
  
       return
-      end
+
+      end subroutine artiforc
 
 !23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine analyses
@@ -1661,7 +1898,7 @@
 ! *** artiforc
 !-----------------------------------------------------------------------
 
-      use ComQG
+      
       implicit none
       
 
@@ -1719,7 +1956,7 @@
       close(98)
 !      close(97)
       
-      end
+      end subroutine analyses
 
 !23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine diagsf(istep)
@@ -1727,7 +1964,7 @@
 ! *** output streamfunction data to outputfile
 !-----------------------------------------------------------------------
 
-      use ComQG
+      
       implicit none
       
 
@@ -1778,14 +2015,15 @@
         enddo
       endif
       
-      end
+      end subroutine diagsf
+
 !23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine diag(istep)
 !-----------------------------------------------------------------------
 ! *** output model data to outputfile
 !-----------------------------------------------------------------------
 
-      use ComQG
+      
       implicit none
       
 
@@ -1850,7 +2088,7 @@
         enddo
       endif
       
-      end
+      end subroutine diag
       
 !23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine outputT21(istep)
@@ -1859,7 +2097,7 @@
 ! *** read by artiforc
 !-----------------------------------------------------------------------
 
-      use ComQG
+      
       implicit none
       
 
@@ -1882,7 +2120,7 @@
         write(51,'(5e12.5)')((psiT21(k,l),k=1,nsh2ntr),l=1,nvl)
       endif
       
-      end
+      end subroutine outputT21
       
 !23456789012345678901234567890123456789012345678901234567890123456789012
       subroutine writestate
@@ -1890,7 +2128,7 @@
 ! *** output streamfunction state that can be read as initial state
 !-----------------------------------------------------------------------
 
-      use ComQG
+      
       implicit none
       
 
@@ -1906,4 +2144,7 @@
         enddo
       enddo
       close(12)
-      end
+
+      end subroutine writestate
+
+end module QG

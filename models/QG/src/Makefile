@@ -8,7 +8,7 @@ LIBS=-L$(UTILITIES)/lib -lpasilla_util $(NETCDF_LIBS)
 FFLAGS+=$(GPTLFLAGS)
 FFLAGS+=$(ENDIAN_FLAG)
 
-OBJS=comqg.o qgmodel.o nag.o
+OBJS=qgmodel.o nag.o
 
 all: QG.exe
 
@@ -18,10 +18,7 @@ QG.exe: runqgmodel.f90 $(OBJS)
 nag.o: nag.f
 	$(FC) $(FFLAGS) -c nag.f
 
-comqg.o: comqg.f90
-	$(FC) $(FFLAGS) -c comqg.f90
-
-qgmodel.o: qgmodel.f90 nag.o comqg.o
+qgmodel.o: qgmodel.f90 nag.o
 	$(FC) $(FFLAGS) -c qgmodel.f90
 
 clean:

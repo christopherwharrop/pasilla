@@ -3,7 +3,7 @@
 !-----------------------------------------------------------------------
 ! *** integrates the qgmodel with parameters from inputdata/namelist
 !-----------------------------------------------------------------------
-      use ComQG
+      use QG
 
       implicit none
       

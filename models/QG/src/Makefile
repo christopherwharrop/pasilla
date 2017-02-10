@@ -19,7 +19,7 @@ nag.o: nag.f
 	$(FC) $(FFLAGS) -c nag.f
 
 qgmodel.o: qgmodel.f90 nag.o
-	$(FC) $(FFLAGS) -c qgmodel.f90
+	$(FC) $(FFLAGS) -c qgmodel.f90 $(INCLUDES)
 
 clean:
 	rm -f *.exe *.o *.mod *.a

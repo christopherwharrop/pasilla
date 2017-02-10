@@ -1,159 +1,111 @@
 module QG
 
+  use kind
+
   implicit none
 
-! *** PARAMETERS
-!     nm  :   the truncation is of type T(riangular) nm.
-!     nlon:   number of longitude points of the Gaussian grid
-!     nlat:   number of latitude  points of the Gaussian grid
-!     nvl :   number of vorticity levels in the vertical
-!             (should be set to 3)
-!     ntl :   number of temperature levels in the vertical
-!             (equal to nvl-1)
-!     nsh :   half of nsh2
-!     nsh2:   number of coefficients needed to define one level of the
-!             T nm model
-!     ngp:    number of grid points of the Gaussian grid
-!
-      integer :: nm, nlon, nlat, nvl, ntl, nsh, nsh2, ngp
-      character(len=3) ::  ft
+  ! Model configuration parameters
+  character(len=3) ::  ft   ! Character string containing resolution
+  integer :: nm             ! The truncation is of type T(riangular) nm
+  integer :: nlon           ! Number of longitude points of the Gaussian grid
+  integer :: nlat           ! Number of latitude  points of the Gaussian grid
+  integer :: nvl            ! Number of vorticity levels in the vertical (should be set to 3)
+  integer :: ntl            ! Number of temperature levels in the vertical (equal to nvl-1)
+  integer :: nsh            ! Half of nsh2
+  integer :: nsh2           ! Number of coefficients needed to define one level of the T nm model
+  integer :: ngp            ! Number of grid points of the Gaussian grid
+  real(r8kind)  :: dt       ! timestep in fraction of one day
+  real(r8kind)  :: dtime    ! timestep in seconds
+  real(r8kind)  :: dtt      ! timestep in non-dimensional units
 
-!23456789012345678901234567890123456789012345678901234567890123456789012
-!-----------------------------------------------------------------------
-! *** File:     comqg.h
-! *** Contents: Common declarations for three level qg model
-!-----------------------------------------------------------------------
-! *** COMMON  /ch/ ft,expid
-!     ft :     character string with truncation
-!     expid:   character string with experiment identifier used to create
-!              the outputdata data directory
-!     rootdir: path of qgmodel directory
-!
-!
-! *** COMMON  /rvari/ pi,dp,om,rgas,grav,radius
-!     pi :     value of pi
-!     fzero:   value of f at 45 degrees
-!     dp :     layer thicknesses [Pa]
-!     om :     angular velocity of earth [rad/s]
-!     rgas :   gas constant
-!     grav :   gravity acceleration [m/s^2]
-!     radius:  radius of earth [m]
-!
-!
-! *** COMMON  /ggrid/ phi,cosfi,sinfi
-!     phi :    Gauss points in radians
-!     cosfi:   cosine of phi
-!     sinfi:   sine of phi
-!
-! *** COMMON  /ctstep/ dt,dtime,dtt
-!     dt :     timestep in fraction of one day
-!     dtime :  timestep in seconds
-!     dtt :    timestep in non-dimensional units
-!
-! *** COMMON  /intpar/ nshm, ll
-!     nshm:   contains numbers 22 down to 1 for index 0 to 21
-!     ll:     contains total wavenumber n of each spherical harmonic of
-!             the corresponding index
-!
-! *** COMMON  /linopr/ rm, rinhel, diss 
-!     rm:     contains zonal wavenumber m of each spherical harmonic of
-!             the corresponding index for zonal derivative operator
-!     rinhel: Laplace and Helmholtz operator for Q-PSI inversion
-!     diss:   dissipation coefficients for each spherical harmonic
-!             diss(k,1) : hyperviscosity at the three levels 
-!                         (tdif sets timescale)
-!             diss(k,2) : Ekman friction at lower level 
-!                         (tdis sets timescale)
-!
-! *** COMMON  /logpar/ lgdiss,inf,readfor
-!     lgdiss: if .true. then orography and land-sea mask dependent 
-!             friction at the lower level plus Ekman friction, 
-!             else only Ekman friction
-!     inf:    if .true. then artificial PV forcing read from file
-!     obsf:   if .true. PV forcing is calculated from observations in routine artiforc
-!     readstart: if .true. initial state is read from inputfile
-!
-! *** COMMON  /metras/
-!     pp:     Legendre polynomials defined at Gausian latitudes
-!     pd:     mu derivative of Legendre polynomials
-!     pw:     weights for Legendre integrals
-!
-! *** COMMON  /phypar/ rdiss, ddisdx, ddisdy
-!     rdiss:  landsea-mask/orography dependent friction
-!     ddisdx: landsea-mask/orography dependent friction
-!     ddisdy: landsea-mask/orography dependent friction
-!
-! *** COMMON  /modpar/ rrdef1,rrdef2,rl1,rl2,relt1,relt2 ,
-!                      tdis,trel,tdif,addisl,addish,h0,idif
-!     rrdef1: Rossby radius of deformation of 200-500 thickness
-!     rrdef2: Rossby radius of deformation of 500-800 thickness
-!     rl1:    one over Rossby rad. of def. squared of 200-500 thickness
-!     rl2:    one over Rossby rad. of def. squared of 500-800 thickness
-!     relt1:  nondimensional relaxation coefficient of 200-500 thickness
-!     relt2:  nondimensional relaxation coefficient of 500-800 thickness
-!     tdis:   Ekman dissipation timescale in days at lower level
-!     trel:   relaxation time scale in days of the temperature
-!     tdif:   dissipation timescale of scale-selective diffusion in
-!             days for wavenumber nm
-!     addisl: parameter used in the computation of the dissipation
-!             timescale at the lower level over land
-!     addish: parameter used in the computation of the dissipation
-!             timescale at the lower level as a function of topography
-!     h0:     scale factor for the topographically induced upward motion
-!             at the lower level
-!     idif:   determines scale-selectivity of hyperviscosity; power of
-!             laplace operator
-! 
-! *** COMMON  /sfield/ psi, psit, qprime, dqprdt, for, ws
-!     psi:    stream function at the nvl levels
-!     psit:   thickness at the ntl levels
-!     qprime: potential vorticity
-!     dqprdt: time derivative of qprime
-!     for:    constant potential vorticity forcing at the nvl levels
-!     ws:     only used as portable workspace
-!
-! *** COMMON  /corog/ orog, dorodl, dorodm
-!     orog:   orography in m. divided by h0
-!     dorodl: derivative of orog wrt lambda
-!     dorodm: derivative of orag wrt sin(fi)
-!
-! *** COMMON  /zotras/ trigd, trigi, wgg
-!             arrays used by the nag version of the fft
-!
-! *** COMMON /cgpsi/  psig,qgpv,ug,vg
-!     psig: grid values of dimensional streamfunction at the three levels
-!     qgpv: grid values of dimensional pv at the three levels
-!     ug:   grid values of zonal velocity at the three levels in m/s
-!     vg:   grid values of meridional velocity at the three levels in m/s
-!     geopg: geopotential on the grid
-!-----------------------------------------------------------------------
 
-      character*4 :: expid
-      character*32 :: obsfile
-      character*256 :: rootdir
-      integer :: nstepsperday, nstepsbetweenoutput, ndayskip, nday, rootdirl
-      real*8  :: pi, fzero, dp, om, rgas, grav, radius
-      real*8, allocatable  :: phi(:), cosfi(:), sinfi(:)
-      real*8  :: dt, dtime, dtt
+  ! Model runtime parameters
+  character(len=4)   :: expid    ! Character string with experiment identifier used to create the outputdata data directory 
+  character(len=32)  :: obsfile  ! Name of observation file
+  character(len=256) :: rootdir  ! Path of qgmodel directory
+  integer :: nstepsperday
+  integer :: nstepsbetweenoutput
+  integer :: ndayskip
+  integer :: nday
+  integer :: rootdirl
 
-      integer, allocatable :: nshm(:), ll(:)
-      real*8, allocatable  :: rm(:), rinhel(:,:), diss(:,:)
-      logical :: lgdiss, inf, obsf, readstart
-      real*8, allocatable  :: pp(:,:), pd(:,:), pw(:,:)
-      real*8, allocatable  :: rdiss(:,:), ddisdx(:,:), ddisdy(:,:)
-      real*8  :: rrdef1, rrdef2, rl1, rl2, relt1, relt2, tdis, trel, tdif
-      real*8  :: addisl, addish, h0
-      integer :: idif
+  ! Mathematical and physical constants
+  real(r8kind) :: pi     ! value of pi
+  real(r8kind) :: fzero  ! value of f at 45 degrees
+  real(r8kind) :: dp     ! layer thicknesses [Pa]
+  real(r8kind) :: om     ! angular velocity of earth [rad/s]
+  real(r8kind) :: rgas   ! gas constant
+  real(r8kind) :: grav   ! gravity acceleration [m/s^2]
+  real(r8kind) :: radius ! radius of earth [m]
 
-      real*8, allocatable  :: psi(:,:), psit(:,:)
-      real*8, allocatable  :: qprime(:,:), dqprdt(:,:), for(:,:), ws(:)
-      real*8, allocatable  :: orog(:), dorodl(:,:), dorodm(:,:)
-      real*8, allocatable  :: trigd(:,:), trigi(:,:), wgg(:,:)
-      real*8, allocatable  :: psig(:,:,:), qgpv(:,:,:)
-      real*8, allocatable  :: ug(:,:,:), vg(:,:,:), geopg(:,:,:)
+  real(r8kind), allocatable  :: phi(:)   ! Gauss points in radians
+  real(r8kind), allocatable  :: cosfi(:) ! cosine of phi
+  real(r8kind), allocatable  :: sinfi(:) ! sine of phi
+
+  integer, allocatable :: nshm(:) ! contains numbers 22 down to 1 for index 0 to 21
+  integer, allocatable :: ll(:)   ! contains total wavenumber n of each spherical harmonic of the corresponding index
+
+  real(r8kind), allocatable  :: rm(:)       ! contains zonal wavenumber m of each spherical harmonic of the corresponding index for zonal derivative operator
+  real(r8kind), allocatable  :: rinhel(:,:) ! Laplace and Helmholtz operator for Q-PSI inversion
+  real(r8kind), allocatable  :: diss(:,:)   ! dissipation coefficients for each spherical harmonic
+                                            !   diss(k,1) : hyperviscosity at the three levels
+                                            !               (tdif sets timescale)
+                                            !   diss(k,2) : Ekman friction at lower level
+                                            !               (tdis sets timescale)
+
+  logical :: lgdiss     ! if .true. then orography and land-sea mask dependent friction at the lower level plus Ekman friction, else only Ekman friction
+  logical :: inf        ! if .true. then artificial PV forcing read from file
+  logical :: obsf       ! if .true. PV forcing is calculated from observations in routine artiforc
+  logical :: readstart  ! if .true. initial state is read from inputfile
+
+  real(r8kind), allocatable  :: pp(:,:)  ! Legendre polynomials defined at Gausian latitudes
+  real(r8kind), allocatable  :: pd(:,:)  ! mu derivative of Legendre polynomials
+  real(r8kind), allocatable  :: pw(:,:)  ! weights for Legendre integrals
+
+  real(r8kind), allocatable  :: rdiss(:,:)   ! landsea-mask/orography dependent friction
+  real(r8kind), allocatable  :: ddisdx(:,:)  ! landsea-mask/orography dependent friction
+  real(r8kind), allocatable  :: ddisdy(:,:)  ! landsea-mask/orography dependent friction
+
+  real(r8kind)  :: rrdef1  ! Rossby radius of deformation of 200-500 thickness
+  real(r8kind)  :: rrdef2  ! Rossby radius of deformation of 500-800 thickness
+  real(r8kind)  :: rl1     ! one over Rossby rad. of def. squared of 200-500 thickness
+  real(r8kind)  :: rl2     ! one over Rossby rad. of def. squared of 500-800 thickness
+  real(r8kind)  :: relt1   ! nondimensional relaxation coefficient of 200-500 thickness
+  real(r8kind)  :: relt2   ! nondimensional relaxation coefficient of 500-800 thickness
+  real(r8kind)  :: tdis    ! Ekman dissipation timescale in days at lower level
+  real(r8kind)  :: trel    ! relaxation time scale in days of the temperature
+  real(r8kind)  :: tdif    ! dissipation timescale of scale-selective diffusion in days for wavenumber nm
+  real(r8kind)  :: addisl  ! parameter used in the computation of the dissipation timescale at the lower level over land
+  real(r8kind)  :: addish  ! parameter used in the computation of the dissipation timescale at the lower level as a function of topography
+  real(r8kind)  :: h0      ! scale factor for the topographically induced upward motion at the lower level
+  integer       :: idif    ! determines scale-selectivity of hyperviscosity; power of laplace operator
+
+  real(r8kind), allocatable  :: psi(:,:)    ! stream function at the nvl levels
+  real(r8kind), allocatable  :: psit(:,:)   ! thickness at the ntl levels
+  real(r8kind), allocatable  :: qprime(:,:) ! potential vorticity
+  real(r8kind), allocatable  :: dqprdt(:,:) ! time derivative of qprime
+  real(r8kind), allocatable  :: for(:,:)    ! constant potential vorticity forcing at the nvl levels
+  real(r8kind), allocatable  :: ws(:)       ! only used as portable workspace
+
+  real(r8kind), allocatable  :: orog(:)     ! orography in m. divided by h0
+  real(r8kind), allocatable  :: dorodl(:,:) ! derivative of orog wrt lambda
+  real(r8kind), allocatable  :: dorodm(:,:) ! derivative of orag wrt sin(fi)
+
+  real(r8kind), allocatable  :: trigd(:,:)  ! array used by the nag version of the fft
+  real(r8kind), allocatable  :: trigi(:,:)  ! array used by the nag version of the fft
+  real(r8kind), allocatable  :: wgg(:,:)    ! array used by the nag version of the fft
+
+  real(r8kind), allocatable  :: psig(:,:,:)   ! grid values of dimensional streamfunction at the three levels
+  real(r8kind), allocatable  :: qgpv(:,:,:)   ! grid values of dimensional pv at the three levels
+  real(r8kind), allocatable  :: ug(:,:,:)     ! grid values of zonal velocity at the three levels in m/s
+  real(r8kind), allocatable  :: vg(:,:,:)     ! grid values of meridional velocity at the three levels in m/s
+  real(r8kind), allocatable  :: geopg(:,:,:)  ! geopotential on the grid
 
 contains
 
+  !-------------------------------------------------------------------------------
+  ! allocate_comqg
+  !-------------------------------------------------------------------------------
   subroutine allocate_comqg(resolution)
 
     integer :: resolution
@@ -212,387 +164,84 @@ contains
   end subroutine allocate_comqg
 
 
-!23456789012345678901234567890123456789012345678901234567890123456789012
-      subroutine initqg
-!-----------------------------------------------------------------------
-! *** initialise parameters and operators and read initial state
-!-----------------------------------------------------------------------
-      
-      implicit none
+  !-------------------------------------------------------------------------------
+  ! allocate_comqg
+  !
+  ! initialise parameters and operators and read initial state
+  !-------------------------------------------------------------------------------
+  subroutine initqg
 
+    implicit none
 
+    integer :: resolution
+    integer i,j,k1,k2,k,l,m,n,ifail,ii,jj,i1,j1,nn
+    real(r8kind)  pigr4,dis,dif,rll
+    real(r8kind), allocatable :: ininag(:,:)
+    real(r8kind)  r1,a,b,c,d,e,sqn,rsqn
+    real(r8kind)  rnorm,rh0,dd,dlon
+    real(r8kind), allocatable :: agg(:,:), agg1(:,:), agg2(:,:)
+    real(r8kind), allocatable :: fmu(:,:), wsx(:)
 
-      integer :: resolution
-      integer i,j,k1,k2,k,l,m,n,ifail,ii,jj,i1,j1,nn
-      real*8  pigr4,dis,dif,rll
-      real*8, allocatable :: ininag(:,:)
-      real*8  r1,a,b,c,d,e,sqn,rsqn
-      real*8  rnorm,rh0,dd,dlon
-      real*8, allocatable :: agg(:,:), agg1(:,:), agg2(:,:) 
-      real*8, allocatable :: fmu(:,:), wsx(:)
-      
-      namelist /param/ tdis,addisl,addish,trel,tdif,idif,h0, &
-     &                 rrdef1,rrdef2
-      namelist /control/resolution,nstepsperday,nstepsbetweenoutput, &
-     &                  ndayskip,nday,obsfile,expid,inf,obsf,readstart
-      
-      rootdirl=index(rootdir,' ')-1
-      
-      resolution=21
-      inf=.false.
-      obsf=.false.
-      readstart=.false.
-      expid="0000"
-      nstepsperday = 36
-      nstepsbetweenoutput = 36
-      ndayskip = 0
-      nday = 10
+    namelist /param/ tdis,addisl,addish,trel,tdif,idif,h0,rrdef1,rrdef2
+    namelist /control/resolution,nstepsperday,nstepsbetweenoutput, &
+                    & ndayskip,nday,obsfile,expid,inf,obsf,readstart
 
-! *** real parameters
+    rootdirl=index(rootdir,' ')-1
 
-      tdis=3.0
-      addisl=0.5
-      addish=0.5
-      trel=25.
-      tdif=3.0
-      idif=4
-      h0=3.
-      rrdef1=.110
-      rrdef2=.070
+    resolution=21
+    inf=.false.
+    obsf=.false.
+    readstart=.false.
+    expid="0000"
+    nstepsperday = 36
+    nstepsbetweenoutput = 36
+    ndayskip = 0
+    nday = 10
 
-      
-      OPEN(15,FILE='namelist.input',status='old',FORM='FORMATTED')
+    ! real parameters
+    tdis=3.0
+    addisl=0.5
+    addish=0.5
+    trel=25.
+    tdif=3.0
+    idif=4
+    h0=3.
+    rrdef1=.110
+    rrdef2=.070
 
-      read(15, NML = control)
-      read(15, NML = param)
-      
-      close(15)
-      
-      OPEN(16,FILE='namelist.output')
-      write(16, NML = control)
-      write(16, NML = param)
-      close(16)
+    OPEN(15,FILE='namelist.input',status='old',FORM='FORMATTED')
+    read(15, NML = control)
+    read(15, NML = param)
+    close(15)
 
-      call allocate_comqg(resolution)
+    OPEN(16,FILE='namelist.output')
+    write(16, NML = control)
+    write(16, NML = param)
+    close(16)
 
-      allocate(ininag(nlat,nlon))
-      allocate(agg(nlat,nlon), agg1(nlat,nlon), agg2(nlat,nlon))
-      allocate(fmu(nlat,2),wsx(nsh2))
+    call allocate_comqg(resolution)
 
-      OPEN(11,FILE='./qgcoefT'//trim(ft)//'.dat',FORM='FORMATTED')
-      OPEN(12,FILE='./qgstartT'//trim(ft)//'.dat',FORM='FORMATTED')
-      OPEN(13,FILE='./qgbergT'//trim(ft)//'.dat',FORM='FORMATTED')
-      if (inf) then
-        OPEN(14,FILE='./qgpvforT'//trim(ft)//'.dat',FORM='FORMATTED')
-      endif
+    allocate(ininag(nlat,nlon))
+    allocate(agg(nlat,nlon), agg1(nlat,nlon), agg2(nlat,nlon))
+    allocate(fmu(nlat,2),wsx(nsh2))
 
-      do i=0,nm
-        read(11,*) nshm(i)
-      enddo
-      do i=1,nsh
-        read(11,*) ll(i)
-      enddo
-      
-      pi=4d0*atan(1d0)
-      radius=6.37e+6 
-      om=4d0*pi/(24d0*3600d0)
+    OPEN(11,FILE='./qgcoefT'//trim(ft)//'.dat',FORM='FORMATTED')
+    OPEN(12,FILE='./qgstartT'//trim(ft)//'.dat',FORM='FORMATTED')
+    OPEN(13,FILE='./qgbergT'//trim(ft)//'.dat',FORM='FORMATTED')
+    if (inf) then
+      OPEN(14,FILE='./qgpvforT'//trim(ft)//'.dat',FORM='FORMATTED')
+    endif
 
-      pigr4=4.d0*pi
-      rl1=1.0d0/rrdef1**2
-      rl2=1.0d0/rrdef2**2
-      relt1=max(0.0d0,rl1/(trel*pigr4))
-      relt2=max(0.0d0,rl2/(trel*pigr4))
-      dis=max(0.0d0,1.0d0/(tdis*pigr4))
-      rll=dble(ll(nsh))
-      dif=max(0.0d0,1.0d0/(tdif*pigr4*(rll*(rll+1))**idif))
-      
-! *** time step of the model: 
-! *** dt    : fraction of one day
-! *** dtime : in seconds
-! *** dtt   : dimensionless
- 
-      dt     = 1d0/real(nstepsperday)
-      dtime  = dt*(24d0*3600d0)
-      dtt    = dt*pi*4d0
+    do i=0,nm
+      read(11,*) nshm(i)
+    enddo
+    do i=1,nsh
+      read(11,*) ll(i)
+    enddo
 
-! *** zonal derivative operator
+    return
 
-      k2=0
-      do m=0,nm
-        k1=k2+1
-        k2=k2+nshm(m)
-        do k=k1,k2
-          rm(k)=dble(m)
-        enddo
-      enddo
-
-! *** laplace/helmholtz direct and inverse operators
-
-      do j=0,5
-        rinhel(1,j)=0.0d0
-      enddo
-
-      diss(1,1)=0.0d0
-      diss(1,2)=0.0d0
-
-      do k=2,nsh
-        r1=dble(ll(k)*(ll(k)+1))
-        a=-r1-3.0d0*rl1
-        b=-r1-3.0d0*rl2
-        c=-r1-rl1
-        d=-r1-rl2
-        e=a*d+b*c
-        rinhel(k,0)=-r1
-        rinhel(k,1)=-1.0d0/r1
-        rinhel(k,2)= d/e
-        rinhel(k,3)= b/e
-        rinhel(k,4)=-c/e
-        rinhel(k,5)= a/e
-        diss(k,2)=dis*r1
-        diss(k,1)=-dif*r1**idif
-      enddo
-
-      do j=0,5
-        do k=1,nsh
-          rinhel(k+nsh,j)=rinhel(k,j)
-        enddo
-      enddo
-      
-      do j=1,2
-        do k=1,nsh
-          diss(k+nsh,j)=diss(k,j)
-        enddo
-      enddo
-
-! *** legendre associated functions and derivatives
-
-      do k=1,nsh
-        do j=1,nlat
-          read(11,*) pp(j,k)
-        enddo
-      enddo
-      do k=1,nsh
-        do j=1,nlat
-          read(11,*) pd(j,k)
-        enddo
-      enddo
-      do k=1,nsh
-        do j=1,nlat
-          read(11,*) pw(j,k)
-        enddo
-      enddo
-
-! *** compensation for normalization in nag fft routines
-
-      sqn=sqrt(dble(nlon))
-      rsqn=1d0/sqn
-      do k=1,nsh
-        do i=1,nlat
-          pp(i,k)=pp(i,k)*sqn
-          pd(i,k)=pd(i,k)*sqn
-          pw(i,k)=pw(i,k)*rsqn
-        enddo
-      enddo
-
-! *** initialization of coefficients for fft
-
-
-      do j=1,nlon
-        do i=1,nlat
-          ininag(i,j)=1.0d0
-        enddo
-      enddo 
-      
-      ifail=0
-      call c06fpf (nlat,nlon,ininag,'i',trigd,wgg,ifail)
-
-      ifail=0
-      call c06fqf (nlat,nlon,ininag,'i',trigi,wgg,ifail)
-
-! *** orography and dissipation terms
-      
-! *** fmu(i,1): sin(phi(i))
-! *** fmu(i,2): 1-sin**2(phi(i))      
-
-      rnorm=1.0d0/sqrt(3.0d0*nlon)
-      do i=1,nlat
-        fmu(i,1)=rnorm*pp(i,2)
-        fmu(i,2)=1.d0-fmu(i,1)**2
-        sinfi(i)=fmu(i,1)
-        phi(i)=asin(sinfi(i))
-        cosfi(i)=cos(phi(i))
-        phi(i)=180d0*phi(i)/pi
-      enddo
-      dlon=360d0/real(nlon)
-      
-! *** height of orography in meters
-      
-      do i=1,nlon
-        do j=1,nlat
-          read(13,*) agg1(J,I)
-        enddo
-      enddo
-      
-      rh0=max(0.0d0,0.001d0/h0)
-      do j=1,nlon
-        do i=1,nlat
-          agg(i,j)=fmu(i,1)*agg1(i,j)*rh0
-!          agg(i,j) = agg1(i,j)*rh0
-        enddo
-      enddo
-
-              
-! *** surface dependent friction
-
-      lgdiss=((addisl.gt.0.0).or.(addish.gt.0.0))
-
-      call ggtosp (agg,orog)
-      call ddl (orog,ws)
-      call sptogg (ws,dorodl,pp)
-      call sptogg (orog,dorodm,pd)
-
-      if (lgdiss) then
-
-        do i=1,nlon
-          do j=1,nlat
-            read(13,*) agg2(j,i)
-          enddo
-        enddo
-        
-        do j=1,nlon
-          do i=1,nlat
-            agg(i,j)=1.0d0+addisl*agg2(i,j)+ &
-     &                addish*(1.0d0-exp(-0.001d0*agg1(i,j)))
-          enddo
-        enddo
-
-        call ggtosp (agg,ws)
-        call ddl (ws,wsx)
-
-        call sptogg (ws,rdiss,pp)
-        call sptogg (wsx,ddisdx,pp)
-        call sptogg (ws,ddisdy,pd)
-
-        dd=0.5d0*diss(2,2)
-        do j=1,nlon
-          do i=1,nlat
-            ddisdx(i,j)=dd*ddisdx(i,j)/fmu(i,2)
-            ddisdy(i,j)=dd*ddisdy(i,j)*fmu(i,2)
-          enddo
-        enddo
-
-      endif
-
-! *** forcing term
-
-      do l=1,3
-        do k=1,nsh2
-          for(k,l)=0d0
-        enddo
-      enddo
- 
-      if (inf) then
-       
-        read(14,'(1e12.5)') ((for(k,l),k=1,nsh2),l=1,3)
-        
-      endif
-      
-      if (obsf) then
-              
-        call artiforc
-        
-      endif
-
-! *** input initial streamfunction
-
-      if (readstart) then
-        do l=1,3
-          do k=1,nsh2
-            read(12,*) psi(k,l)
-          enddo
-        enddo
-      else
-        do l=1,3
-          do k=1,nsh2
-            psi(k,l)=0d0
-          enddo
-        enddo
-      endif
-      
-!
-! *** Potential vorticity and streamfunction fields
-!
-
-      call psitoq
-             
-      close(11)
-      close(12)
-      close(13)
-      close(14)
-      
-      OPEN(13,FILE='qgbergT'//trim(ft)//'.grads', &
-     &        FORM='UNFORMATTED')
-      write(13) ((real(agg1(j,i)),i=1,nlon),j=1,nlat)
-      write(13) ((real(agg2(j,i)),i=1,nlon),j=1,nlat)
-      close(13)
-      open(50,file='qgbergT'//trim(ft)//'.ctl', &
-     &          form='formatted')
-        write(50,'(A)') 'dset ^qgbergT'//trim(ft)//'.grads'
-        write(50,'(A)') 'undef 9.99e+10'
-        write(50,'(A)') 'options sequential big_endian'
-        write(50,'(A)') 'title three level QG model'
-        write(50,'(A)') '*'
-        write(50,'(A,i4,A,F19.14)') &
-     &            'xdef ',nlon,' linear  0.000 ',dlon
-        write(50,'(A)') '*'
-        write(50,'(A,I4,A,1F19.14)') 'ydef ',nlat,' levels ',phi(1)
-        write(50,'(F19.14)') (phi(j),j=2,nlat)
-        write(50,'(A)') '*'
-        write(50,'(A)') 'zdef  1 levels 1000'
-        write(50,'(A)') '*'
-        write(50,'(A)') 'tdef 1 linear 1jan0001 1dy'
-        write(50,'(A)') '*'
-        write(50,'(A)') 'vars  2'
-        write(50,'(A)') 'oro    1  99 orography [m]'
-        write(50,'(A)') 'friction    1  99 friction mask'
-        write(50,'(A)') 'endvars'
-
-      close(50)
-      
-      OPEN(14,FILE='qgpvforT'//trim(ft)//'.grads', &
-     & FORM='UNFORMATTED')
-      do l=1,nvl
-        call sptogg(for(1,l),agg1,pp)
-        write(14) ((real(agg1(j,i)),i=1,nlon),j=1,nlat)
-      enddo
-      close(14)
-      
-      open(50,file='qgpvforT'//trim(ft)//'.ctl', &
-     &          form='formatted')
-        write(50,'(A)') 'dset ^qgpvforT'//trim(ft)//'.grads'
-        write(50,'(A)') 'undef 9.99e+10'
-        write(50,'(A)') 'options sequential big_endian'
-        write(50,'(A)') 'title three level QG model'
-        write(50,'(A)') '*'
-        write(50,'(A,i4,A,F19.14)') &
-     &            'xdef ',nlon,' linear  0.000 ',dlon
-        write(50,'(A)') '*'
-        write(50,'(A,I4,A,1F19.14)') 'ydef ',nlat,' levels ',phi(1)
-        write(50,'(F19.14)') (phi(j),j=2,nlat)
-        write(50,'(A)') '*'
-        write(50,'(A)') 'zdef  3 levels 800 500 200'
-        write(50,'(A)') '*'
-        write(50,'(A)') 'tdef 1 linear 1jan0001 1dy'
-        write(50,'(A)') '*'
-        write(50,'(A)') 'vars  1'
-        write(50,'(A)') 'pvfor    3  99 pv forcing field [nondim]'
-        write(50,'(A)') 'endvars'
-
-      close(50)
-      
-      return
-
-      end subroutine initqg
+  end subroutine initqg
 
 !1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
 !  (C) Copr. 1986-92 Numerical Recipes Software +.-).
@@ -600,7 +249,7 @@ contains
       
       implicit none
       INTEGER idum,IA,IM,IQ,IR,NTAB,NDIV
-      REAL*8 ran1,AM,EPS,RNMX
+      REAL(r8kind) ran1,AM,EPS,RNMX
       PARAMETER (IA=16807,IM=2147483647,AM=1./IM,IQ=127773,IR=2836, &
      & NTAB=32,NDIV=1+(IM-1)/NTAB,EPS=1.2e-7,RNMX=1.-EPS)
       INTEGER j,k,iv(NTAB),iy
@@ -639,7 +288,7 @@ contains
       
       integer ipert,i,j,l
       
-      real*8 qpgg(nlat,nlon)
+      real(r8kind) qpgg(nlat,nlon)
       
       ipert=-1
       
@@ -670,7 +319,7 @@ contains
 
 
       integer k,l,i,j
-      real*8  dum1,dum2
+      real(r8kind)  dum1,dum2
       
 ! *** advection of potential vorticity at upper level
  
@@ -720,8 +369,8 @@ contains
 
 
       integer i,j,k
-      real*8  psiloc(nsh2), pvor(nsh2), sjacob(nsh2),vv(nsh2)
-      real*8  dpsidl(nlat,nlon), dpsidm(nlat,nlon), dvordl(nlat,nlon), &
+      real(r8kind)  psiloc(nsh2), pvor(nsh2), sjacob(nsh2),vv(nsh2)
+      real(r8kind)  dpsidl(nlat,nlon), dpsidm(nlat,nlon), dvordl(nlat,nlon), &
      &        dvordm(nlat,nlon), gjacob(nlat,nlon), dpsidls(nsh2)
  
 ! *** space derivatives of potential vorticity
@@ -769,8 +418,8 @@ contains
 
 
       integer i,j,k
-      real*8  psiloc(nsh2), pvor(nsh2), sjacob(nsh2)
-      real*8  dpsidl(nlat,nlon), dpsidm(nlat,nlon), dvordl(nlat,nlon), &
+      real(r8kind)  psiloc(nsh2), pvor(nsh2), sjacob(nsh2)
+      real(r8kind)  dpsidl(nlat,nlon), dpsidm(nlat,nlon), dvordl(nlat,nlon), &
      &        dvordm(nlat,nlon), gjacob(nlat,nlon), vv(nsh2), &
      &        azeta(nlat,nlon),dpsidls(nsh2)
  
@@ -855,7 +504,7 @@ contains
 
 
       integer k
-      real*8 as(nsh,2), dadl(nsh,2)
+      real(r8kind) as(nsh,2), dadl(nsh,2)
  
       do k=1,nsh
         dadl(k,1)=-rm(k)*as(k,2)
@@ -882,7 +531,7 @@ contains
 
       
       integer i,ifail,j,k,k1,k2,m,mi,mr,nlon1
-      real*8  as(nsh,2), agg(nlat,nlon), pploc(nlat,nsh)
+      real(r8kind)  as(nsh,2), agg(nlat,nlon), pploc(nlat,nsh)
  
 ! *** inverse legendre transform
  
@@ -939,7 +588,7 @@ contains
 
 
       integer ir,ifail,j,k,k1,k2,m,mi,mr,nlon1,i
-      real*8  as(nsh,2), agg(nlat,nlon)
+      real(r8kind)  as(nsh,2), agg(nlat,nlon)
 !
 ! *** fourier transform
 !
@@ -996,7 +645,7 @@ contains
 
 
       integer k
-      real*8  r3
+      real(r8kind)  r3
 
       do k=1,nsh2
         ws(k)=qprime(k,1)+qprime(k,3)
@@ -1057,7 +706,7 @@ contains
 
 
       integer k
-      real*8  sfin(nsh2,nvl),qout(nsh2,nvl),tus(nsh2)
+      real(r8kind)  sfin(nsh2,nvl),qout(nsh2,nvl),tus(nsh2)
 
       do k=1,nsh2
         tus(k)=rl1*sfin(k,1)-rl1*sfin(k,2)
@@ -1092,7 +741,7 @@ contains
       implicit none
 
      
-      real*8  qin(nsh2,nvl),sfout(nsh2,nvl), tus(nsh2,ntl), r3
+      real(r8kind)  qin(nsh2,nvl),sfout(nsh2,nvl), tus(nsh2,ntl), r3
       integer k
 
       do k=1,nsh2
@@ -1128,7 +777,7 @@ contains
       implicit none
 
      
-      real*8  qin(nsh2,nvl),tus(nsh2,ntl), r3,sfout(nsh2,nvl)
+      real(r8kind)  qin(nsh2,nvl),tus(nsh2,ntl), r3,sfout(nsh2,nvl)
       integer k
 
       do k=1,nsh2
@@ -1189,7 +838,7 @@ contains
 
 
       integer   m,n,k,indx,l
-      real*8    y(nsh2,nvl),z(nsh2,nvl)
+      real(r8kind)    y(nsh2,nvl),z(nsh2,nvl)
 
       do l=1,nvl
         k=1
@@ -1251,7 +900,7 @@ contains
 
 
       integer   m,n,k,indx,i,l,ntr
-      real*8    y(nsh2,nvl),z(nsh2,nvl)
+      real(r8kind)    y(nsh2,nvl),z(nsh2,nvl)
 
       do l=1,nvl
         do i=1,nsh2
@@ -1290,7 +939,7 @@ contains
 
 
       integer   m,n,k,indx,l,ntr,nshntr,i
-      real*8    y(nsh2,nvl),z(nsh2,nvl),yt(nsh2,nvl)
+      real(r8kind)    y(nsh2,nvl),z(nsh2,nvl),yt(nsh2,nvl)
 
       nshntr=(ntr+1)*(ntr+2)*0.5
       
@@ -1346,9 +995,9 @@ contains
 
 
       integer  k,l,nvar
-      real*8   dt2,dt6
-      real*8   y(nsh2,nvl),dydt(nsh2,nvl),yt(nsh2,nvl)
-      real*8   dyt(nsh2,nvl),dym(nsh2,nvl)
+      real(r8kind)   dt2,dt6
+      real(r8kind)   y(nsh2,nvl),dydt(nsh2,nvl),yt(nsh2,nvl)
+      real(r8kind)   dyt(nsh2,nvl),dym(nsh2,nvl)
 
       nvar=(nm+2)*nm
       dt2=dtt*0.5d0
@@ -1397,7 +1046,7 @@ contains
       implicit none
 
 
-      real*8  y(nsh2,nvl),dydt(nsh2,nvl)
+      real(r8kind)  y(nsh2,nvl),dydt(nsh2,nvl)
 
       call fstofm(y,qprime,nm)
       call qtopsi
@@ -1424,12 +1073,12 @@ contains
 
 
       integer i,j,k,l
-      real*8  facwind,facsf,facgp,facpv
-      real*8  dpsdl(nlat,nlon),dpsdm(nlat,nlon),psik(nsh2),vv(nsh2)
-      real*8  fmu(nlat)
-      real*8  delpsis(nsh2),delpsig(nlat,nlon)
-      real*8  dmupsig(nlat,nlon),delgeog(nlat,nlon)
-      real*8  delgeos(nsh2),geos(nsh2)
+      real(r8kind)  facwind,facsf,facgp,facpv
+      real(r8kind)  dpsdl(nlat,nlon),dpsdm(nlat,nlon),psik(nsh2),vv(nsh2)
+      real(r8kind)  fmu(nlat)
+      real(r8kind)  delpsis(nsh2),delpsig(nlat,nlon)
+      real(r8kind)  dmupsig(nlat,nlon),delgeog(nlat,nlon)
+      real(r8kind)  delgeos(nsh2),geos(nsh2)
 
 
       call qtopsi      
@@ -1520,7 +1169,7 @@ contains
 
 
       integer k
-      real*8  xs(nsh2),xsl(nsh2)
+      real(r8kind)  xs(nsh2),xsl(nsh2)
 
       do k=1,nsh2
         xsl(k)=xs(k)*rinhel(k,0)
@@ -1544,7 +1193,7 @@ contains
 
 
       integer k
-      real*8  xs(nsh2),xsl(nsh2)
+      real(r8kind)  xs(nsh2),xsl(nsh2)
 
       do k=1,nsh2
         xs(k)=xsl(k)*rinhel(k,1)
@@ -1571,8 +1220,8 @@ contains
       
       integer i,j,k,l,iy,id,iday,nyb,nye,nd
       real*4 psi4(nsh2,3)
-      real*8 psim(nsh2,3),sum(nsh2,3)
-      real*8 eddf(nsh2,3),totf(nsh2,3),climf(nsh2,3),forg(nlat,nlon)
+      real(r8kind) psim(nsh2,3),sum(nsh2,3)
+      real(r8kind) eddf(nsh2,3),totf(nsh2,3),climf(nsh2,3),forg(nlat,nlon)
       
       
       open(unit=46,file='./qgmodelT42.T21',status='old', &
@@ -1737,10 +1386,10 @@ contains
 
       integer i,j,k
 
-      real*8  psiloc(nsh2), pvor(nsh2), sjacob(nsh2), vv(nsh2)
-      real*8  dpsidls(nsh2)
-      real*8  dpsidl(ngp),dpsidm(ngp),dvordl(ngp),dvordm(ngp)
-      real*8  gjacob(ngp)
+      real(r8kind)  psiloc(nsh2), pvor(nsh2), sjacob(nsh2), vv(nsh2)
+      real(r8kind)  dpsidls(nsh2)
+      real(r8kind)  dpsidl(ngp),dpsidm(ngp),dvordl(ngp),dvordm(ngp)
+      real(r8kind)  gjacob(ngp)
 
 
 ! *** space derivatives of potential vorticity
@@ -1782,7 +1431,7 @@ contains
       
       integer i,j,k,l,iday,fl,nvar
       real*4 psi4(nsh2,3)
-      real*8 sum(nsh2,3),forg(nlat,nlon),dlon,psifs(nsh2,3)
+      real(r8kind) sum(nsh2,3),forg(nlat,nlon),dlon,psifs(nsh2,3)
       
       nvar=(nm+2)*nm
 
@@ -1906,7 +1555,7 @@ contains
 
       integer i,j,k,nyb,nye,npw,iy,id,l,iday,irec,nsh2ntr
 
-      real*8  psiloc(nsh2,3),psiT21(nsh2,3)
+      real(r8kind)  psiloc(nsh2,3),psiT21(nsh2,3)
       real*4  psi4(nsh2,3),psig4(nlat,nlon,nvl),scalesf
       character*4 fy
       
@@ -1972,7 +1621,7 @@ contains
 
       integer istep,i,j,k,nout
 
-      real*8  psiloc(nsh2), pvor(nsh2), sjacob(nsh2),dlon
+      real(r8kind)  psiloc(nsh2), pvor(nsh2), sjacob(nsh2),dlon
       real*4  psi4(nsh2,3)
       
       nout=nday*nstepsperday/nstepsbetweenoutput+1
@@ -2031,7 +1680,7 @@ contains
 
       integer istep,i,j,k,nout
 
-      real*8  psiloc(nsh2), pvor(nsh2), sjacob(nsh2), dlon
+      real(r8kind)  psiloc(nsh2), pvor(nsh2), sjacob(nsh2), dlon
       real*4  psi4(nsh2,3)
       
       nout=nday*nstepsperday/nstepsbetweenoutput+1
@@ -2104,7 +1753,7 @@ contains
 
 
       integer istep,k,l,nsh2ntr
-      real*8  psiT21(nsh2,nvl),y(nsh2,nvl)
+      real(r8kind)  psiT21(nsh2,nvl),y(nsh2,nvl)
 
       nsh2ntr=22*23
       if (istep.eq.0) then

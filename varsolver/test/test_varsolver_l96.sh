@@ -2,10 +2,10 @@
 
 # Load required modules
 module purge
-#module load intel/16.1.150
-#module load netcdf/4.3.0
-module load pgi/16.10
-module load netcdf/4.4.0
+module load intel/16.1.150
+module load netcdf/4.3.0
+#module load pgi/16.10
+#module load netcdf/4.4.0
 module load nccmp
 
 # Set paths for GPTL and tools

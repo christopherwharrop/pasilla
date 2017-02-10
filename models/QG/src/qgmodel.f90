@@ -175,16 +175,16 @@ contains
 
     integer :: resolution
     integer i,j,k1,k2,k,l,m,n,ifail,ii,jj,i1,j1,nn
-    real(r8kind)  pigr4,dis,dif,rll
-    real(r8kind), allocatable :: ininag(:,:)
-    real(r8kind)  r1,a,b,c,d,e,sqn,rsqn
-    real(r8kind)  rnorm,rh0,dd,dlon
-    real(r8kind), allocatable :: agg(:,:), agg1(:,:), agg2(:,:)
-    real(r8kind), allocatable :: fmu(:,:), wsx(:)
+    real*8  pigr4,dis,dif,rll
+    real*8, allocatable :: ininag(:,:)
+    real*8  r1,a,b,c,d,e,sqn,rsqn
+    real*8  rnorm,rh0,dd,dlon
+    real*8, allocatable :: agg(:,:), agg1(:,:), agg2(:,:) 
+    real*8, allocatable :: fmu(:,:), wsx(:)
 
     namelist /param/ tdis,addisl,addish,trel,tdif,idif,h0,rrdef1,rrdef2
     namelist /control/resolution,nstepsperday,nstepsbetweenoutput, &
-                    & ndayskip,nday,obsfile,expid,inf,obsf,readstart
+   &                  ndayskip,nday,obsfile,expid,inf,obsf,readstart
 
     rootdirl=index(rootdir,' ')-1
 
@@ -239,9 +239,298 @@ contains
       read(11,*) ll(i)
     enddo
 
+    pi=4d0*atan(1d0)
+    radius=6.37e+6 
+    om=4d0*pi/(24d0*3600d0)
+
+    pigr4=4.d0*pi
+    rl1=1.0d0/rrdef1**2
+    rl2=1.0d0/rrdef2**2
+    relt1=max(0.0d0,rl1/(trel*pigr4))
+    relt2=max(0.0d0,rl2/(trel*pigr4))
+    dis=max(0.0d0,1.0d0/(tdis*pigr4))
+    rll=dble(ll(nsh))
+    dif=max(0.0d0,1.0d0/(tdif*pigr4*(rll*(rll+1))**idif))
+
+    ! time step of the model: 
+    ! dt    : fraction of one day
+    ! dtime : in seconds
+    ! dtt   : dimensionless
+    dt     = 1d0/real(nstepsperday)
+    dtime  = dt*(24d0*3600d0)
+    dtt    = dt*pi*4d0
+
+    ! zonal derivative operator
+    k2=0
+    do m=0,nm
+      k1=k2+1
+      k2=k2+nshm(m)
+      do k=k1,k2
+        rm(k)=dble(m)
+      enddo
+    enddo
+
+    ! laplace/helmholtz direct and inverse operators
+
+    do j=0,5
+      rinhel(1,j)=0.0d0
+    enddo
+
+    diss(1,1)=0.0d0
+    diss(1,2)=0.0d0
+
+    do k=2,nsh
+      r1=dble(ll(k)*(ll(k)+1))
+      a=-r1-3.0d0*rl1
+      b=-r1-3.0d0*rl2
+      c=-r1-rl1
+      d=-r1-rl2
+      e=a*d+b*c
+      rinhel(k,0)=-r1
+      rinhel(k,1)=-1.0d0/r1
+      rinhel(k,2)= d/e
+      rinhel(k,3)= b/e
+      rinhel(k,4)=-c/e
+      rinhel(k,5)= a/e
+      diss(k,2)=dis*r1
+      diss(k,1)=-dif*r1**idif
+    enddo
+
+    do j=0,5
+      do k=1,nsh
+        rinhel(k+nsh,j)=rinhel(k,j)
+      enddo
+    enddo
+
+    do j=1,2
+      do k=1,nsh
+        diss(k+nsh,j)=diss(k,j)
+      enddo
+    enddo
+
+    ! legendre associated functions and derivatives
+
+    do k=1,nsh
+      do j=1,nlat
+        read(11,*) pp(j,k)
+      enddo
+    enddo
+    do k=1,nsh
+      do j=1,nlat
+        read(11,*) pd(j,k)
+      enddo
+    enddo
+    do k=1,nsh
+      do j=1,nlat
+        read(11,*) pw(j,k)
+      enddo
+    enddo
+
+    ! compensation for normalization in nag fft routines
+
+    sqn=sqrt(dble(nlon))
+    rsqn=1d0/sqn
+    do k=1,nsh
+      do i=1,nlat
+        pp(i,k)=pp(i,k)*sqn
+        pd(i,k)=pd(i,k)*sqn
+        pw(i,k)=pw(i,k)*rsqn
+      enddo
+    enddo
+
+    ! initialization of coefficients for fft
+
+    do j=1,nlon
+      do i=1,nlat
+        ininag(i,j)=1.0d0
+      enddo
+    enddo 
+
+    ifail=0
+    call c06fpf (nlat,nlon,ininag,'i',trigd,wgg,ifail)
+
+    ifail=0
+    call c06fqf (nlat,nlon,ininag,'i',trigi,wgg,ifail)
+
+    ! orography and dissipation terms
+    ! fmu(i,1): sin(phi(i))
+    ! fmu(i,2): 1-sin**2(phi(i))      
+
+    rnorm=1.0d0/sqrt(3.0d0*nlon)
+    do i=1,nlat
+      fmu(i,1)=rnorm*pp(i,2)
+      fmu(i,2)=1.d0-fmu(i,1)**2
+      sinfi(i)=fmu(i,1)
+      phi(i)=asin(sinfi(i))
+      cosfi(i)=cos(phi(i))
+      phi(i)=180d0*phi(i)/pi
+    enddo
+    dlon=360d0/real(nlon)
+
+    ! height of orography in meters
+
+    do i=1,nlon
+      do j=1,nlat
+        read(13,*) agg1(J,I)
+      enddo
+    enddo
+
+    rh0=max(0.0d0,0.001d0/h0)
+    do j=1,nlon
+      do i=1,nlat
+        agg(i,j)=fmu(i,1)*agg1(i,j)*rh0
+    !      agg(i,j) = agg1(i,j)*rh0
+      enddo
+    enddo
+
+    ! surface dependent friction
+
+    lgdiss=((addisl.gt.0.0).or.(addish.gt.0.0))
+
+    call ggtosp (agg,orog)
+    call ddl (orog,ws)
+    call sptogg (ws,dorodl,pp)
+    call sptogg (orog,dorodm,pd)
+
+    if (lgdiss) then
+
+      do i=1,nlon
+        do j=1,nlat
+          read(13,*) agg2(j,i)
+        enddo
+      enddo
+
+      do j=1,nlon
+        do i=1,nlat
+          agg(i,j)=1.0d0+addisl*agg2(i,j)+ &
+   &                addish*(1.0d0-exp(-0.001d0*agg1(i,j)))
+        enddo
+      enddo
+
+      call ggtosp (agg,ws)
+      call ddl (ws,wsx)
+
+      call sptogg (ws,rdiss,pp)
+      call sptogg (wsx,ddisdx,pp)
+      call sptogg (ws,ddisdy,pd)
+
+      dd=0.5d0*diss(2,2)
+      do j=1,nlon
+        do i=1,nlat
+          ddisdx(i,j)=dd*ddisdx(i,j)/fmu(i,2)
+          ddisdy(i,j)=dd*ddisdy(i,j)*fmu(i,2)
+        enddo
+      enddo
+
+    endif
+
+    ! forcing term
+
+    do l=1,3
+      do k=1,nsh2
+        for(k,l)=0d0
+      enddo
+    enddo
+
+    if (inf) then
+
+      read(14,'(1e12.5)') ((for(k,l),k=1,nsh2),l=1,3)
+
+    endif
+
+    if (obsf) then
+      call artiforc
+    endif
+
+    ! input initial streamfunction
+
+    if (readstart) then
+      do l=1,3
+        do k=1,nsh2
+          read(12,*) psi(k,l)
+        enddo
+      enddo
+    else
+      do l=1,3
+        do k=1,nsh2
+          psi(k,l)=0d0
+        enddo
+      enddo
+    endif
+
+    ! Potential vorticity and streamfunction fields
+
+    call psitoq
+
+    close(11)
+    close(12)
+    close(13)
+    close(14)
+
+    OPEN(13,FILE='qgbergT'//trim(ft)//'.grads', &
+   &        FORM='UNFORMATTED')
+    write(13) ((real(agg1(j,i)),i=1,nlon),j=1,nlat)
+    write(13) ((real(agg2(j,i)),i=1,nlon),j=1,nlat)
+    close(13)
+    open(50,file='qgbergT'//trim(ft)//'.ctl', &
+   &          form='formatted')
+    write(50,'(A)') 'dset ^qgbergT'//trim(ft)//'.grads'
+    write(50,'(A)') 'undef 9.99e+10'
+    write(50,'(A)') 'options sequential big_endian'
+    write(50,'(A)') 'title three level QG model'
+    write(50,'(A)') '*'
+    write(50,'(A,i4,A,F19.14)') &
+ &            'xdef ',nlon,' linear  0.000 ',dlon
+    write(50,'(A)') '*'
+    write(50,'(A,I4,A,1F19.14)') 'ydef ',nlat,' levels ',phi(1)
+    write(50,'(F19.14)') (phi(j),j=2,nlat)
+    write(50,'(A)') '*'
+    write(50,'(A)') 'zdef  1 levels 1000'
+    write(50,'(A)') '*'
+    write(50,'(A)') 'tdef 1 linear 1jan0001 1dy'
+    write(50,'(A)') '*'
+    write(50,'(A)') 'vars  2'
+    write(50,'(A)') 'oro    1  99 orography [m]'
+    write(50,'(A)') 'friction    1  99 friction mask'
+    write(50,'(A)') 'endvars'
+
+    close(50)
+
+    OPEN(14,FILE='qgpvforT'//trim(ft)//'.grads', &
+   & FORM='UNFORMATTED')
+    do l=1,nvl
+      call sptogg(for(1,l),agg1,pp)
+      write(14) ((real(agg1(j,i)),i=1,nlon),j=1,nlat)
+    enddo
+    close(14)
+
+    open(50,file='qgpvforT'//trim(ft)//'.ctl', &
+   &          form='formatted')
+    write(50,'(A)') 'dset ^qgpvforT'//trim(ft)//'.grads'
+    write(50,'(A)') 'undef 9.99e+10'
+    write(50,'(A)') 'options sequential big_endian'
+    write(50,'(A)') 'title three level QG model'
+    write(50,'(A)') '*'
+    write(50,'(A,i4,A,F19.14)') &
+   &            'xdef ',nlon,' linear  0.000 ',dlon
+    write(50,'(A)') '*'
+    write(50,'(A,I4,A,1F19.14)') 'ydef ',nlat,' levels ',phi(1)
+    write(50,'(F19.14)') (phi(j),j=2,nlat)
+    write(50,'(A)') '*'
+    write(50,'(A)') 'zdef  3 levels 800 500 200'
+    write(50,'(A)') '*'
+    write(50,'(A)') 'tdef 1 linear 1jan0001 1dy'
+    write(50,'(A)') '*'
+    write(50,'(A)') 'vars  1'
+    write(50,'(A)') 'pvfor    3  99 pv forcing field [nondim]'
+    write(50,'(A)') 'endvars'
+
+    close(50)
+
     return
 
   end subroutine initqg
+
 
 !1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
 !  (C) Copr. 1986-92 Numerical Recipes Software +.-).

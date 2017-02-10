@@ -22,6 +22,7 @@
 !       well as the nstepsperday
 
 &control
+resolution = 21,
 expid = 'foo',
 inf = .false.,
 obsf = .true.,

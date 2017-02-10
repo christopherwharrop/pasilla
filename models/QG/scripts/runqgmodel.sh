@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 
 # this script produces a main fortran program that links with the ../src/qgmodel.F routines
 # to calculate the forcing from a datafile with observations (given by obsfile)
@@ -13,15 +13,12 @@
 # expid identifies the directory where the output of the run will be stored
 # obsfile is the datafile with observations used to calculate the forcing from
 
+module load intel/16.1.150
+module load netcdf
+
 resol="21"
-## compiler='gfortran'
-## fflags="-O2 -ffixed-line-length-none -fconvert=big-endian"
-compiler=ifort
-GPTLFLAGS='-I/contrib/gptl/gptl-v5.5_nompi_noomp/include -L/contrib/gptl/gptl-v5.5_nompi_noomp/lib -lgptl'
-fflags='-extend_source 132 -g -traceback -O2 -convert big_endian -finstrument-functions'
-## qgdir="/Users/seltini/Werk/qgmodel42"
-#qgdir="/scratch3/BMC/gsd-hpcs/Brian.Etherton/superQG/"
-qgdir="/scratch4/BMC/gsd-hpcs/Christopher.W.Harrop/pasilla.dev/models/QG"
+
+qgdir="/scratch4/BMC/gsd-hpcs/Christopher.W.Harrop/pasilla.top/models/QG"
 parmdir="${qgdir}/parm"
 outdir="${qgdir}/outputdata"
 expid='harr'
@@ -29,24 +26,6 @@ rundir="${qgdir}/rundir/run${expid}"
 obsfile="sf7910T106.shfs"
 
 plot=0
-
-if [ ${plot} == 0 ]; then
-
-
-if [ -e ${outdir}/$expid ]; then
-  echo "${outdir}/$expid already exists" 
-  read -p "Are you sure to continue ? [YN]" -n 1 -r
-  echo 
-  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    exit 1
-  fi
-fi
-
-
-# Make sure obs file exists.
-if [ ! -e ${qgdir}/inputdata/$obsfile ]; then
-  echo "${qgdir}/inputdata/$obsfile does not exist" ; exit 1
-fi
 
 # Create an empty output directory
 mkdir -p "${outdir}/$expid"
@@ -58,11 +37,21 @@ mkdir -p ${rundir}
 cd ${rundir}
 
 # Copy the inputdata into place
-#cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/* ${qgdir}/inputdata/
-cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/* .
+cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/${obsfile} .
+cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/qgcoefT${resol}.dat .
+cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/qgbergT${resol}.dat .
+cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/qgstartT${resol}.dat .
+
+# Make sure obs file exists.
+if [ ! -e $obsfile ]; then
+  echo "${qgdir}/inputdata/$obsfile does not exist" ; exit 1
+fi
 
 # Copy the namelist into the run directory
 cp ${parmdir}/namelist namelist.input
+
+# Set the resolution in the namelist
+sed -i "s/resolution = [[:digit:]]*/resolution = ${resol}/" namelist.input
 
 # Set the experiment id in the namelist
 sed -i "s/expid = '.*'/expid = \'${expid}\'/" namelist.input
@@ -70,125 +59,11 @@ sed -i "s/expid = '.*'/expid = \'${expid}\'/" namelist.input
 # Set the obs file in the namelist
 sed -i "s/obsfile = '.*'/obsfile = \'${obsfile}\'/" namelist.input
 
-# Write header file 
-cat > truncation.h <<==
-c *** PARAMETERS
-c     nm  :   the truncation is of type T(riangular) nm. 
-c     nlon:   number of longitude points of the Gaussian grid
-c     nlat:   number of latitude  points of the Gaussian grid
-c     nvl :   number of vorticity levels in the vertical 
-c             (should be set to 3)
-c     ntl :   number of temperature levels in the vertical 
-c             (equal to nvl-1)
-c     nsh :   half of nsh2
-c     nsh2:   number of coefficients needed to define one level of the 
-c             T nm model
-c     ngp:    number of grid points of the Gaussian grid
-c 
-      integer nm,nlon,nlat,nvl,ntl,nsh,nsh2,ngp
-==
+# Copy the executable to the run directory
+cp ${qgdir}/exe/QG.exe .
 
-# https://climatedataguide.ucar.edu/climate-model-evaluation/common-spectral-model-grid-resolutions
-# if [ $resol == 85 ]; then
-# cat >> truncation.h <<==
-#       character*2 ft
-#       parameter ( nm=85, nlon=256, nlat=128, nvl=3, ntl=nvl-1, ft="85")
-#       parameter ( nsh=((nm+1)*(nm+2))/2, nsh2=2*nsh, ngp=nlon*nlat)
-# ==
-# fi
-
-if [ $resol == 106 ]; then
-cat >> truncation.h <<==
-      character*3 ft
-      parameter ( nm=106,nlon=320,nlat=160,nvl=3,ntl=nvl-1,ft="106")
-      parameter ( nsh=((nm+1)*(nm+2))/2, nsh2=2*nsh, ngp=nlon*nlat)
-==
-fi
-
-if [ $resol == 63 ]; then
-cat >> truncation.h <<==
-      character*2 ft
-      parameter ( nm=63, nlon=192, nlat=96, nvl=3, ntl=nvl-1, ft="63")
-      parameter ( nsh=((nm+1)*(nm+2))/2, nsh2=2*nsh, ngp=nlon*nlat)
-==
-fi
-
-if [ $resol == 42 ]; then
-cat >> truncation.h <<==
-      character*2 ft
-      parameter ( nm=42, nlon=128, nlat=64, nvl=3, ntl=nvl-1, ft="42")
-      parameter ( nsh=((nm+1)*(nm+2))/2, nsh2=2*nsh, ngp=nlon*nlat)
-==
-fi
-
-if [ $resol == 21 ]; then
-cat >> truncation.h <<==
-      character*2 ft
-      parameter ( nm=21, nlon=64, nlat=32, nvl=3, ntl=nvl-1, ft="21")
-      parameter ( nsh=((nm+1)*(nm+2))/2, nsh2=2*nsh, ngp=nlon*nlat)
-==
-fi
-
-cp ${qgdir}/src/comqg.h .
-cp ${qgdir}/src/qgmodel.F .
-cp ${qgdir}/src/nag.f .
-
-cat > runqgmodel.F <<==
-c23456789012345678901234567890123456789012345678901234567890123456789012
-      program runqgmodel
-c-----------------------------------------------------------------------
-c *** integrates the qgmodel with parameters from inputdata/namelist
-c-----------------------------------------------------------------------
-      implicit none
-      
-#include "truncation.h"
-#include "comqg.h"
-      
-      integer istep,nstep
-      
-      rootdir="${qgdir}"
-			
-      call initqg
-      write(*,*) 'Experiment ',expid
-      write(*,*) 
-      write(*,*) 'Integrating transient days: ',ndayskip
-      
-      nstep=ndayskip/dt
-			
-      do istep=1,nstep
-        call forward
-      enddo
-			
-      write(*,*) 'Integrating trajectory of days: ',nday
-      
-      istep=0
-      nstep=nday/dt
-      
-c     call diagsf(istep)
-      call diag(istep)
-			
-      do istep=1,nstep
-        call forward
-c       call diagsf(istep)
-        call diag(istep)
-      enddo
-			
-      call writestate
- 
-c     return
-      end
-==
-
-$compiler $fflags -c  qgmodel.F -o qgmodel.o
-$compiler $fflags -c  nag.f -o nag.o
-
-$compiler $fflags -I${qgdir}/src -o runqgmodel runqgmodel.F qgmodel.o nag.o $GPTLFLAGS
-
-./runqgmodel 
-
-rm *.o runqgmodel.F runqgmodel
-fi
-
+# Run the model
+./QG.exe
 
 cd ${outdir}/$expid
 

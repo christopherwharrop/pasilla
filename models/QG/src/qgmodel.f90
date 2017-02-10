@@ -384,8 +384,7 @@ contains
       enddo
       do j = 1, nlon
         do i = 1, nlat
-          agg(i, j) = 1.0d0 + addisl * agg2(i, j) +  &
-   &                addish * (1.0d0 - exp(-0.001d0 * agg1(i, j)))
+          agg(i, j) = 1.0d0 + addisl * agg2(i, j) + addish * (1.0d0 - exp(-0.001d0 * agg1(i, j)))
         enddo
       enddo
       call ggtosp (agg, ws)
@@ -439,20 +438,17 @@ contains
     close(13)
     close(14)
 
-    open(13, file = 'qgbergT' // trim(ft) // '.grads',  &
-   &        form = 'unformatted')
+    open(13, file = 'qgbergT' // trim(ft) // '.grads', form = 'unformatted')
     write(13) ((real(agg1(j, i)), i = 1, nlon), j = 1, nlat)
     write(13) ((real(agg2(j, i)), i = 1, nlon), j = 1, nlat)
     close(13)
-    open(50, file = 'qgbergT' // trim(ft) // '.ctl',  &
-   &          form = 'formatted')
+    open(50, file = 'qgbergT' // trim(ft) // '.ctl', form = 'formatted')
     write(50, '(A)') 'dset ^qgbergT' // trim(ft) // '.grads'
     write(50, '(A)') 'undef 9.99e+10'
     write(50, '(A)') 'options sequential big_endian'
     write(50, '(A)') 'title three level QG model'
     write(50, '(A)') '*'
-    write(50, '(A, i4, A, F19.14)') &
- &            'xdef ', nlon, ' linear  0.000 ', dlon
+    write(50, '(A, i4, A, F19.14)') 'xdef ', nlon, ' linear  0.000 ', dlon
     write(50, '(A)') '*'
     write(50, '(A, I4, A, 1F19.14)') 'ydef ', nlat, ' levels ', phi(1)
     write(50, '(F19.14)') (phi(j), j = 2, nlat)
@@ -468,23 +464,20 @@ contains
 
     close(50)
 
-    open(14, file = 'qgpvforT' // trim(ft) // '.grads',  &
-   & form = 'unformatted')
+    open(14, file = 'qgpvforT' // trim(ft) // '.grads', form = 'unformatted')
     do l = 1, nvl
       call sptogg(for(1, l), agg1, pp)
       write(14) ((real(agg1(j, i)), i = 1, nlon), j = 1, nlat)
     enddo
     close(14)
 
-    open(50, file = 'qgpvforT' // trim(ft) // '.ctl',  &
-   &          form = 'formatted')
+    open(50, file = 'qgpvforT' // trim(ft) // '.ctl', form = 'formatted')
     write(50, '(A)') 'dset ^qgpvforT' // trim(ft) // '.grads'
     write(50, '(A)') 'undef 9.99e+10'
     write(50, '(A)') 'options sequential big_endian'
     write(50, '(A)') 'title three level QG model'
     write(50, '(A)') '*'
-    write(50, '(A, i4, A, F19.14)') &
-   &            'xdef ', nlon, ' linear  0.000 ', dlon
+    write(50, '(A, i4, A, F19.14)') 'xdef ', nlon, ' linear  0.000 ', dlon
     write(50, '(A)') '*'
     write(50, '(A, I4, A, 1F19.14)') 'ydef ', nlat, ' levels ', phi(1)
     write(50, '(F19.14)') (phi(j), j = 2, nlat)

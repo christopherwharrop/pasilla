@@ -9,6 +9,8 @@
 
 module load intel/16.1.150
 module load netcdf
+#module load pgi/16.10
+#module load netcdf/4.4.0
 
 # Set the resolution of the run
 resol="21"

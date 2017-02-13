@@ -1623,7 +1623,7 @@ contains
 
  10 continue
     do l = 1, nvl
-      read(46, end = 20)(psi4(k, nvl - l + 1), k = 1, nvar)
+      read(46, end = 20) (psi4(k, nvl - l + 1), k = 1, nvar)
     enddo
 
     iday = iday + 1
@@ -1635,7 +1635,7 @@ contains
     call fstofm(psifs, psi, nm)
     do l = nvl, 1, -1
       call sptogg(psi(1, l), forg, pp)
-      write(99)((real(forg(j, i)), i = 1, nlon), j = 1, nlat)
+      write(99) ((real(forg(j, i)), i = 1, nlon), j = 1, nlat)
     enddo
     call psitoq
     call ddt

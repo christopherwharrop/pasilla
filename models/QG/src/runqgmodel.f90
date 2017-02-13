@@ -8,8 +8,6 @@ program runqgmodel
 
   call initqg
 
-  write(*,*) 'Experiment ', expid
-  write(*,*) 
   write(*,*) 'Integrating transient days: ', ndayskip
 
   nstep = ndayskip / dt

@@ -1,4 +1,3 @@
-! expid               = Four digit number used to specify the outputdata directory
 ! inf                 = Logical if true then the forcing is read from file inputdata/qgpvforT??.dat
 ! obsf                = Logical if true then the forcing is calculated from obsfile
 ! readstart           = Logical if true initial state is read from qgstartT??.dat else state of rest
@@ -23,7 +22,6 @@
 
 &control
 resolution = 21,
-expid = 'foo',
 inf = .false.,
 obsf = .true.,
 readstart=.true.,

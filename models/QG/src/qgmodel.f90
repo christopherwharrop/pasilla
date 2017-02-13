@@ -20,7 +20,6 @@ module QG
 
 
   ! Model runtime parameters
-  character(len=4)   :: expid    ! Character string with experiment identifier used to create the outputdata data directory 
   character(len=32)  :: obsfile  ! Name of observation file
   character(len=256) :: rootdir  ! Path of qgmodel directory
   integer :: nstepsperday
@@ -184,7 +183,7 @@ contains
 
     namelist /param/ tdis, addisl, addish, trel, tdif, idif, h0, rrdef1, rrdef2
     namelist /control/resolution, nstepsperday, nstepsbetweenoutput, &
-   &                  ndayskip, nday, obsfile, expid, inf, obsf, readstart
+   &                  ndayskip, nday, obsfile, inf, obsf, readstart
 
     rootdirl = index(rootdir, ' ') - 1
 
@@ -192,7 +191,7 @@ contains
     inf = .false.
     obsf = .false.
     readstart = .false.
-    expid = "0000"
+
     nstepsperday = 36
     nstepsbetweenoutput = 36
     ndayskip = 0
@@ -1778,7 +1777,7 @@ contains
       write(52, '(A)') 'dset ^qgmodelsfT' // trim(ft) // '.grads'
       write(52, '(A)') 'undef 9.99e+10'
       write(52, '(A)') 'options sequential big_endian'
-      write(52, '(A)') 'title T' // trim(ft) // ' QG model exp ' // expid
+      write(52, '(A)') 'title T' // trim(ft)
       write(52, '(A)') '*'
       write(52, '(A, I6, A, F19.14)') 'xdef ', nlon, ' linear  0.000 ', dlon
       write(52, '(A)') '*'
@@ -1827,7 +1826,7 @@ contains
       write(50, '(A)') 'dset ^qgmodelT' // trim(ft) // '.grads'
       write(50, '(A)') 'undef 9.99e+10'
       write(50, '(A)') 'options sequential big_endian'
-      write(50, '(A)') 'title T' // trim(ft) // ' QG model exp ' // expid
+      write(50, '(A)') 'title T' // trim(ft)
       write(50, '(A)') '*'
       write(50, '(A, i4, A, F19.14)') 'xdef ', nlon, ' linear  0.000 ', dlon
       write(50, '(A)') '*'
@@ -1873,7 +1872,7 @@ contains
       
 
   !-----------------------------------------------------------------------
-  ! output T21 truncated data to an ascci outputfile that can be
+  ! output T21 truncated data to an ascii outputfile that can be
   ! read by artiforc
   !-----------------------------------------------------------------------
   subroutine outputT21(istep)
@@ -1885,7 +1884,7 @@ contains
 
     nsh2ntr = 22 * 23
     if (istep .eq. 0) then
-      open(51, file = 'qgmodelT42.' // expid // '.T21.dat', form = 'formatted')
+      open(51, file = 'qgmodelT42' // '.T21.dat', form = 'formatted')
     endif
 
     if (mod(istep, nstepsbetweenoutput) .eq. 0) then

@@ -13,17 +13,14 @@ module load netcdf
 # Set the resolution of the run
 resol="21"
 
+# Set the experiment id
+expid='harrop'
+
 # Set base paths
 qgdir="/scratch4/BMC/gsd-hpcs/Christopher.W.Harrop/pasilla.top/models/QG"
 parmdir="${qgdir}/parm"
-outdir="${qgdir}/outputdata"
-expid='harr'
-rundir="${qgdir}/rundir/run${expid}"
+rundir="${qgdir}/run/${expid}"
 obsfile="sf7910T106.shfs"
-
-# Create an empty output directory
-mkdir -p "${outdir}/$expid"
-rm -f ${outdir}/$expid/*
 
 # Create an empty run directory and cd into it
 rm -rf ${rundir}
@@ -46,9 +43,6 @@ cp ${parmdir}/namelist namelist.input
 
 # Set the resolution in the namelist
 sed -i "s/resolution = [[:digit:]]*/resolution = ${resol}/" namelist.input
-
-# Set the experiment id in the namelist
-sed -i "s/expid = '.*'/expid = \'${expid}\'/" namelist.input
 
 # Set the obs file in the namelist
 sed -i "s/obsfile = '.*'/obsfile = \'${obsfile}\'/" namelist.input

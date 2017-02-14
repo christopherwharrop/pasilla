@@ -106,7 +106,7 @@ contains
   !-------------------------------------------------------------------------------
   subroutine allocate_comqg(resolution)
 
-    integer :: resolution
+    integer, intent(in) :: resolution
 
     select case (resolution)
 
@@ -556,11 +556,11 @@ contains
 
     implicit none
 
-    integer :: i, j, k
     real(r8kind), intent( in) :: psiloc(nsh2)
     real(r8kind), intent( in) :: pvor(nsh2)
     real(r8kind), intent(out) :: sjacob(nsh2)
 
+    integer      :: i, j, k
     real(r8kind) :: vv(nsh2)
     real(r8kind) :: dpsidl(nlat, nlon),  dpsidm(nlat, nlon),  dvordl(nlat, nlon)
     real(r8kind) :: dvordm(nlat, nlon),  gjacob(nlat, nlon),  dpsidls(nsh2)
@@ -603,8 +603,11 @@ contains
 
     implicit none
 
-    integer :: i, j, k
-    real(r8kind) :: psiloc(nsh2),  pvor(nsh2),  sjacob(nsh2)
+    real(r8kind), intent( in) :: psiloc(nsh2)
+    real(r8kind), intent( in) :: pvor(nsh2)
+    real(r8kind), intent(out) :: sjacob(nsh2)
+
+    integer      :: i, j, k
     real(r8kind) :: dpsidl(nlat, nlon),  dpsidm(nlat, nlon),  dvordl(nlat, nlon)
     real(r8kind) :: dvordm(nlat, nlon),  gjacob(nlat, nlon),  vv(nsh2)
     real(r8kind) :: azeta(nlat, nlon), dpsidls(nsh2)
@@ -1002,8 +1005,10 @@ contains
 
     implicit none
 
+    real(r8kind), intent( in) :: y(nsh2, nvl)
+    real(r8kind), intent(out) :: z(nsh2, nvl)
+
     integer ::  m, n, k, indx, l
-    real(r8kind) :: y(nsh2, nvl), z(nsh2, nvl)
 
     do l = 1, nvl
       k = 1
@@ -1102,8 +1107,12 @@ contains
 
     implicit none
 
-    integer :: m, n, k, indx, l, ntr, nshntr, i
-    real(r8kind) :: y(nsh2, nvl), z(nsh2, nvl), yt(nsh2, nvl)
+    real(r8kind), intent( in) :: y(nsh2, nvl)
+    real(r8kind), intent(out) :: yt(nsh2, nvl)
+    integer,      intent( in) :: ntr
+
+    integer :: m, n, k, indx, l, nshntr, i
+    real(r8kind) :: z(nsh2, nvl)
 
     nshntr = (ntr + 1) * (ntr + 2) * 0.5
 

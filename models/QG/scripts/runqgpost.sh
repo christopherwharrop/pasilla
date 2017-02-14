@@ -4,11 +4,17 @@
 
 module load grads
 
+# Set the resolution and experiment id
 resol="21"
 expid='harrop'
 
-qgdir="/scratch4/BMC/gsd-hpcs/Christopher.W.Harrop/pasilla.top/models/QG"
+# Set the path to the QG model install - DO NOT CHANGE THIS LINE
+qgdir=$(dirname $(dirname $(readlink -m $0) ))
+
+# Set the path to the run directory
 rundir="${qgdir}/run/${expid}"
+
+# Set the name of the obs file to use - This must always be the T106 file (for now).
 obsfile="sf7910T106.shfs"
 
 # cd into the run directory

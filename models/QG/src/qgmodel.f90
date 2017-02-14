@@ -200,12 +200,12 @@ contains
     tdis = 3.0
     addisl = 0.5
     addish = 0.5
-    trel = 25.
+    trel = 25.0
     tdif = 3.0
     idif = 4
-    h0 = 3.
-    rrdef1 = .110
-    rrdef2 = .070
+    h0 = 3.0
+    rrdef1 = 0.110
+    rrdef2 = 0.070
 
     ! Read innput namelist parameters
     open(15, file = 'namelist.input', status = 'old', form = 'formatted')
@@ -226,13 +226,6 @@ contains
     allocate(ininag(nlat, nlon))
     allocate(agg(nlat, nlon), agg1(nlat, nlon), agg2(nlat, nlon))
     allocate(fmu(nlat, 2), wsx(nsh2))
-
-
-    open(12, file = './qgstartT' // trim(ft) // '.dat', form = 'formatted')
-    open(13, file = './qgbergT' // trim(ft) // '.dat', form = 'formatted')
-    if (inf) then
-      open(14, file = './qgpvforT' // trim(ft) // '.dat', form = 'formatted')
-    endif
 
     ! Read model input from qgcoefT*
     open(11, file = './qgcoefT' // trim(ft) // '.dat', form = 'formatted')
@@ -258,6 +251,14 @@ contains
       enddo
     enddo
     close(11)
+
+    ! Read initial streamfunction
+    open(12, file = './qgstartT' // trim(ft) // '.dat', form = 'formatted')
+    open(13, file = './qgbergT' // trim(ft) // '.dat', form = 'formatted')
+    if (inf) then
+      open(14, file = './qgpvforT' // trim(ft) // '.dat', form = 'formatted')
+    endif
+
 
     pi = 4d0 * atan(1d0)
     radius = 6.37e+6 
@@ -419,7 +420,6 @@ contains
       call artiforc
     endif
 
-    ! input initial streamfunction
     if (readstart) then
       do l = 1, 3
         do k = 1, nsh2
@@ -433,12 +433,11 @@ contains
         enddo
       enddo
     endif
+    close(12)
 
     ! Potential vorticity and streamfunction fields
     call psitoq
 
-    close(11)
-    close(12)
     close(13)
     close(14)
 
@@ -673,8 +672,10 @@ contains
       
     implicit none
 
+    real(r8kind), intent( in) :: as(nsh, 2)
+    real(r8kind), intent(out) :: dadl(nsh, 2)
+
     integer :: k
-    real(r8kind) :: as(nsh, 2),  dadl(nsh, 2)
  
     do k = 1, nsh
       dadl(k, 1) = -rm(k) * as(k, 2)
@@ -697,8 +698,11 @@ contains
 
     implicit none
 
+    real(r8kind), intent( in) :: as(nsh, 2)
+    real(r8kind), intent(out) :: agg(nlat, nlon)
+    real(r8kind), intent( in) :: pploc(nlat, nsh)
+
     integer :: i, ifail, j, k, k1, k2, m, mi, mr, nlon1
-    real(r8kind) :: as(nsh, 2),  agg(nlat, nlon),  pploc(nlat, nsh)
 
    ! inverse legendre transform
     do j = 1, nlon
@@ -749,8 +753,10 @@ contains
 
     implicit none
 
+    real(r8kind), intent( in) :: agg(nlat, nlon)
+    real(r8kind), intent(out) :: as(nsh, 2)
+
     integer :: ir, ifail, j, k, k1, k2, m, mi, mr, nlon1, i
-    real(r8kind) :: as(nsh, 2),  agg(nlat, nlon)
 
     ! fourier transform
     ifail = 0
@@ -858,8 +864,12 @@ contains
 
     implicit none
 
+    real(r8kind), intent( in) :: sfin(nsh2, nvl)
+    real(r8kind), intent(out) :: qout(nsh2, nvl)
+
+    real(r8kind) :: tus(nsh2)
+
     integer :: k
-    real(r8kind) :: sfin(nsh2, nvl), qout(nsh2, nvl), tus(nsh2)
 
     do k = 1, nsh2
       tus(k) = rl1 * sfin(k, 1) - rl1 * sfin(k, 2)
@@ -1041,8 +1051,11 @@ contains
 
     implicit none
 
-    integer :: m, n, k, indx, i, l, ntr
-    real(r8kind) :: y(nsh2, nvl), z(nsh2, nvl)
+    real(r8kind),intent(in)  :: y(nsh2, nvl)
+    real(r8kind),intent(out) :: z(nsh2, nvl)
+    integer, intent(in) :: ntr
+
+    integer :: m, n, k, indx, i, l
 
     do l = 1, nvl
       do i = 1, nsh2

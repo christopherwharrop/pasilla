@@ -26,7 +26,6 @@ module QG
   integer :: nstepsbetweenoutput
   integer :: ndayskip
   integer :: nday
-  integer :: rootdirl
 
   ! Mathematical and physical constants
   real(r8kind) :: pi     ! value of pi
@@ -185,19 +184,19 @@ contains
     namelist /control/resolution, nstepsperday, nstepsbetweenoutput, &
    &                  ndayskip, nday, obsfile, inf, obsf, readstart
 
-    rootdirl = index(rootdir, ' ') - 1
 
+    ! Default control namelist values
     resolution = 21
-    inf = .false.
-    obsf = .false.
-    readstart = .false.
-
     nstepsperday = 36
     nstepsbetweenoutput = 36
     ndayskip = 0
     nday = 10
+    obsfile = 'sf7910T106.shfs'
+    inf = .false.
+    obsf = .false.
+    readstart = .false.
 
-    ! real parameters
+    ! Default param namelist values
     tdis = 3.0
     addisl = 0.5
     addish = 0.5
@@ -208,35 +207,57 @@ contains
     rrdef1 = .110
     rrdef2 = .070
 
+    ! Read innput namelist parameters
     open(15, file = 'namelist.input', status = 'old', form = 'formatted')
     read(15, nml = control)
     read(15, nml = param)
     close(15)
 
+    ! Write namelist parameters
     open(16, file = 'namelist.output')
     write(16, nml = control)
     write(16, nml = param)
     close(16)
 
+    ! Set model resolution dependent parameters and allocate model state variables
     call allocate_comqg(resolution)
 
+    ! Allocate local data
     allocate(ininag(nlat, nlon))
     allocate(agg(nlat, nlon), agg1(nlat, nlon), agg2(nlat, nlon))
     allocate(fmu(nlat, 2), wsx(nsh2))
 
-    open(11, file = './qgcoefT' // trim(ft) // '.dat', form = 'formatted')
+
     open(12, file = './qgstartT' // trim(ft) // '.dat', form = 'formatted')
     open(13, file = './qgbergT' // trim(ft) // '.dat', form = 'formatted')
     if (inf) then
       open(14, file = './qgpvforT' // trim(ft) // '.dat', form = 'formatted')
     endif
 
+    ! Read model input from qgcoefT*
+    open(11, file = './qgcoefT' // trim(ft) // '.dat', form = 'formatted')
     do i = 0, nm
       read(11, *) nshm(i)
     enddo
     do i = 1, nsh
       read(11, *) ll(i)
     enddo
+    do k = 1, nsh
+      do j = 1, nlat
+        read(11, *) pp(j, k)
+      enddo
+    enddo
+    do k = 1, nsh
+      do j = 1, nlat
+        read(11, *) pd(j, k)
+      enddo
+    enddo
+    do k = 1, nsh
+      do j = 1, nlat
+        read(11, *) pw(j, k)
+      enddo
+    enddo
+    close(11)
 
     pi = 4d0 * atan(1d0)
     radius = 6.37e+6 
@@ -302,22 +323,6 @@ contains
       enddo
     enddo
 
-    ! legendre associated functions and derivatives
-    do k = 1, nsh
-      do j = 1, nlat
-        read(11, *) pp(j, k)
-      enddo
-    enddo
-    do k = 1, nsh
-      do j = 1, nlat
-        read(11, *) pd(j, k)
-      enddo
-    enddo
-    do k = 1, nsh
-      do j = 1, nlat
-        read(11, *) pw(j, k)
-      enddo
-    enddo
 
     ! compensation for normalization in nag fft routines
     sqn = sqrt(dble(nlon))

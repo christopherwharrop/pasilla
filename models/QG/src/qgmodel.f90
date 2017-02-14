@@ -392,6 +392,7 @@ contains
           agg(i, j) = 1.0d0 + addisl * agg2(i, j) + addish * (1.0d0 - exp(-0.001d0 * agg1(i, j)))
         enddo
       enddo
+
       call ggtosp (agg, ws)
       call ddl (ws, wsx)
       call sptogg (ws, rdiss, pp)
@@ -556,7 +557,11 @@ contains
     implicit none
 
     integer :: i, j, k
-    real(r8kind) :: psiloc(nsh2),  pvor(nsh2),  sjacob(nsh2), vv(nsh2)
+    real(r8kind), intent( in) :: psiloc(nsh2)
+    real(r8kind), intent( in) :: pvor(nsh2)
+    real(r8kind), intent(out) :: sjacob(nsh2)
+
+    real(r8kind) :: vv(nsh2)
     real(r8kind) :: dpsidl(nlat, nlon),  dpsidm(nlat, nlon),  dvordl(nlat, nlon)
     real(r8kind) :: dvordm(nlat, nlon),  gjacob(nlat, nlon),  dpsidls(nsh2)
 
@@ -753,8 +758,8 @@ contains
 
     implicit none
 
-    real(r8kind), intent( in) :: agg(nlat, nlon)
-    real(r8kind), intent(out) :: as(nsh, 2)
+    real(r8kind), intent(   in) :: agg(nlat, nlon)
+    real(r8kind), intent(inout) :: as(nsh, 2)
 
     integer :: ir, ifail, j, k, k1, k2, m, mi, mr, nlon1, i
 
@@ -901,7 +906,10 @@ contains
 
     implicit none
 
-    real(r8kind) :: qin(nsh2, nvl), sfout(nsh2, nvl),  tus(nsh2, ntl),  r3
+    real(r8kind), intent( in) :: qin(nsh2, nvl)
+    real(r8kind), intent(out) :: sfout(nsh2, nvl)
+
+    real(r8kind) :: tus(nsh2, ntl),  r3
     integer :: k
 
     do k = 1, nsh2
@@ -935,7 +943,10 @@ contains
 
     implicit none
 
-    real(r8kind) :: qin(nsh2, nvl), tus(nsh2, ntl),  r3, sfout(nsh2, nvl)
+    real(r8kind), intent( in) :: qin(nsh2, nvl)
+    real(r8kind), intent(out) :: tus(nsh2, ntl)
+
+    real(r8kind) :: r3, sfout(nsh2, nvl)
     integer :: k
 
     do k = 1, nsh2

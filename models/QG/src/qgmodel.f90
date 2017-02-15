@@ -158,7 +158,6 @@ contains
     allocate(psig(nlat,nlon,nvl), qgpv(nlat,nlon,nvl))
     allocate(ug(nlat,nlon,nvl), vg(nlat,nlon,nvl), geopg(nlat,nlon,nvl))
 
-
   end subroutine allocate_comqg
 
 
@@ -530,9 +529,9 @@ contains
     do k = 1, nsh2
       dum1 = relt1 * psit(k, 1)
       dum2 = relt2 * psit(k, 2)
-      dqprdt(k, 1) = dqprdt(k, 1) + dum1              +for(k, 1)
-      dqprdt(k, 2) = dqprdt(k, 2) - dum1 + dum2         +for(k, 2)
-      dqprdt(k, 3) = dqprdt(k, 3)           - dum2    +for(k, 3)
+      dqprdt(k, 1) = dqprdt(k, 1) + dum1        + for(k, 1)
+      dqprdt(k, 2) = dqprdt(k, 2) - dum1 + dum2 + for(k, 2)
+      dqprdt(k, 3) = dqprdt(k, 3)        - dum2 + for(k, 3)
     enddo
 
     ! explicit horizontal diffusion
@@ -1063,13 +1062,14 @@ contains
   ! 8       2  2 --> imaginary part: k = 1-8 is T2 truncation
   ! etcetera
   !-----------------------------------------------------------------------
-  subroutine fstofm (y, z, ntr)
+  pure function fstofm (y, ntr) result(z)
 
     implicit none
 
     real(r8kind),intent(in)  :: y(nsh2, nvl)
-    real(r8kind),intent(out) :: z(nsh2, nvl)
-    integer, intent(in) :: ntr
+    integer,     intent(in) :: ntr
+
+    real(r8kind) :: z(nsh2, nvl)
 
     integer :: m, n, k, indx, i, l
 
@@ -1096,7 +1096,7 @@ contains
 
     return
 
-  end subroutine fstofm
+  end function fstofm
 
 
   !-----------------------------------------------------------------------
@@ -1201,7 +1201,7 @@ contains
         y(k, l) = y(k, l) + dt6 * (dydt(k, l) + dyt(k, l) + 2. * dym(k, l))
       enddo
     enddo
-    call fstofm(y, qprime, nm)
+    qprime = fstofm(y, nm)
 
     return
 
@@ -1221,7 +1221,7 @@ contains
     real(r8kind), intent( in) :: y(nsh2, nvl)
     real(r8kind), intent(out) :: dydt(nsh2, nvl)
 
-    call fstofm(y, qprime, nm)
+    qprime = fstofm(y, nm)
     call qtopsi
     call ddt
     call fmtofs(dqprdt, dydt)      
@@ -1610,7 +1610,7 @@ contains
         psifs(k, l) = psi4(k, l)
       enddo
     enddo
-    call fstofm(psifs, psi, nm)
+    psi = fstofm(psifs, nm)
     do l = nvl, 1, -1
       call sptogg(psi(1, l), forg, pp)
       write(99) ((real(forg(j, i)), i = 1, nlon), j = 1, nlat)

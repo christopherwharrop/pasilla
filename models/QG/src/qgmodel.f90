@@ -1001,12 +1001,12 @@ contains
   ! 8       2  2 --> imaginary part: k = 1-8 is T2 truncation
   ! etcetera
   !-----------------------------------------------------------------------
-  subroutine fmtofs (y, z)
+  pure function fmtofs (y) result(z)
 
     implicit none
 
     real(r8kind), intent( in) :: y(nsh2, nvl)
-    real(r8kind), intent(out) :: z(nsh2, nvl)
+    real(r8kind)              :: z(nsh2, nvl)
 
     integer ::  m, n, k, indx, l
 
@@ -1028,7 +1028,7 @@ contains
 
     return
 
-  end subroutine fmtofs
+  end function fmtofs
 
 
   !-----------------------------------------------------------------------
@@ -1176,7 +1176,7 @@ contains
     nvar = (nm + 2) * nm
     dt2 = dtt * 0.5d0
     dt6 = dtt / 6d0
-    call fmtofs(qprime, y)
+    y = fmtofs(qprime)
     call dqdt(y, dydt)
     do l = 1, nvl
       do k = 1, nvar
@@ -1225,7 +1225,7 @@ contains
     qprime = fstofm(y, nm)
     call qtopsi
     call ddt
-    call fmtofs(dqprdt, dydt)      
+    dydt = fmtofs(dqprdt)
 
     return
 

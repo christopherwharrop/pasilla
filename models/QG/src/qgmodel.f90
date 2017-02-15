@@ -1104,13 +1104,13 @@ contains
   ! truncates y to ntr and writes to z which is formatted for
   ! lower resolution model Tntr.
   !-----------------------------------------------------------------------
-  subroutine truncate(y, yt, ntr)
+  pure function truncate(y, ntr) result(yt)
 
     implicit none
 
     real(r8kind), intent( in) :: y(nsh2, nvl)
-    real(r8kind), intent(out) :: yt(nsh2, nvl)
     integer,      intent( in) :: ntr
+    real(r8kind)              :: yt(nsh2, nvl)
 
     integer :: m, n, k, indx, l, nshntr, i
     real(r8kind) :: z(nsh2, nvl)
@@ -1154,7 +1154,7 @@ contains
 
     return
 
-  end subroutine truncate
+  end function truncate
 
 
   !-----------------------------------------------------------------------
@@ -1724,7 +1724,7 @@ contains
         enddo
         write(98, *) id
         write(98, '(5e12.5)')((real(psiloc(k, l)), k = 1, nsh2), l = 1, nvl)
-        call truncate(psiloc, psiT21, 21)
+        psiT21 = truncate(psiloc, 21)
         write(96, *) id
         write(96, '(5e12.5)')((real(psiT21(k, l)), k = 1, nsh2ntr), l = 1, nvl)
       enddo        

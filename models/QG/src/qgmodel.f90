@@ -181,8 +181,8 @@ contains
     real(r8kind), allocatable :: fmu(:,:), wsx(:)
 
     namelist /param/ tdis, addisl, addish, trel, tdif, idif, h0, rrdef1, rrdef2
-    namelist /control/resolution, nstepsperday, nstepsbetweenoutput, &
-   &                  ndayskip, nday, obsfile, inf, obsf, readstart
+    namelist /control/ resolution, nstepsperday, nstepsbetweenoutput, &
+   &                   ndayskip, nday, obsfile, inf, obsf, readstart
 
 
     ! Default control namelist values
@@ -1331,8 +1331,10 @@ contains
 
     implicit none
 
+    real(r8kind), intent( in) :: xs(nsh2)
+    real(r8kind), intent(out) :: xsl(nsh2)
+
     integer :: k
-    real(r8kind) :: xs(nsh2), xsl(nsh2)
 
     do k = 1, nsh2
       xsl(k) = xs(k) * rinhel(k, 0)
@@ -1352,8 +1354,10 @@ contains
 
     implicit none
 
+    real(r8kind), intent( in) :: xsl(nsh2)
+    real(r8kind), intent(out) :: xs(nsh2)
+
     integer :: k
-    real(r8kind) :: xs(nsh2), xsl(nsh2)
 
     do k = 1, nsh2
       xs(k) = xsl(k) * rinhel(k, 1)
@@ -1526,9 +1530,12 @@ contains
 
     implicit none
 
-    integer :: i, j, k
+    real(r8kind), intent( in) :: psiloc(nsh2)
+    real(r8kind), intent( in) :: pvor(nsh2)
+    real(r8kind), intent(out) :: sjacob(nsh2)
 
-    real(r8kind) :: psiloc(nsh2),  pvor(nsh2),  sjacob(nsh2),  vv(nsh2)
+    real(r8kind) :: vv(nsh2)
+    integer :: i, j, k
     real(r8kind) :: dpsidls(nsh2)
     real(r8kind) :: dpsidl(ngp), dpsidm(ngp), dvordl(ngp), dvordm(ngp)
     real(r8kind) :: gjacob(ngp)
@@ -1734,7 +1741,9 @@ contains
 
     implicit none
 
-    integer :: istep, i, j, k, nout
+    integer, intent(in) :: istep
+
+    integer :: i, j, k, nout
 
     real(r8kind) :: psiloc(nsh2),  pvor(nsh2),  sjacob(nsh2), dlon
     real(r4kind) :: psi4(nsh2, 3)
@@ -1784,7 +1793,9 @@ contains
 
     implicit none
 
-    integer :: istep, i, j, k, nout
+    integer, intent(in) :: istep
+
+    integer :: i, j, k, nout
 
     real(r8kind) :: psiloc(nsh2),  pvor(nsh2),  sjacob(nsh2),  dlon
     real(r4kind) :: psi4(nsh2, 3)
@@ -1841,32 +1852,6 @@ contains
 
   end subroutine diag
       
-
-  !-----------------------------------------------------------------------
-  ! output T21 truncated data to an ascii outputfile that can be
-  ! read by artiforc
-  !-----------------------------------------------------------------------
-  subroutine outputT21(istep)
-
-    implicit none
-
-    integer :: istep, k, l, nsh2ntr
-    real(r8kind) :: psiT21(nsh2, nvl), y(nsh2, nvl)
-
-    nsh2ntr = 22 * 23
-    if (istep .eq. 0) then
-      open(51, file = 'qgmodelT42' // '.T21.dat', form = 'formatted')
-    endif
-
-    if (mod(istep, nstepsbetweenoutput) .eq. 0) then
-      call qtopsi
-      call truncate(psi, psiT21, 21)
-      write(51, *) istep / nstepsbetweenoutput
-      write(51, '(5e12.5)') ((psiT21(k, l), k = 1, nsh2ntr), l = 1, nvl)
-    endif
-
-  end subroutine outputT21
-
       
   !-----------------------------------------------------------------------
   ! output streamfunction state that can be read as initial state

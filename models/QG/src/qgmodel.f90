@@ -1218,7 +1218,8 @@ contains
 
     implicit none
 
-    real(r8kind) :: y(nsh2, nvl), dydt(nsh2, nvl)
+    real(r8kind), intent( in) :: y(nsh2, nvl)
+    real(r8kind), intent(out) :: dydt(nsh2, nvl)
 
     call fstofm(y, qprime, nm)
     call qtopsi

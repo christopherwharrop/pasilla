@@ -378,8 +378,8 @@ contains
     lgdiss = ((addisl .gt. 0.0) .or. (addish .gt. 0.0))
     call ggtosp (agg, orog)
     call ddl (orog, ws)
-    call sptogg (ws, dorodl, pp)
-    call sptogg (orog, dorodm, pd)
+    dorodl = sptogg (ws, pp)
+    dorodm = sptogg (orog, pd)
     if (lgdiss) then
       do i = 1, nlon
         do j = 1, nlat
@@ -394,9 +394,9 @@ contains
 
       call ggtosp (agg, ws)
       call ddl (ws, wsx)
-      call sptogg (ws, rdiss, pp)
-      call sptogg (wsx, ddisdx, pp)
-      call sptogg (ws, ddisdy, pd)
+      rdiss = sptogg (ws, pp)
+      ddisdx = sptogg (wsx, pp)
+      ddisdy = sptogg (ws, pd)
       dd = 0.5d0 * diss(2, 2)
       do j = 1, nlon
         do i = 1, nlat
@@ -469,7 +469,7 @@ contains
 
     open(14, file = 'qgpvforT' // trim(ft) // '.grads', form = 'unformatted')
     do l = 1, nvl
-      call sptogg(for(1, l), agg1, pp)
+      agg1 = sptogg(for(1, l), pp)
       write(14) ((real(agg1(j, i)), i = 1, nlon), j = 1, nlat)
     enddo
     close(14)
@@ -566,13 +566,13 @@ contains
 
     ! space derivatives of potential vorticity
     call ddl (pvor, vv)
-    call sptogg (vv, dvordl, pp)
-    call sptogg (pvor, dvordm, pd)
+    dvordl = sptogg (vv, pp)
+    dvordm = sptogg (pvor, pd)
 
     ! space derivatives of streamfunction
     call ddl (psiloc, dpsidls)
-    call sptogg (dpsidls, dpsidl, pp)
-    call sptogg (psiloc, dpsidm, pd)
+    dpsidl = sptogg (dpsidls, pp)
+    dpsidm = sptogg (psiloc, pd)
 
     ! jacobian term
     do j = 1, nlon
@@ -613,13 +613,13 @@ contains
 
     ! space derivatives of potential vorticity 
     call ddl (pvor, vv)
-    call sptogg (vv, dvordl, pp)
-    call sptogg (pvor, dvordm, pd)
+    dvordl = sptogg (vv, pp)
+    dvordm = sptogg (pvor, pd)
 
-   ! space derivatives of streamfunction
+    ! space derivatives of streamfunction
     call ddl (psiloc, dpsidls)
-    call sptogg (dpsidls, dpsidl, pp)
-    call sptogg (psiloc, dpsidm, pd)
+    dpsidl = sptogg (dpsidls, pp)
+    dpsidm = sptogg (psiloc, pd)
 
     ! jacobian term + orographic forcing
     do j = 1, nlon
@@ -637,7 +637,7 @@ contains
         vv(k) = diss(k, 2) * psiloc(k)
       enddo
 
-      call sptogg (vv, azeta, pp)
+      azeta = sptogg (vv, pp)
 
       do j = 1, nlon
         do i = 1, nlat
@@ -701,13 +701,14 @@ contains
   !        respect to sin(fi)
   ! output gaussian grid agg
   !-----------------------------------------------------------------------
-  subroutine sptogg (as, agg, pploc)
+  function sptogg (as, pploc) result(agg)
 
     implicit none
 
     real(r8kind), intent( in) :: as(nsh, 2)
-    real(r8kind), intent(out) :: agg(nlat, nlon)
     real(r8kind), intent( in) :: pploc(nlat, nsh)
+
+    real(r8kind) :: agg(nlat, nlon)
 
     integer :: i, ifail, j, k, k1, k2, m, mi, mr, nlon1
 
@@ -748,7 +749,7 @@ contains
 
     return
 
-  end subroutine sptogg
+  end function sptogg
  
 
   !-----------------------------------------------------------------------
@@ -1264,14 +1265,14 @@ contains
     enddo
 
     do l = 1, nvl
-      call sptogg(psi(1, l), psig(1, 1, l), pp)
+      psig(:, :, l) = sptogg(psi(1, l), pp)
       do j = 1, nlon
         do i = 1, nlat
           psig(i, j, l) = facsf * psig(i, j, l)
         enddo
       enddo
 
-      call sptogg(qprime(1, l), qgpv(1, 1, l), pp)
+      qgpv(:, :, l) = sptogg(qprime(1, l), pp)
       do j = 1, nlon
         do i = 1, nlat
           qgpv(i, j, l) = facpv * qgpv(i, j, l)
@@ -1284,8 +1285,8 @@ contains
 
 
       call ddl (psik, vv)
-      call sptogg (vv, dpsdl, pp)
-      call sptogg (psik, dpsdm, pd)
+      dpsdl = sptogg (vv, pp)
+      dpsdm = sptogg (psik, pd)
 
       do j = 1, nlon
         do i = 1, nlat
@@ -1296,8 +1297,8 @@ contains
 
       ! solve linear balance equation
       call lap(psi(1, l), delpsis)
-      call sptogg(delpsis, delpsig, pp)
-      call sptogg(psi(1, l), dmupsig, pd)
+      delpsig = sptogg(delpsis, pp)
+      dmupsig = sptogg(psi(1, l), pd)
 
       do j = 1, nlon
         do i = 1, nlat
@@ -1307,7 +1308,7 @@ contains
       call ggtosp(delgeog, delgeos)
       call lapinv(delgeos, geos)
       geos(1) = 0.d0
-      call sptogg(geos, geopg(1, 1, l), pp)
+      geopg(:, :, l) = sptogg(geos, pp)
 
 
       do j = 1, nlon
@@ -1480,7 +1481,7 @@ contains
       enddo
     enddo
 
-   ! compute the total forcing
+    ! compute the total forcing
     do l = 1, 3
       do k = 1, nsh2
         for(k, l) = climf(k, l) + eddf(k, l)
@@ -1490,7 +1491,7 @@ contains
     write(14, '(1E12.5)') ((for(k, l), k = 1, nsh2), l = 1, 3)
 
     do l = 1, 3
-      call sptogg(for(1, l), forg, pp)
+      forg = sptogg(for(1, l), pp)
       write(32) ((real(forg(i, j)), j = 1, nlon), i = 1, nlat)
     enddo
 
@@ -1543,13 +1544,13 @@ contains
 
    ! space derivatives of potential vorticity
     call ddl (pvor, vv)
-    call sptogg (vv, dvordl, pp)
-    call sptogg (pvor, dvordm, pd)
+    dvordl = reshape(sptogg (vv, pp), (/ngp/))
+    dvordm = reshape(sptogg (pvor, pd), (/ngp/))
 
     ! space derivatives of streamfunction
     call ddl (psiloc, dpsidls)
-    call sptogg (dpsidls, dpsidl, pp)
-    call sptogg (psiloc, dpsidm, pd)
+    dpsidl = reshape(sptogg (dpsidls, pp), (/ngp/))
+    dpsidm = reshape(sptogg (psiloc, pd), (/ngp/))
 
     ! jacobian term
     do j = 1, ngp
@@ -1612,7 +1613,7 @@ contains
     enddo
     psi = fstofm(psifs, nm)
     do l = nvl, 1, -1
-      call sptogg(psi(1, l), forg, pp)
+      forg = sptogg(psi(1, l), pp)
       write(99) ((real(forg(j, i)), i = 1, nlon), j = 1, nlat)
     enddo
     call psitoq
@@ -1635,7 +1636,7 @@ contains
     write(14, '(1E12.5)') ((for(k, l), k = 1, nsh2), l = 1, nvl)
 
     do l = nvl, 1, -1
-      call sptogg(for(1, l), forg, pp)
+      forg = sptogg(for(1, l), pp)
       write(32) ((real(forg(i, j)), j = 1, nlon), i = 1, nlat)
     enddo
 

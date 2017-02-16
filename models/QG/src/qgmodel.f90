@@ -523,7 +523,7 @@ contains
     dqprdt(:, 2) = reshape(jacob (psi(1, 2), qprime(1, 2)), (/nsh2/))
 
     ! advection of potential vorticity and dissipation at lower level
-    call jacobd (psi(1, 3), qprime(1, 3), dqprdt(1, 3))
+    dqprdt(:, 3) = reshape(jacobd (psi(1, 3), qprime(1, 3)), (/nsh2/))
 
     ! relaxation of temperature and forcing
     do k = 1, nsh2
@@ -598,13 +598,13 @@ contains
   ! input psiloc,  pvor
   ! output sjacob
   !----------------------------------------------------------------------
-  subroutine jacobd (psiloc, pvor, sjacob)
+  function jacobd (psiloc, pvor) result(sjacob)
 
     implicit none
 
     real(r8kind), intent( in) :: psiloc(nsh2)
     real(r8kind), intent( in) :: pvor(nsh2)
-    real(r8kind), intent(out) :: sjacob(nsh2)
+    real(r8kind)              :: sjacob(nsh2)
 
     integer      :: i, j, k
     real(r8kind) :: dpsidl(nlat, nlon),  dpsidm(nlat, nlon),  dvordl(nlat, nlon)
@@ -667,7 +667,7 @@ contains
 
     return
 
-  end subroutine jacobd
+  end function jacobd
 
 
   !-----------------------------------------------------------------------

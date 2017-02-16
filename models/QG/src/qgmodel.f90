@@ -1428,58 +1428,6 @@ contains
 
 
   !-----------------------------------------------------------------------
-  ! output streamfunction data to outputfile
-  !-----------------------------------------------------------------------
-  subroutine diagsf(istep)
-
-    implicit none
-
-    integer, intent(in) :: istep
-
-    integer :: i, j, k, nout
-
-    real(r8kind) :: psiloc(nsh2),  pvor(nsh2),  sjacob(nsh2), dlon
-    real(r4kind) :: psi4(nsh2, 3)
-
-    nout = nday * nstepsperday / nstepsbetweenoutput + 1
-
-    dlon = 360d0 / real(nlon)
-
-    if (istep .eq. 0) then
-      open(52, file = 'qgmodelsfT' // trim(ft) // '.ctl', form = 'formatted')
-      write(52, '(A)') 'dset ^qgmodelsfT' // trim(ft) // '.grads'
-      write(52, '(A)') 'undef 9.99e+10'
-      write(52, '(A)') 'options sequential big_endian'
-      write(52, '(A)') 'title T' // trim(ft)
-      write(52, '(A)') '*'
-      write(52, '(A, I6, A, F19.14)') 'xdef ', nlon, ' linear  0.000 ', dlon
-      write(52, '(A)') '*'
-      write(52, '(A, I4, A, 1F19.14)') 'ydef ', nlat, ' levels ', phi(1)
-      write(52, '(F19.14)') (phi(j), j = 2, nlat)
-      write(52, '(A)') '*'
-      write(52, '(A)') 'zdef  3 levels 800 500 200'
-      write(52, '(A)') '*'
-      write(52, '(A, I6, A)') 'tdef ', nout, ' linear 1jan0001 1dy'
-      write(52, '(A)') '*'
-      write(52, '(A)') 'vars  1'
-      write(52, '(A)') 'psi    3  99 streamfunction [m2 / s]'
-      write(52, '(A)') 'endvars'
-
-      close(52)
-      open(52, file = 'qgmodelsfT' // trim(ft) // '.grads', form = 'unformatted')
-    endif
-
-    if (mod(istep, nstepsbetweenoutput) .eq. 0) then
-      call gridfields
-      do k = nvl, 1, -1
-        write(52) ((real(psig(j, i, k)), i = 1, nlon), j = 1, nlat)
-      enddo
-    endif
-
-  end subroutine diagsf
-
-
-  !-----------------------------------------------------------------------
   ! output model data to outputfile
   !-----------------------------------------------------------------------
   subroutine diag(istep)

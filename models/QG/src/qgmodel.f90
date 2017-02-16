@@ -1105,63 +1105,6 @@ contains
 
 
   !-----------------------------------------------------------------------
-  ! truncates y to ntr and writes to z which is formatted for
-  ! lower resolution model Tntr.
-  !-----------------------------------------------------------------------
-  pure function truncate(y, ntr) result(yt)
-
-    implicit none
-
-    real(r8kind), intent( in) :: y(nsh2, nvl)
-    integer,      intent( in) :: ntr
-    real(r8kind)              :: yt(nsh2, nvl)
-
-    integer :: m, n, k, indx, l, nshntr, i
-    real(r8kind) :: z(nsh2, nvl)
-
-    nshntr = (ntr + 1) * (ntr + 2) * 0.5
-
-    do l = 1, nvl
-      k = 1
-      do m = 0, nm
-        do n = max(m, 1), nm
-          k = k + 1
-          if (m .eq. 0) then
-            indx = n**2
-          else
-            indx = n**2 + 2 * m - 1
-          end if
-          z(indx, l) = y(k, l)
-          if (m .ne. 0) z(indx + 1, l) = y(k + nsh, l)
-        enddo
-      enddo
-    enddo
-
-    do l = 1, nvl
-      do i = 1, nsh2
-        yt(i, l) = 0d0
-      enddo
-      k = 1
-      do m = 0, ntr
-        do n = max(m, 1), ntr
-          k = k + 1
-            if (m .eq. 0) then
-              indx = n**2
-            else
-              indx = n**2 + 2 * m - 1
-            end if
-            yt(k, l) = z(indx, l)
-            if (m .ne. 0) yt(k + nshntr, l) = z(indx + 1, l)
-        enddo
-      enddo
-    enddo
-
-    return
-
-  end function truncate
-
-
-  !-----------------------------------------------------------------------
   ! performs a fourth order runge kutta time step at truncation nm
   ! with time step dt
   ! dqdt calculates the time derivative
@@ -1482,68 +1425,6 @@ contains
     return
 
   end subroutine artiforc
-
-
-  !-----------------------------------------------------------------------
-  ! convert ecmwf winter analyses files to asc file to be read by
-  ! artiforc
-  !-----------------------------------------------------------------------
-  subroutine analyses
-
-    implicit none
-
-    integer :: i, j, k, nyb, nye, npw, iy, id, l, iday, irec, nsh2ntr
-
-    real(r8kind) :: psiloc(nsh2, 3), psiT21(nsh2, 3)
-    real(r4kind) :: psi4(nsh2, 3), psig4(nlat, nlon, nvl), scalesf
-    character(len=4) :: fy
-
-    scalesf = 1d0 / (radius * radius * om)
-    nsh2ntr = 22 * 23
-
-    open(98, file = './anwin79_10T42.dat', form = 'formatted')
-    open(96, file = './anwin79_10T21.dat', form = 'formatted')
-  ! open(unit = 97, file = './eracheck.grads', form = 'unformatted')
-
-    nyb = 1979
-    nye = 2010
-    npw = 90
-
-    write(fy, '(I4.4)') iy
-
-    do iy = nyb, nye
-      write(fy, '(I4.4)') iy
-      open(unit = 99, file = './era' // fy // 'djf.grads',  &
-   &       form = 'unformatted', access = 'direct', recl = nlat * nlon * 4)
-
-      do id = 1, npw
-        do l = nvl, 1, -1
-          irec = (id - 1) * 3 + nvl - l + 1
-          read(99, rec = irec) ((psig4(j, i, l), i = 1, nlon), j = 1, nlat)
-        enddo
-        do l = nvl, 1, -1
-          do i = 1, nlon
-            do j = 1, nlat
-              psig(j, i, l) = psig4(j, i, l) * scalesf
-            enddo
-          enddo
-  !       write(97) ((real(psig(j, i, l)), i = 1, nlon), j = 1, nlat)
-        enddo
-        do l = 1, nvl
-          psiloc(:, l) = reshape(ggtosp(psig(:, :, l)), (/nsh2/))
-        enddo
-        write(98, *) id
-        write(98, '(5e12.5)')((real(psiloc(k, l)), k = 1, nsh2), l = 1, nvl)
-        psiT21 = truncate(psiloc, 21)
-        write(96, *) id
-        write(96, '(5e12.5)')((real(psiT21(k, l)), k = 1, nsh2ntr), l = 1, nvl)
-      enddo        
-      close(99)
-    enddo
-    close(98)
-  ! close(97)
-
-  end subroutine analyses
 
 
   !-----------------------------------------------------------------------

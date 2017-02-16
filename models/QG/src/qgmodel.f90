@@ -377,7 +377,7 @@ contains
     ! surface dependent friction
     lgdiss = ((addisl .gt. 0.0) .or. (addish .gt. 0.0))
     orog = reshape(ggtosp (agg), (/nsh2/))
-    call ddl (orog, ws)
+    ws = reshape(ddl (orog), (/nsh2/))
     dorodl = sptogg (ws, pp)
     dorodm = sptogg (orog, pd)
     if (lgdiss) then
@@ -393,7 +393,7 @@ contains
       enddo
 
       ws = reshape(ggtosp (agg), (/nsh2/))
-      call ddl (ws, wsx)
+      wsx = reshape(ddl (ws), (/nsh2/))
       rdiss = sptogg (ws, pp)
       ddisdx = sptogg (wsx, pp)
       ddisdy = sptogg (ws, pd)
@@ -565,12 +565,12 @@ contains
     real(r8kind) :: dvordm(nlat, nlon),  gjacob(nlat, nlon),  dpsidls(nsh2)
 
     ! space derivatives of potential vorticity
-    call ddl (pvor, vv)
+    vv = reshape(ddl (pvor), (/nsh2/))
     dvordl = sptogg (vv, pp)
     dvordm = sptogg (pvor, pd)
 
     ! space derivatives of streamfunction
-    call ddl (psiloc, dpsidls)
+    dpsidls = reshape(ddl (psiloc), (/nsh2/))
     dpsidl = sptogg (dpsidls, pp)
     dpsidm = sptogg (psiloc, pd)
 
@@ -612,12 +612,12 @@ contains
     real(r8kind) :: azeta(nlat, nlon), dpsidls(nsh2)
 
     ! space derivatives of potential vorticity 
-    call ddl (pvor, vv)
+    vv = reshape(ddl (pvor), (/nsh2/))
     dvordl = sptogg (vv, pp)
     dvordm = sptogg (pvor, pd)
 
     ! space derivatives of streamfunction
-    call ddl (psiloc, dpsidls)
+    dpsidls = reshape(ddl (psiloc), (/nsh2/))
     dpsidl = sptogg (dpsidls, pp)
     dpsidm = sptogg (psiloc, pd)
 
@@ -675,12 +675,12 @@ contains
   ! input spectral field as
   ! output spectral field dadl which is as differentiated wrt lambda
   !-----------------------------------------------------------------------
-  subroutine ddl (as, dadl)
+  pure function ddl (as) result(dadl)
       
     implicit none
 
     real(r8kind), intent( in) :: as(nsh, 2)
-    real(r8kind), intent(out) :: dadl(nsh, 2)
+    real(r8kind)              :: dadl(nsh, 2)
 
     integer :: k
  
@@ -691,7 +691,7 @@ contains
  
     return
 
-  end subroutine ddl
+  end function ddl
 
 
   !-----------------------------------------------------------------------
@@ -1287,8 +1287,7 @@ contains
         psik(k) = psi(k, l)
       enddo
 
-
-      call ddl (psik, vv)
+      vv = reshape(ddl (psik), (/nsh2/))
       dpsdl = sptogg (vv, pp)
       dpsdm = sptogg (psik, pd)
 
@@ -1548,12 +1547,12 @@ contains
     real(r8kind) :: gjacob(ngp)
 
    ! space derivatives of potential vorticity
-    call ddl (pvor, vv)
+    vv = reshape(ddl (pvor), (/nsh2/))
     dvordl = reshape(sptogg (vv, pp), (/ngp/))
     dvordm = reshape(sptogg (pvor, pd), (/ngp/))
 
     ! space derivatives of streamfunction
-    call ddl (psiloc, dpsidls)
+    dpsidls = reshape(ddl (psiloc), (/nsh2/))
     dpsidl = reshape(sptogg (dpsidls, pp), (/ngp/))
     dpsidm = reshape(sptogg (psiloc, pd), (/ngp/))
 

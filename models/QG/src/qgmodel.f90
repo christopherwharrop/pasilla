@@ -376,7 +376,7 @@ contains
 
     ! surface dependent friction
     lgdiss = ((addisl .gt. 0.0) .or. (addish .gt. 0.0))
-    call ggtosp (agg, orog)
+    orog = reshape(ggtosp (agg), (/nsh2/))
     call ddl (orog, ws)
     dorodl = sptogg (ws, pp)
     dorodm = sptogg (orog, pd)
@@ -392,7 +392,7 @@ contains
         enddo
       enddo
 
-      call ggtosp (agg, ws)
+      ws = reshape(ggtosp (agg), (/nsh2/))
       call ddl (ws, wsx)
       rdiss = sptogg (ws, pp)
       ddisdx = sptogg (wsx, pp)
@@ -581,7 +581,7 @@ contains
       enddo
     enddo
 
-    call ggtosp (gjacob, sjacob)
+    sjacob = reshape(ggtosp (gjacob), (/nsh2/))
 
     ! planetary vorticity advection
     do k = 1, nsh2
@@ -647,12 +647,12 @@ contains
         enddo
       enddo
 
-      call ggtosp (gjacob, sjacob)
+      sjacob = reshape(ggtosp (gjacob), (/nsh2/))
 
     else
 
       !   uniform dissipation
-      call ggtosp (gjacob, sjacob)
+      sjacob = reshape(ggtosp (gjacob), (/nsh2/))
 
       do k = 1, nsh2
         sjacob(k) = sjacob(k) + diss(k, 2) * psi(k, 3)
@@ -757,14 +757,18 @@ contains
   ! input array agg is destroyed
   ! output as contains spectral coefficients
   !-----------------------------------------------------------------------
-  subroutine ggtosp (agg, as)
+  function ggtosp (agg_in) result (as)
 
     implicit none
 
-    real(r8kind), intent(   in) :: agg(nlat, nlon)
-    real(r8kind), intent(inout) :: as(nsh, 2)
+    real(r8kind), intent(in) :: agg_in(nlat, nlon)
+    real(r8kind)             :: as(nsh, 2)
 
+    real(r8kind) :: agg(nlat, nlon)
     integer :: ir, ifail, j, k, k1, k2, m, mi, mr, nlon1, i
+
+    ! Make a local copy of agg_in so it is not destroyed by c06fpf
+    agg(:,:) = agg_in(:,:)
 
     ! fourier transform
     ifail = 0
@@ -802,7 +806,7 @@ contains
 
     return
 
-  end subroutine ggtosp
+  end function ggtosp
  
 
   !-----------------------------------------------------------------------
@@ -1305,7 +1309,8 @@ contains
           delgeog(i, j) = fmu(i) * dmupsig(i, j) + sinfi(i) * delpsig(i, j)
         enddo
       enddo
-      call ggtosp(delgeog, delgeos)
+
+      delgeos = reshape(ggtosp(delgeog), (/nsh2/))
       call lapinv(delgeos, geos)
       geos(1) = 0.d0
       geopg(:, :, l) = sptogg(geos, pp)
@@ -1557,7 +1562,7 @@ contains
         gjacob(j) = dpsidm(j) * dvordl(j) - dpsidl(j) * dvordm(j)
     enddo
 
-    call ggtosp (gjacob, sjacob)
+    sjacob = reshape(ggtosp (gjacob), (/nsh2/))
 
     return
 
@@ -1720,7 +1725,7 @@ contains
   !       write(97) ((real(psig(j, i, l)), i = 1, nlon), j = 1, nlat)
         enddo
         do l = 1, nvl
-          call ggtosp(psig(1, 1, l), psiloc(1, l))
+          psiloc(:, l) = reshape(ggtosp(psig(:, :, l)), (/nsh2/))
         enddo
         write(98, *) id
         write(98, '(5e12.5)')((real(psiloc(k, l)), k = 1, nsh2), l = 1, nvl)

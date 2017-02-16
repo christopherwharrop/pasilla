@@ -517,10 +517,10 @@ contains
     real(r8kind) :: dum1, dum2
 
     ! advection of potential vorticity at upper level
-    call jacob (psi(1, 1), qprime(1, 1), dqprdt(1, 1))
+    dqprdt(:, 1) = reshape(jacob (psi(1, 1), qprime(1, 1)), (/nsh2/))
 
     ! advection of potential vorticity at middle level
-    call jacob (psi(1, 2), qprime(1, 2), dqprdt(1, 2))
+    dqprdt(:, 2) = reshape(jacob (psi(1, 2), qprime(1, 2)), (/nsh2/))
 
     ! advection of potential vorticity and dissipation at lower level
     call jacobd (psi(1, 3), qprime(1, 3), dqprdt(1, 3))
@@ -551,13 +551,13 @@ contains
   ! input psiloc,  pvor
   ! output sjacob
   !----------------------------------------------------------------------
-  subroutine jacob (psiloc, pvor, sjacob)
+  function jacob (psiloc, pvor) result(sjacob)
 
     implicit none
 
     real(r8kind), intent( in) :: psiloc(nsh2)
     real(r8kind), intent( in) :: pvor(nsh2)
-    real(r8kind), intent(out) :: sjacob(nsh2)
+    real(r8kind)              :: sjacob(nsh2)
 
     integer      :: i, j, k
     real(r8kind) :: vv(nsh2)
@@ -590,7 +590,7 @@ contains
 
     return
 
-  end subroutine jacob
+  end function jacob
 
 
   !----------------------------------------------------------------------

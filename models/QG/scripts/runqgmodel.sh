@@ -12,6 +12,9 @@ module load netcdf
 #module load pgi/16.10
 #module load netcdf/4.4.0
 
+# Set the path to GPTL
+GPTL_PATH=/contrib/gptl/gptl-v5.5_nompi_noomp/bin
+
 # Set the resolution of the run
 resol="21"
 
@@ -60,3 +63,6 @@ cp ${qgdir}/exe/QG.exe .
 
 # Run the model
 ./QG.exe
+
+# Parse the GPTL timing
+${GPTL_PATH}/hex2name.pl ./QG.exe ./timing.0 > ./timing.QG.txt

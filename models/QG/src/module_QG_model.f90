@@ -1,8 +1,26 @@
 module QG
 
   use kind
+  use model, only : model_type
 
   implicit none
+
+  private
+
+  public :: ndayskip, dt, nday, initqg, forward, diag, writestate
+  public :: qg_model_type
+
+  type, extends(model_type) :: qg_model_type
+    private
+  contains
+    final :: destructor_qg_model
+  end type qg_model_type
+
+  interface qg_model_type
+    procedure constructor_qg_model
+  end interface
+
+
 
   ! Model configuration parameters
   character(len=3) ::  ft   ! Character string containing resolution
@@ -99,7 +117,33 @@ module QG
   real(r8kind), allocatable  :: vg(:,:,:)     ! grid values of meridional velocity at the three levels in m/s
   real(r8kind), allocatable  :: geopg(:,:,:)  ! geopotential on the grid
 
+
 contains
+
+
+  !-------------------------------------------------------------------------------
+  ! constructor_qg_model
+  !-------------------------------------------------------------------------------
+  function constructor_qg_model() result (qg_model)
+
+    type(qg_model_type) :: qg_model
+
+  end function constructor_qg_model
+
+
+  !------------------------------------------------------------------
+  ! destructor_qg_model
+  !
+  ! Deallocates pointers used by a qg_model_type object (none currently)
+  !------------------------------------------------------------------
+  elemental subroutine destructor_qg_model(this)
+
+    type(qg_model_type), intent(inout) :: this
+
+    ! No pointers in qg_model_type object so we do nothing
+
+  end subroutine destructor_qg_model
+
 
   !-------------------------------------------------------------------------------
   ! allocate_comqg
@@ -167,8 +211,6 @@ contains
   ! initialise parameters and operators and read initial state
   !-------------------------------------------------------------------------------
   subroutine initqg
-
-    implicit none
 
     integer      :: resolution
     integer      :: i, j, k1, k2, k, l, m, n, ifail, ii, jj, i1, j1, nn
@@ -258,7 +300,6 @@ contains
       open(14, file = './qgpvforT' // trim(ft) // '.dat', form = 'formatted')
     endif
 
-
     pi = 4d0 * atan(1d0)
     radius = 6.37e+6 
     om = 4d0 * pi / (24d0 * 3600d0)
@@ -322,7 +363,6 @@ contains
         diss(k + nsh, j) = diss(k, j)
       enddo
     enddo
-
 
     ! compensation for normalization in nag fft routines
     sqn = sqrt(dble(nlon))
@@ -712,7 +752,7 @@ contains
 
     integer :: i, ifail, j, k, k1, k2, m, mi, mr, nlon1
 
-   ! inverse legendre transform
+    ! inverse legendre transform
     do j = 1, nlon
       do i = 1, nlat
         agg(i, j) = 0.0d0
@@ -1170,7 +1210,7 @@ contains
     real(r8kind), intent(out) :: dydt(nsh2, nvl)
 
     qprime = fstofm(y, nm)
-    call qtopsi
+    call qtopsi  ! qprime --> psi and psit
     call ddt
     dydt = fmtofs(dqprdt)
 

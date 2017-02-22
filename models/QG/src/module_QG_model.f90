@@ -861,20 +861,20 @@ contains
     integer :: k
     real(r8kind) :: r3
 
-    do k = 1, nsh2
+    do k = 1, size(psi,1)
       ws(k) = qprime(k, 1) + qprime(k, 3)
       psi(k, 1) = rinhel(k, 1) * (ws(k) + qprime(k, 2))
       psi(k, 2) = ws(k) - 2.d0 * qprime(k, 2)
       psi(k, 3) = qprime(k, 1) - qprime(k, 3)
     enddo
 
-    do k = 1, nsh2
+    do k = 1, size(psit,1)
       psit(k, 1) = rinhel(k, 2) * psi(k, 2) + rinhel(k, 3) * psi(k, 3)
       psit(k, 2) = rinhel(k, 4) * psi(k, 2) + rinhel(k, 5) * psi(k, 3)
     enddo
 
     r3 = 1. / 3.
-    do k = 1, nsh2
+    do k = 1, size(psi,1)
       psi(k, 2) = r3 * (psi(k, 1) - psit(k, 1) + psit(k, 2))
       psi(k, 1) = psi(k, 2) + psit(k, 1)
       psi(k, 3) = psi(k, 2) - psit(k, 2)
@@ -896,7 +896,7 @@ contains
 
     integer :: k
 
-    do k = 1, nsh2
+    do k = 1, size(psit,1)
       psit(k, 1) = psi(k, 1) - psi(k, 2)
       psit(k, 2) = psi(k, 2) - psi(k, 3)
       qprime(k, 1) = rinhel(k, 0) * psi(k, 1) - rl1 * psit(k, 1)
@@ -909,110 +909,6 @@ contains
   end subroutine psitoq
 
 
-  !-----------------------------------------------------------------------
-  !  computation of potential vorticity qout from stream function sfin
-  !-----------------------------------------------------------------------
-  subroutine psiq(sfin, qout)
-
-    implicit none
-
-    real(r8kind), intent( in) :: sfin(nsh2, nvl)
-    real(r8kind), intent(out) :: qout(nsh2, nvl)
-
-    real(r8kind) :: tus(nsh2)
-
-    integer :: k
-
-    do k = 1, nsh2
-      tus(k) = rl1 * sfin(k, 1) - rl1 * sfin(k, 2)
-    enddo
-
-    do k = 1, nsh2
-      qout(k, 1) = rinhel(k, 0) * sfin(k, 1) - tus(k)
-      qout(k, 2) = rinhel(k, 0) * sfin(k, 2) + tus(k)
-    enddo
-
-    do k = 1, nsh2
-      tus(k) = rl2 * sfin(k, 2) - rl2 * sfin(k, 3)
-    enddo
-
-    do k = 1, nsh2
-      qout(k, 2) = qout(k, 2) - tus(k)
-      qout(k, 3) = rinhel(k, 0) * sfin(k, 3) + tus(k)
-    enddo
-
-    return
-
-  end subroutine psiq
-
-
-  !-----------------------------------------------------------------------
-  !  computation of streamfunction bb from potential vorticity qin
-  !-----------------------------------------------------------------------
-  subroutine qpsi(qin, sfout)
-
-    implicit none
-
-    real(r8kind), intent( in) :: qin(nsh2, nvl)
-    real(r8kind), intent(out) :: sfout(nsh2, nvl)
-
-    real(r8kind) :: tus(nsh2, ntl),  r3
-    integer :: k
-
-    do k = 1, nsh2
-      ws(k) = qin(k, 1) + qin(k, 3)
-      sfout(k, 1) = rinhel(k, 1) * (ws(k) + qin(k, 2))
-      sfout(k, 2) = ws(k) - 2. * qin(k, 2)
-      sfout(k, 3) = qin(k, 1) - qin(k, 3)
-    enddo
-
-    do k = 1, nsh2
-      tus(k, 1) = rinhel(k, 2) * sfout(k, 2) + rinhel(k, 3) * sfout(k, 3)
-      tus(k, 2) = rinhel(k, 4) * sfout(k, 2) + rinhel(k, 5) * sfout(k, 3)
-    enddo
-
-    r3 = 1. / 3
-    do k = 1, nsh2
-      sfout(k, 2) = r3 * (sfout(k, 1) - tus(k, 1) + tus(k, 2))
-      sfout(k, 1) = sfout(k, 2) + tus(k, 1)
-      sfout(k, 3) = sfout(k, 2) - tus(k, 2)
-    enddo
-
-    return
-
-  end subroutine qpsi
-
-
-  !-----------------------------------------------------------------------
-  ! computation of thickness tus from potential vorticity qin
-  !-----------------------------------------------------------------------
-  subroutine qpsit(qin, tus)
-
-    implicit none
-
-    real(r8kind), intent( in) :: qin(nsh2, nvl)
-    real(r8kind), intent(out) :: tus(nsh2, ntl)
-
-    real(r8kind) :: r3, sfout(nsh2, nvl)
-    integer :: k
-
-    do k = 1, nsh2
-      ws(k) = qin(k, 1) + qin(k, 3)
-      sfout(k, 1) = rinhel(k, 1) * (ws(k) + qin(k, 2))
-      sfout(k, 2) = ws(k) - 2. * qin(k, 2)
-      sfout(k, 3) = qin(k, 1) - qin(k, 3)
-    enddo
-
-    do k = 1, nsh2
-      tus(k, 1) = rinhel(k, 2) * sfout(k, 2) + rinhel(k, 3) * sfout(k, 3)
-      tus(k, 2) = rinhel(k, 4) * sfout(k, 2) + rinhel(k, 5) * sfout(k, 3)
-    enddo
-
-    return
-
-  end subroutine qpsit
-
- 
   !-----------------------------------------------------------------------
   ! transforms francos format to the french format for global fields
   ! input  y spectral coefficients in francos format
@@ -1047,14 +943,12 @@ contains
   !-----------------------------------------------------------------------
   pure function fmtofs (y) result(z)
 
-    implicit none
-
-    real(r8kind), intent( in) :: y(nsh2, nvl)
-    real(r8kind)              :: z(nsh2, nvl)
+    real(r8kind), intent( in) :: y(:,:)
+    real(r8kind), dimension(size(y,1),size(y,2)) :: z
 
     integer ::  m, n, k, indx, l
 
-    do l = 1, nvl
+    do l = 1, size(y,2)
       k = 1
       do m = 0, nm
         do n = max(m, 1), nm
@@ -1109,17 +1003,15 @@ contains
   !-----------------------------------------------------------------------
   pure function fstofm (y, ntr) result(z)
 
-    implicit none
+    real(r8kind), intent(in) :: y(:,:)
+    integer,      intent(in) :: ntr
 
-    real(r8kind),intent(in)  :: y(nsh2, nvl)
-    integer,     intent(in) :: ntr
-
-    real(r8kind) :: z(nsh2, nvl)
+    real(r8kind), dimension(size(y,1),size(y,2)) :: z
 
     integer :: m, n, k, indx, i, l
 
-    do l = 1, nvl
-      do i = 1, nsh2
+    do l = 1, size(y,2)
+      do i = 1, size(y,1)
         z(i, l) = 0d0
       enddo
       k = 1
@@ -1206,8 +1098,8 @@ contains
 
     implicit none
 
-    real(r8kind), intent( in) :: y(nsh2, nvl)
-    real(r8kind), intent(out) :: dydt(nsh2, nvl)
+    real(r8kind), intent( in) :: y(:,:)
+    real(r8kind), intent(out) :: dydt(:,:)
 
     qprime = fstofm(y, nm)
     call qtopsi  ! qprime --> psi and psit
@@ -1318,14 +1210,12 @@ contains
   !-----------------------------------------------------------------------
   function lap(xs) result(xsl)
 
-    implicit none
-
-    real(r8kind), intent( in) :: xs(nsh2)
-    real(r8kind) :: xsl(nsh2)
+    real(r8kind), intent(in)          :: xs(:)
+    real(r8kind), dimension(size(xs)) :: xsl(nsh2)
 
     integer :: k
 
-    do k = 1, nsh2
+    do k = 1, size(xs)
       xsl(k) = xs(k) * rinhel(k, 0)
     enddo
 
@@ -1341,14 +1231,12 @@ contains
   !-----------------------------------------------------------------------
   function lapinv(xsl) result(xs)
 
-    implicit none
-
-    real(r8kind), intent( in) :: xsl(nsh2)
-    real(r8kind) :: xs(nsh2)
+    real(r8kind), intent(in)           :: xsl(:)
+    real(r8kind), dimension(size(xsl)) :: xs
 
     integer :: k
 
-    do k = 1, nsh2
+    do k = 1, size(xsl)
       xs(k) = xsl(k) * rinhel(k, 1)
     enddo
 

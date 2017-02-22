@@ -1282,7 +1282,7 @@ contains
       enddo
 
       ! solve linear balance equation
-      call lap(psi(1, l), delpsis)
+      delpsis = lap(psi(:, l))
       delpsig = sptogg(delpsis, pp)
       dmupsig = sptogg(psi(1, l), pd)
 
@@ -1293,7 +1293,7 @@ contains
       enddo
 
       delgeos = reshape(ggtosp(delgeog), (/nsh2/))
-      call lapinv(delgeos, geos)
+      geos = lapinv(delgeos)
       geos(1) = 0.d0
       geopg(:, :, l) = sptogg(geos, pp)
 
@@ -1316,12 +1316,12 @@ contains
   ! input  xs  field in spectral form
   ! output xsl laplace of xs in spectral form
   !-----------------------------------------------------------------------
-  subroutine lap(xs, xsl)
+  function lap(xs) result(xsl)
 
     implicit none
 
     real(r8kind), intent( in) :: xs(nsh2)
-    real(r8kind), intent(out) :: xsl(nsh2)
+    real(r8kind) :: xsl(nsh2)
 
     integer :: k
 
@@ -1331,7 +1331,7 @@ contains
 
     return
 
-  end subroutine lap
+  end function lap
 
       
   !-----------------------------------------------------------------------
@@ -1339,12 +1339,12 @@ contains
   ! input  xsl field in spectral form
   ! output xs  inverse laplace of xs in spectral form
   !-----------------------------------------------------------------------
-  subroutine lapinv(xsl, xs)
+  function lapinv(xsl) result(xs)
 
     implicit none
 
     real(r8kind), intent( in) :: xsl(nsh2)
-    real(r8kind), intent(out) :: xs(nsh2)
+    real(r8kind) :: xs(nsh2)
 
     integer :: k
 
@@ -1354,7 +1354,7 @@ contains
 
     return
 
-  end subroutine lapinv
+  end function lapinv
 
 
   !-----------------------------------------------------------------------

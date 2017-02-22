@@ -557,13 +557,13 @@ contains
     real(r8kind) :: dum1, dum2
 
     ! advection of potential vorticity at upper level
-    dqprdt(:, 1) = reshape(jacob (psi(1, 1), qprime(1, 1)), (/nsh2/))
+    dqprdt(:, 1) = reshape(jacob (psi(:, 1), qprime(:, 1)), (/nsh2/))
 
     ! advection of potential vorticity at middle level
-    dqprdt(:, 2) = reshape(jacob (psi(1, 2), qprime(1, 2)), (/nsh2/))
+    dqprdt(:, 2) = reshape(jacob (psi(:, 2), qprime(:, 2)), (/nsh2/))
 
     ! advection of potential vorticity and dissipation at lower level
-    dqprdt(:, 3) = reshape(jacobd (psi(1, 3), qprime(1, 3)), (/nsh2/))
+    dqprdt(:, 3) = reshape(jacobd (psi(:, 3), qprime(:, 3)), (/nsh2/))
 
     ! relaxation of temperature and forcing
     do k = 1, nsh2
@@ -856,8 +856,6 @@ contains
   !-----------------------------------------------------------------------
   subroutine qtopsi
 
-    implicit none
-
     integer :: k
     real(r8kind) :: r3
 
@@ -892,8 +890,6 @@ contains
   !-----------------------------------------------------------------------
   subroutine psitoq 
       
-    implicit none
-
     integer :: k
 
     do k = 1, size(psit,1)
@@ -1096,8 +1092,6 @@ contains
   !-----------------------------------------------------------------------
   subroutine dqdt(y, dydt)
 
-    implicit none
-
     real(r8kind), intent( in) :: y(:,:)
     real(r8kind), intent(out) :: dydt(:,:)
 
@@ -1144,14 +1138,14 @@ contains
     enddo
 
     do l = 1, nvl
-      psig(:, :, l) = sptogg(psi(1, l), pp)
+      psig(:, :, l) = sptogg(psi(:, l), pp)
       do j = 1, nlon
         do i = 1, nlat
           psig(i, j, l) = facsf * psig(i, j, l)
         enddo
       enddo
 
-      qgpv(:, :, l) = sptogg(qprime(1, l), pp)
+      qgpv(:, :, l) = sptogg(qprime(:, l), pp)
       do j = 1, nlon
         do i = 1, nlat
           qgpv(i, j, l) = facpv * qgpv(i, j, l)
@@ -1176,7 +1170,7 @@ contains
       ! solve linear balance equation
       delpsis = lap(psi(:, l))
       delpsig = sptogg(delpsis, pp)
-      dmupsig = sptogg(psi(1, l), pd)
+      dmupsig = sptogg(psi(:, l), pd)
 
       do j = 1, nlon
         do i = 1, nlat
@@ -1294,7 +1288,7 @@ contains
     enddo
     psi = fstofm(psifs, nm)
     do l = nvl, 1, -1
-      forg = sptogg(psi(1, l), pp)
+      forg = sptogg(psi(:, l), pp)
       write(99) ((real(forg(j, i)), i = 1, nlon), j = 1, nlat)
     enddo
     call psitoq
@@ -1317,7 +1311,7 @@ contains
     write(14, '(1E12.5)') ((for(k, l), k = 1, nsh2), l = 1, nvl)
 
     do l = nvl, 1, -1
-      forg = sptogg(for(1, l), pp)
+      forg = sptogg(for(:, l), pp)
       write(32) ((real(forg(i, j)), j = 1, nlon), i = 1, nlat)
     enddo
 

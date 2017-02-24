@@ -2,25 +2,27 @@ module QG
 
   use kind
   use model, only : model_type
+  use QG_GGSP
 
   implicit none
 
   private
 
   public :: ndayskip, dt, nday, initqg, forward, diag, writestate
-  public :: qg_model_type
+!  public :: qg_model_type
 
-  type, extends(model_type) :: qg_model_type
-    private
-  contains
-    final :: destructor_qg_model
-  end type qg_model_type
+!  type, extends(model_type) :: qg_model_type
+!    private
+!  contains
+!    final :: destructor_qg_model
+!  end type qg_model_type
 
-  interface qg_model_type
-    procedure constructor_qg_model
-  end interface
+!  interface qg_model_type
+!    procedure constructor_qg_model
+!  end interface
 
-
+  ! Grid conversion object
+  type(qg_ggsp_type) :: ggsp
 
   ! Model configuration parameters
   character(len=3) ::  ft   ! Character string containing resolution
@@ -32,69 +34,55 @@ module QG
   integer :: nsh            ! Half of nsh2
   integer :: nsh2           ! Number of coefficients needed to define one level of the T nm model
   integer :: ngp            ! Number of grid points of the Gaussian grid
-  real(r8kind)  :: dt       ! timestep in fraction of one day
-  real(r8kind)  :: dtime    ! timestep in seconds
+
+  ! Only used in forward
   real(r8kind)  :: dtt      ! timestep in non-dimensional units
 
-
-  ! Model runtime parameters
+  ! Only used in artiforc
   character(len=32)  :: obsfile  ! Name of observation file
-  character(len=256) :: rootdir  ! Path of qgmodel directory
+
+  ! Only used in diag for output
   integer :: nstepsperday
   integer :: nstepsbetweenoutput
-  integer :: ndayskip
   integer :: nday
 
-  ! Mathematical and physical constants
-  real(r8kind) :: pi     ! value of pi
-  real(r8kind) :: fzero  ! value of f at 45 degrees
-  real(r8kind) :: dp     ! layer thicknesses [Pa]
-  real(r8kind) :: om     ! angular velocity of earth [rad/s]
-  real(r8kind) :: rgas   ! gas constant
-  real(r8kind) :: grav   ! gravity acceleration [m/s^2]
-  real(r8kind) :: radius ! radius of earth [m]
+  ! Only used by main program
+  integer :: ndayskip      ! Days for model spinup
+  real(r8kind) :: dt       ! Timestep in fraction of one day
 
+  ! Mathematical and physical constants
+  real(r8kind), parameter :: pi = 4d0 * atan(1d0)     ! value of pi
+  real(r8kind), parameter :: radius = 6.37e+6 
+  real(r8kind), parameter :: om = 4d0 * pi / (24d0 * 3600d0)
+
+  ! Used in gridfields for output
   real(r8kind), allocatable  :: phi(:)   ! Gauss points in radians
   real(r8kind), allocatable  :: cosfi(:) ! cosine of phi
+
+  ! Used in jacobd and gridfields
   real(r8kind), allocatable  :: sinfi(:) ! sine of phi
 
-  integer, allocatable :: nshm(:) ! contains numbers 22 down to 1 for index 0 to 21
-  integer, allocatable :: ll(:)   ! contains total wavenumber n of each spherical harmonic of the corresponding index
-
+  ! Only used in ddl
   real(r8kind), allocatable  :: rm(:)       ! contains zonal wavenumber m of each spherical harmonic of the corresponding index for zonal derivative operator
+  ! Used in psitoq qtopsi lap lapinv
   real(r8kind), allocatable  :: rinhel(:,:) ! Laplace and Helmholtz operator for Q-PSI inversion
+  ! Used in ddt jacobd
   real(r8kind), allocatable  :: diss(:,:)   ! dissipation coefficients for each spherical harmonic
                                             !   diss(k,1) : hyperviscosity at the three levels
                                             !               (tdif sets timescale)
                                             !   diss(k,2) : Ekman friction at lower level
                                             !               (tdis sets timescale)
-
+  ! Only used in jacobd
   logical :: lgdiss     ! if .true. then orography and land-sea mask dependent friction at the lower level plus Ekman friction, else only Ekman friction
-  logical :: inf        ! if .true. then artificial PV forcing read from file
-  logical :: obsf       ! if .true. PV forcing is calculated from observations in routine artiforc
-  logical :: readstart  ! if .true. initial state is read from inputfile
 
-  real(r8kind), allocatable  :: pp(:,:)  ! Legendre polynomials defined at Gausian latitudes
-  real(r8kind), allocatable  :: pd(:,:)  ! mu derivative of Legendre polynomials
-  real(r8kind), allocatable  :: pw(:,:)  ! weights for Legendre integrals
-
-  real(r8kind), allocatable  :: rdiss(:,:)   ! landsea-mask/orography dependent friction
-  real(r8kind), allocatable  :: ddisdx(:,:)  ! landsea-mask/orography dependent friction
-  real(r8kind), allocatable  :: ddisdy(:,:)  ! landsea-mask/orography dependent friction
-
-  real(r8kind)  :: rrdef1  ! Rossby radius of deformation of 200-500 thickness
-  real(r8kind)  :: rrdef2  ! Rossby radius of deformation of 500-800 thickness
+  ! Only used in psitoq
   real(r8kind)  :: rl1     ! one over Rossby rad. of def. squared of 200-500 thickness
   real(r8kind)  :: rl2     ! one over Rossby rad. of def. squared of 500-800 thickness
+
+  ! Only used in ddt
   real(r8kind)  :: relt1   ! nondimensional relaxation coefficient of 200-500 thickness
   real(r8kind)  :: relt2   ! nondimensional relaxation coefficient of 500-800 thickness
-  real(r8kind)  :: tdis    ! Ekman dissipation timescale in days at lower level
-  real(r8kind)  :: trel    ! relaxation time scale in days of the temperature
-  real(r8kind)  :: tdif    ! dissipation timescale of scale-selective diffusion in days for wavenumber nm
-  real(r8kind)  :: addisl  ! parameter used in the computation of the dissipation timescale at the lower level over land
-  real(r8kind)  :: addish  ! parameter used in the computation of the dissipation timescale at the lower level as a function of topography
-  real(r8kind)  :: h0      ! scale factor for the topographically induced upward motion at the lower level
-  integer       :: idif    ! determines scale-selectivity of hyperviscosity; power of laplace operator
+
 
   real(r8kind), allocatable  :: psi(:,:)    ! stream function at the nvl levels
   real(r8kind), allocatable  :: psit(:,:)   ! thickness at the ntl levels
@@ -103,14 +91,14 @@ module QG
   real(r8kind), allocatable  :: for(:,:)    ! constant potential vorticity forcing at the nvl levels
   real(r8kind), allocatable  :: ws(:)       ! only used as portable workspace
 
-  real(r8kind), allocatable  :: orog(:)     ! orography in m. divided by h0
+  ! Only used in jacobd
   real(r8kind), allocatable  :: dorodl(:,:) ! derivative of orog wrt lambda
   real(r8kind), allocatable  :: dorodm(:,:) ! derivative of orag wrt sin(fi)
+  real(r8kind), allocatable  :: rdiss(:,:)   ! landsea-mask/orography dependent friction
+  real(r8kind), allocatable  :: ddisdx(:,:)  ! landsea-mask/orography dependent friction
+  real(r8kind), allocatable  :: ddisdy(:,:)  ! landsea-mask/orography dependent friction
 
-  real(r8kind), allocatable  :: trigd(:,:)  ! array used by the nag version of the fft
-  real(r8kind), allocatable  :: trigi(:,:)  ! array used by the nag version of the fft
-  real(r8kind), allocatable  :: wgg(:,:)    ! array used by the nag version of the fft
-
+  ! Only used by gridfields/diag
   real(r8kind), allocatable  :: psig(:,:,:)   ! grid values of dimensional streamfunction at the three levels
   real(r8kind), allocatable  :: qgpv(:,:,:)   ! grid values of dimensional pv at the three levels
   real(r8kind), allocatable  :: ug(:,:,:)     ! grid values of zonal velocity at the three levels in m/s
@@ -124,11 +112,11 @@ contains
   !-------------------------------------------------------------------------------
   ! constructor_qg_model
   !-------------------------------------------------------------------------------
-  function constructor_qg_model() result (qg_model)
-
-    type(qg_model_type) :: qg_model
-
-  end function constructor_qg_model
+!  function constructor_qg_model() result (qg_model)
+!
+!    type(qg_model_type) :: qg_model
+!
+!  end function constructor_qg_model
 
 
   !------------------------------------------------------------------
@@ -136,13 +124,13 @@ contains
   !
   ! Deallocates pointers used by a qg_model_type object (none currently)
   !------------------------------------------------------------------
-  elemental subroutine destructor_qg_model(this)
-
-    type(qg_model_type), intent(inout) :: this
-
-    ! No pointers in qg_model_type object so we do nothing
-
-  end subroutine destructor_qg_model
+!  elemental subroutine destructor_qg_model(this)
+!
+!    type(qg_model_type), intent(inout) :: this
+!
+!    ! No pointers in qg_model_type object so we do nothing
+!
+!  end subroutine destructor_qg_model
 
 
   !-------------------------------------------------------------------------------
@@ -190,15 +178,12 @@ contains
     ngp = nlon * nlat
 
     allocate(phi(nlat), cosfi(nlat), sinfi(nlat))
-    allocate(nshm(0:nm), ll(nsh))
     allocate(rm(nsh), rinhel(nsh2,0:5), diss(nsh2,2))
-    allocate(pp(nlat,nsh), pd(nlat,nsh), pw(nlat,nsh))
     allocate(rdiss(nlat,nlon), ddisdx(nlat,nlon), ddisdy(nlat,nlon))
 
     allocate(psi(nsh2,nvl), psit(nsh2,ntl))
     allocate(qprime(nsh2,nvl), dqprdt(nsh2,nvl), for(nsh2,nvl), ws(nsh2))
-    allocate(orog(nsh2), dorodl(nlat,nlon), dorodm(nlat,nlon))
-    allocate(trigd(nlon,2), trigi(nlon,2), wgg(nlat,nlon))
+    allocate(dorodl(nlat,nlon), dorodm(nlat,nlon))
     allocate(psig(nlat,nlon,nvl), qgpv(nlat,nlon,nvl))
     allocate(ug(nlat,nlon,nvl), vg(nlat,nlon,nvl), geopg(nlat,nlon,nvl))
 
@@ -217,9 +202,33 @@ contains
     real(r8kind) :: pigr4, dis, dif, rll
     real(r8kind) :: r1, a, b, c, d, e, sqn, rsqn
     real(r8kind) :: rnorm, rh0, dd, dlon
-    real(r8kind), allocatable :: ininag(:,:)
+    real(r8kind), allocatable :: orog(:)     ! orography in m. divided by h0
     real(r8kind), allocatable :: agg(:,:), agg1(:,:), agg2(:,:) 
     real(r8kind), allocatable :: fmu(:,:), wsx(:)
+
+    ! Namelist param variables
+    real(r8kind)  :: tdis    ! Ekman dissipation timescale in days at lower level
+    real(r8kind)  :: addisl  ! parameter used in the computation of the dissipation timescale at the lower level over land
+    real(r8kind)  :: addish  ! parameter used in the computation of the dissipation timescale at the lower level as a function of topography
+    real(r8kind)  :: trel    ! relaxation time scale in days of the temperature
+    real(r8kind)  :: tdif    ! dissipation timescale of scale-selective diffusion in days for wavenumber nm
+    integer       :: idif    ! determines scale-selectivity of hyperviscosity; power of laplace operator
+    real(r8kind)  :: h0      ! scale factor for the topographically induced upward motion at the lower level
+    real(r8kind)  :: rrdef1  ! Rossby radius of deformation of 200-500 thickness
+    real(r8kind)  :: rrdef2  ! Rossby radius of deformation of 500-800 thickness
+
+    ! Namelist control variables
+    logical :: inf        ! if .true. then artificial PV forcing read from file
+    logical :: obsf       ! if .true. PV forcing is calculated from observations in routine artiforc
+    logical :: readstart  ! if .true. initial state is read from inputfile
+
+    ! Used to initialize sptogg and ggtosp
+    integer, allocatable :: ll(:)   ! contains total wavenumber n of each spherical harmonic of the corresponding index
+    integer, allocatable :: nshm(:) ! contains numbers 22 down to 1 for index 0 to 21
+    real(r8kind), allocatable  :: pp(:,:)  ! Legendre polynomials defined at Gausian latitudes
+    real(r8kind), allocatable  :: pd(:,:)  ! mu derivative of Legendre polynomials
+    real(r8kind), allocatable  :: pw(:,:)  ! weights for Legendre integrals
+
 
     namelist /param/ tdis, addisl, addish, trel, tdif, idif, h0, rrdef1, rrdef2
     namelist /control/ resolution, nstepsperday, nstepsbetweenoutput, &
@@ -264,11 +273,13 @@ contains
     call allocate_comqg(resolution)
 
     ! Allocate local data
-    allocate(ininag(nlat, nlon))
+    allocate(orog(nsh2))
     allocate(agg(nlat, nlon), agg1(nlat, nlon), agg2(nlat, nlon))
     allocate(fmu(nlat, 2), wsx(nsh2))
 
     ! Read model input from qgcoefT*
+    allocate(nshm(0:nm), ll(nsh))
+    allocate(pp(nlat,nsh), pd(nlat,nsh), pw(nlat,nsh))
     open(11, file = './qgcoefT' // trim(ft) // '.dat', form = 'formatted')
     do i = 0, nm
       read(11, *) nshm(i)
@@ -293,6 +304,20 @@ contains
     enddo
     close(11)
 
+    ! compensation for normalization in nag fft routines
+    sqn = sqrt(dble(nlon))
+    rsqn = 1d0 / sqn
+    do k = 1, nsh
+      do i = 1, nlat
+        pp(i, k) = pp(i, k) * sqn
+        pd(i, k) = pd(i, k) * sqn
+        pw(i, k) = pw(i, k) * rsqn
+      enddo
+    enddo
+
+    ! Instantiate a ggsp grid conversion object
+    ggsp = qg_ggsp_type(nm, nlat, nlon, nshm, pp, pd, pw)
+
     ! Read initial streamfunction
     open(12, file = './qgstartT' // trim(ft) // '.dat', form = 'formatted')
     open(13, file = './qgbergT' // trim(ft) // '.dat', form = 'formatted')
@@ -300,9 +325,9 @@ contains
       open(14, file = './qgpvforT' // trim(ft) // '.dat', form = 'formatted')
     endif
 
-    pi = 4d0 * atan(1d0)
-    radius = 6.37e+6 
-    om = 4d0 * pi / (24d0 * 3600d0)
+!    pi = 4d0 * atan(1d0)
+!    radius = 6.37e+6 
+!    om = 4d0 * pi / (24d0 * 3600d0)
 
     pigr4 = 4.d0 * pi
     rl1 = 1.0d0 / rrdef1**2
@@ -318,7 +343,6 @@ contains
     ! dtime : in seconds
     ! dtt   : dimensionless
     dt     = 1d0 / real(nstepsperday)
-    dtime  = dt * (24d0 * 3600d0)
     dtt    = dt * pi * 4d0
 
     ! zonal derivative operator
@@ -364,28 +388,6 @@ contains
       enddo
     enddo
 
-    ! compensation for normalization in nag fft routines
-    sqn = sqrt(dble(nlon))
-    rsqn = 1d0 / sqn
-    do k = 1, nsh
-      do i = 1, nlat
-        pp(i, k) = pp(i, k) * sqn
-        pd(i, k) = pd(i, k) * sqn
-        pw(i, k) = pw(i, k) * rsqn
-      enddo
-    enddo
-
-    ! initialization of coefficients for fft
-    do j = 1, nlon
-      do i = 1, nlat
-        ininag(i, j) = 1.0d0
-      enddo
-    enddo 
-    ifail = 0
-    call c06fpf(nlat, nlon, ininag, 'i', trigd, wgg, ifail)
-    ifail = 0
-    call c06fqf(nlat, nlon, ininag, 'i', trigi, wgg, ifail)
-
     ! orography and dissipation terms
     ! fmu(i, 1): sin(phi(i))
     ! fmu(i, 2): 1 - sin**2(phi(i))      
@@ -416,10 +418,13 @@ contains
 
     ! surface dependent friction
     lgdiss = ((addisl .gt. 0.0) .or. (addish .gt. 0.0))
-    orog = reshape(ggtosp (agg), (/nsh2/))
+!    orog = reshape(ggtosp (agg), (/nsh2/))
+    orog = reshape(ggsp%ggtosp (agg), (/nsh2/))
     ws = reshape(ddl (orog), (/nsh2/))
-    dorodl = sptogg (ws, pp)
-    dorodm = sptogg (orog, pd)
+!    dorodl = sptogg (ws, pp)
+!    dorodm = sptogg (orog, pd)
+    dorodl = ggsp%sptogg_pp (ws)
+    dorodm = ggsp%sptogg_pd (orog)
     if (lgdiss) then
       do i = 1, nlon
         do j = 1, nlat
@@ -432,11 +437,15 @@ contains
         enddo
       enddo
 
-      ws = reshape(ggtosp (agg), (/nsh2/))
+!      ws = reshape(ggtosp (agg), (/nsh2/))
+      ws = reshape(ggsp%ggtosp (agg), (/nsh2/))
       wsx = reshape(ddl (ws), (/nsh2/))
-      rdiss = sptogg (ws, pp)
-      ddisdx = sptogg (wsx, pp)
-      ddisdy = sptogg (ws, pd)
+!      rdiss = sptogg (ws, pp)
+!      ddisdx = sptogg (wsx, pp)
+!      ddisdy = sptogg (ws, pd)
+      rdiss = ggsp%sptogg_pp (ws)
+      ddisdx = ggsp%sptogg_pp (wsx)
+      ddisdy = ggsp%sptogg_pd (ws)
       dd = 0.5d0 * diss(2, 2)
       do j = 1, nlon
         do i = 1, nlat
@@ -509,7 +518,8 @@ contains
 
     open(14, file = 'qgpvforT' // trim(ft) // '.grads', form = 'unformatted')
     do l = 1, nvl
-      agg1 = sptogg(for(1, l), pp)
+!      agg1 = sptogg(for(1, l), pp)
+      agg1 = ggsp%sptogg_pp(for(:, l))
       write(14) ((real(agg1(j, i)), i = 1, nlon), j = 1, nlat)
     enddo
     close(14)
@@ -547,7 +557,6 @@ contains
   !
   ! input qprime,  psi,  psit
   ! output dqprdt
-  ! NOTE psit is destroyed
   !----------------------------------------------------------------------
   subroutine ddt
 
@@ -606,13 +615,17 @@ contains
 
     ! space derivatives of potential vorticity
     vv = reshape(ddl (pvor), (/nsh2/))
-    dvordl = sptogg (vv, pp)
-    dvordm = sptogg (pvor, pd)
+!    dvordl = sptogg (vv, pp)
+!    dvordm = sptogg (pvor, pd)
+    dvordl = ggsp%sptogg_pp (vv)
+    dvordm = ggsp%sptogg_pd (pvor)
 
     ! space derivatives of streamfunction
     dpsidls = reshape(ddl (psiloc), (/nsh2/))
-    dpsidl = sptogg (dpsidls, pp)
-    dpsidm = sptogg (psiloc, pd)
+!    dpsidl = sptogg (dpsidls, pp)
+!    dpsidm = sptogg (psiloc, pd)
+    dpsidl = ggsp%sptogg_pp (dpsidls)
+    dpsidm = ggsp%sptogg_pd (psiloc)
 
     ! jacobian term
     do j = 1, nlon
@@ -621,7 +634,8 @@ contains
       enddo
     enddo
 
-    sjacob = reshape(ggtosp (gjacob), (/nsh2/))
+!    sjacob = reshape(ggtosp (gjacob), (/nsh2/))
+    sjacob = reshape(ggsp%ggtosp (gjacob), (/nsh2/))
 
     ! planetary vorticity advection
     do k = 1, nsh2
@@ -653,13 +667,17 @@ contains
 
     ! space derivatives of potential vorticity 
     vv = reshape(ddl (pvor), (/nsh2/))
-    dvordl = sptogg (vv, pp)
-    dvordm = sptogg (pvor, pd)
+!    dvordl = sptogg (vv, pp)
+!    dvordm = sptogg (pvor, pd)
+    dvordl = ggsp%sptogg_pp (vv)
+    dvordm = ggsp%sptogg_pd (pvor)
 
     ! space derivatives of streamfunction
     dpsidls = reshape(ddl (psiloc), (/nsh2/))
-    dpsidl = sptogg (dpsidls, pp)
-    dpsidm = sptogg (psiloc, pd)
+!    dpsidl = sptogg (dpsidls, pp)
+!    dpsidm = sptogg (psiloc, pd)
+    dpsidl = ggsp%sptogg_pp (dpsidls)
+    dpsidm = ggsp%sptogg_pd (psiloc)
 
     ! jacobian term + orographic forcing
     do j = 1, nlon
@@ -677,7 +695,8 @@ contains
         vv(k) = diss(k, 2) * psiloc(k)
       enddo
 
-      azeta = sptogg (vv, pp)
+!      azeta = sptogg (vv, pp)
+      azeta = ggsp%sptogg_pp (vv)
 
       do j = 1, nlon
         do i = 1, nlat
@@ -687,12 +706,14 @@ contains
         enddo
       enddo
 
-      sjacob = reshape(ggtosp (gjacob), (/nsh2/))
+!      sjacob = reshape(ggtosp (gjacob), (/nsh2/))
+      sjacob = reshape(ggsp%ggtosp (gjacob), (/nsh2/))
 
     else
 
       !   uniform dissipation
-      sjacob = reshape(ggtosp (gjacob), (/nsh2/))
+!      sjacob = reshape(ggtosp (gjacob), (/nsh2/))
+      sjacob = reshape(ggsp%ggtosp (gjacob), (/nsh2/))
 
       do k = 1, nsh2
         sjacob(k) = sjacob(k) + diss(k, 2) * psi(k, 3)
@@ -733,121 +754,6 @@ contains
 
   end function ddl
 
-
-  !-----------------------------------------------------------------------
-  ! conversion from spectral coefficients to gaussian grid
-  ! input  spectral field as,  legendre polynomials pploc (pp or pd) 
-  !        where pp are legendre polynomials and pd derivatives with
-  !        respect to sin(fi)
-  ! output gaussian grid agg
-  !-----------------------------------------------------------------------
-  function sptogg (as, pploc) result(agg)
-
-    implicit none
-
-    real(r8kind), intent( in) :: as(nsh, 2)
-    real(r8kind), intent( in) :: pploc(nlat, nsh)
-
-    real(r8kind) :: agg(nlat, nlon)
-
-    integer :: i, ifail, j, k, k1, k2, m, mi, mr, nlon1
-
-    ! inverse legendre transform
-    do j = 1, nlon
-      do i = 1, nlat
-        agg(i, j) = 0.0d0
-      enddo
-    enddo
-
-    nlon1 = nlon + 1
-    k2 = nshm(0)
-
-    do k = 1, k2
-      do i = 1, nlat
-        agg(i, 1) = agg(i, 1) + as(k, 1) * pploc(i, k)
-      enddo
-    enddo
-
-    do m = 1, nm
-      mr = m + 1
-      mi = nlon1 - m
-      k1 = k2 + 1
-      k2 = k2 + nshm(m)
-      do k = k1, k2
-        do i = 1, nlat
-          agg(i, mr) = agg(i, mr) + as(k, 1) * pploc(i, k)
-        enddo
-        do i = 1, nlat
-          agg(i, mi) = agg(i, mi) - as(k, 2) * pploc(i, k)
-        enddo
-      enddo
-    enddo
-
-    ! inverse fourier transform
-    ifail = 0
-    call c06fqf (nlat, nlon, agg, 'r', trigi, wgg, ifail)
-
-    return
-
-  end function sptogg
- 
-
-  !-----------------------------------------------------------------------
-  ! conversion from gaussian grid (agg) to spectral coefficients (as)
-  ! input array agg is destroyed
-  ! output as contains spectral coefficients
-  !-----------------------------------------------------------------------
-  function ggtosp (agg_in) result (as)
-
-    implicit none
-
-    real(r8kind), intent(in) :: agg_in(nlat, nlon)
-    real(r8kind)             :: as(nsh, 2)
-
-    real(r8kind) :: agg(nlat, nlon)
-    integer :: ir, ifail, j, k, k1, k2, m, mi, mr, nlon1, i
-
-    ! Make a local copy of agg_in so it is not destroyed by c06fpf
-    agg(:,:) = agg_in(:,:)
-
-    ! fourier transform
-    ifail = 0
-    call c06fpf (nlat, nlon, agg, 'r', trigd, wgg, ifail)
-
-    ! legendre transform
-    do ir = 1, 2
-      do k = 1, nsh
-        as(k, ir) = 0.0d0
-      enddo
-    enddo
-
-    nlon1 = nlon + 1
-
-    k2 = nshm(0)
-
-    do k = 1, k2
-      do i = 1, nlat
-        as(k, 1) = as(k, 1) + agg(i, 1) * pw(i, k)
-      enddo
-    enddo
-
-    do m = 1, nm
-      mr = m + 1
-      mi = nlon1 - m
-      k1 = k2 + 1
-      k2 = k2 + nshm(m)
-      do k = k1, k2
-        do i = 1, nlat
-          as(k, 1) = as(k, 1) + agg(i, mr) * pw(i, k)
-          as(k, 2) = as(k, 2) + agg(i, mi) * pw(i, k)
-        enddo
-      enddo
-    enddo
-
-    return
-
-  end function ggtosp
- 
 
   !-----------------------------------------------------------------------
   ! computation of streamfunction from potential vorticity
@@ -1138,14 +1044,16 @@ contains
     enddo
 
     do l = 1, nvl
-      psig(:, :, l) = sptogg(psi(:, l), pp)
+!      psig(:, :, l) = sptogg(psi(:, l), pp)
+      psig(:, :, l) = ggsp%sptogg_pp(psi(:, l))
       do j = 1, nlon
         do i = 1, nlat
           psig(i, j, l) = facsf * psig(i, j, l)
         enddo
       enddo
 
-      qgpv(:, :, l) = sptogg(qprime(:, l), pp)
+!      qgpv(:, :, l) = sptogg(qprime(:, l), pp)
+      qgpv(:, :, l) = ggsp%sptogg_pp(qprime(:, l))
       do j = 1, nlon
         do i = 1, nlat
           qgpv(i, j, l) = facpv * qgpv(i, j, l)
@@ -1157,8 +1065,10 @@ contains
       enddo
 
       vv = reshape(ddl (psik), (/nsh2/))
-      dpsdl = sptogg (vv, pp)
-      dpsdm = sptogg (psik, pd)
+!      dpsdl = sptogg (vv, pp)
+!      dpsdm = sptogg (psik, pd)
+      dpsdl = ggsp%sptogg_pp (vv)
+      dpsdm = ggsp%sptogg_pd (psik)
 
       do j = 1, nlon
         do i = 1, nlat
@@ -1169,8 +1079,10 @@ contains
 
       ! solve linear balance equation
       delpsis = lap(psi(:, l))
-      delpsig = sptogg(delpsis, pp)
-      dmupsig = sptogg(psi(:, l), pd)
+!      delpsig = sptogg(delpsis, pp)
+!      dmupsig = sptogg(psi(:, l), pd)
+      delpsig = ggsp%sptogg_pp(delpsis)
+      dmupsig = ggsp%sptogg_pd(psi(:, l))
 
       do j = 1, nlon
         do i = 1, nlat
@@ -1178,10 +1090,12 @@ contains
         enddo
       enddo
 
-      delgeos = reshape(ggtosp(delgeog), (/nsh2/))
+!      delgeos = reshape(ggtosp(delgeog), (/nsh2/))
+      delgeos = reshape(ggsp%ggtosp(delgeog), (/nsh2/))
       geos = lapinv(delgeos)
       geos(1) = 0.d0
-      geopg(:, :, l) = sptogg(geos, pp)
+!      geopg(:, :, l) = sptogg(geos, pp)
+      geopg(:, :, l) = ggsp%sptogg_pp(geos)
 
 
       do j = 1, nlon
@@ -1288,7 +1202,8 @@ contains
     enddo
     psi = fstofm(psifs, nm)
     do l = nvl, 1, -1
-      forg = sptogg(psi(:, l), pp)
+!      forg = sptogg(psi(:, l), pp)
+      forg = ggsp%sptogg_pp(psi(:, l))
       write(99) ((real(forg(j, i)), i = 1, nlon), j = 1, nlat)
     enddo
     call psitoq
@@ -1311,7 +1226,8 @@ contains
     write(14, '(1E12.5)') ((for(k, l), k = 1, nsh2), l = 1, nvl)
 
     do l = nvl, 1, -1
-      forg = sptogg(for(:, l), pp)
+!      forg = sptogg(for(:, l), pp)
+      forg = ggsp%sptogg_pp(for(:, l))
       write(32) ((real(forg(i, j)), j = 1, nlon), i = 1, nlat)
     enddo
 
@@ -1434,5 +1350,6 @@ contains
     close(12)
 
   end subroutine writestate
+
 
 end module QG

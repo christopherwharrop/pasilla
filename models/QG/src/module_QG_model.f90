@@ -62,8 +62,6 @@ module QG
   ! Used in jacobd and gridfields
   real(r8kind), allocatable  :: sinfi(:) ! sine of phi
 
-  ! Only used in ddl
-  real(r8kind), allocatable  :: rm(:)       ! contains zonal wavenumber m of each spherical harmonic of the corresponding index for zonal derivative operator
   ! Used in psitoq qtopsi lap lapinv
   real(r8kind), allocatable  :: rinhel(:,:) ! Laplace and Helmholtz operator for Q-PSI inversion
   ! Used in ddt jacobd
@@ -87,7 +85,6 @@ module QG
   real(r8kind), allocatable  :: psi(:,:)    ! stream function at the nvl levels
   real(r8kind), allocatable  :: psit(:,:)   ! thickness at the ntl levels
   real(r8kind), allocatable  :: qprime(:,:) ! potential vorticity
-  real(r8kind), allocatable  :: dqprdt(:,:) ! time derivative of qprime
   real(r8kind), allocatable  :: for(:,:)    ! constant potential vorticity forcing at the nvl levels
 
   ! Only used in jacobd
@@ -177,11 +174,11 @@ contains
     ngp = nlon * nlat
 
     allocate(phi(nlat), cosfi(nlat), sinfi(nlat))
-    allocate(rm(nsh), rinhel(nsh2,0:5), diss(nsh2,2))
+    allocate(rinhel(nsh2,0:5), diss(nsh2,2))
     allocate(rdiss(nlat,nlon), ddisdx(nlat,nlon), ddisdy(nlat,nlon))
 
     allocate(psi(nsh2,nvl), psit(nsh2,ntl))
-    allocate(qprime(nsh2,nvl), dqprdt(nsh2,nvl), for(nsh2,nvl))
+    allocate(qprime(nsh2,nvl), for(nsh2,nvl))
     allocate(dorodl(nlat,nlon), dorodm(nlat,nlon))
     allocate(psig(nlat,nlon,nvl), qgpv(nlat,nlon,nvl))
     allocate(ug(nlat,nlon,nvl), vg(nlat,nlon,nvl), geopg(nlat,nlon,nvl))
@@ -326,10 +323,6 @@ contains
       open(14, file = './qgpvforT' // trim(ft) // '.dat', form = 'formatted')
     endif
 
-!    pi = 4d0 * atan(1d0)
-!    radius = 6.37e+6 
-!    om = 4d0 * pi / (24d0 * 3600d0)
-
     pigr4 = 4.d0 * pi
     rl1 = 1.0d0 / rrdef1**2
     rl2 = 1.0d0 / rrdef2**2
@@ -345,16 +338,6 @@ contains
     ! dtt   : dimensionless
     dt     = 1d0 / real(nstepsperday)
     dtt    = dt * pi * 4d0
-
-    ! zonal derivative operator
-    k2 = 0
-    do m = 0, nm
-      k1 = k2 + 1
-      k2 = k2 + nshm(m)
-      do k = k1, k2
-        rm(k) = dble(m)
-      enddo
-    enddo
 
     ! laplace/helmholtz direct and inverse operators
     do j = 0, 5
@@ -419,11 +402,8 @@ contains
 
     ! surface dependent friction
     lgdiss = ((addisl .gt. 0.0) .or. (addish .gt. 0.0))
-!    orog = reshape(ggtosp (agg), (/nsh2/))
     orog = reshape(ggsp%ggtosp (agg), (/nsh2/))
-    ws = reshape(ddl (orog), (/nsh2/))
-!    dorodl = sptogg (ws, pp)
-!    dorodm = sptogg (orog, pd)
+    ws = reshape(ggsp%ddl (orog), (/nsh2/))
     dorodl = ggsp%sptogg_pp (ws)
     dorodm = ggsp%sptogg_pd (orog)
     if (lgdiss) then
@@ -438,12 +418,8 @@ contains
         enddo
       enddo
 
-!      ws = reshape(ggtosp (agg), (/nsh2/))
       ws = reshape(ggsp%ggtosp (agg), (/nsh2/))
-      wsx = reshape(ddl (ws), (/nsh2/))
-!      rdiss = sptogg (ws, pp)
-!      ddisdx = sptogg (wsx, pp)
-!      ddisdy = sptogg (ws, pd)
+      wsx = reshape(ggsp%ddl (ws), (/nsh2/))
       rdiss = ggsp%sptogg_pp (ws)
       ddisdx = ggsp%sptogg_pp (wsx)
       ddisdy = ggsp%sptogg_pd (ws)
@@ -519,7 +495,6 @@ contains
 
     open(14, file = 'qgpvforT' // trim(ft) // '.grads', form = 'unformatted')
     do l = 1, nvl
-!      agg1 = sptogg(for(1, l), pp)
       agg1 = ggsp%sptogg_pp(for(:, l))
       write(14) ((real(agg1(j, i)), i = 1, nlon), j = 1, nlat)
     enddo
@@ -559,9 +534,9 @@ contains
   ! input qprime,  psi,  psit
   ! output dqprdt
   !----------------------------------------------------------------------
-  subroutine ddt
+  function ddt() result(dqprdt)
 
-    implicit none
+    real(r8kind) :: dqprdt(nsh2,nvl) ! time derivative of qprime
 
     integer :: k, l, i, j
     real(r8kind) :: dum1, dum2
@@ -593,7 +568,7 @@ contains
 
     return
 
-  end subroutine ddt
+  end function ddt
 
 
   !----------------------------------------------------------------------
@@ -615,16 +590,12 @@ contains
     real(r8kind) :: dvordm(nlat, nlon),  gjacob(nlat, nlon),  dpsidls(nsh2)
 
     ! space derivatives of potential vorticity
-    vv = reshape(ddl (pvor), (/nsh2/))
-!    dvordl = sptogg (vv, pp)
-!    dvordm = sptogg (pvor, pd)
+    vv = reshape(ggsp%ddl (pvor), (/nsh2/))
     dvordl = ggsp%sptogg_pp (vv)
     dvordm = ggsp%sptogg_pd (pvor)
 
     ! space derivatives of streamfunction
-    dpsidls = reshape(ddl (psiloc), (/nsh2/))
-!    dpsidl = sptogg (dpsidls, pp)
-!    dpsidm = sptogg (psiloc, pd)
+    dpsidls = reshape(ggsp%ddl (psiloc), (/nsh2/))
     dpsidl = ggsp%sptogg_pp (dpsidls)
     dpsidm = ggsp%sptogg_pd (psiloc)
 
@@ -635,7 +606,6 @@ contains
       enddo
     enddo
 
-!    sjacob = reshape(ggtosp (gjacob), (/nsh2/))
     sjacob = reshape(ggsp%ggtosp (gjacob), (/nsh2/))
 
     ! planetary vorticity advection
@@ -667,16 +637,12 @@ contains
     real(r8kind) :: azeta(nlat, nlon), dpsidls(nsh2)
 
     ! space derivatives of potential vorticity 
-    vv = reshape(ddl (pvor), (/nsh2/))
-!    dvordl = sptogg (vv, pp)
-!    dvordm = sptogg (pvor, pd)
+    vv = reshape(ggsp%ddl (pvor), (/nsh2/))
     dvordl = ggsp%sptogg_pp (vv)
     dvordm = ggsp%sptogg_pd (pvor)
 
     ! space derivatives of streamfunction
-    dpsidls = reshape(ddl (psiloc), (/nsh2/))
-!    dpsidl = sptogg (dpsidls, pp)
-!    dpsidm = sptogg (psiloc, pd)
+    dpsidls = reshape(ggsp%ddl (psiloc), (/nsh2/))
     dpsidl = ggsp%sptogg_pp (dpsidls)
     dpsidm = ggsp%sptogg_pd (psiloc)
 
@@ -696,7 +662,6 @@ contains
         vv(k) = diss(k, 2) * psiloc(k)
       enddo
 
-!      azeta = sptogg (vv, pp)
       azeta = ggsp%sptogg_pp (vv)
 
       do j = 1, nlon
@@ -707,13 +672,11 @@ contains
         enddo
       enddo
 
-!      sjacob = reshape(ggtosp (gjacob), (/nsh2/))
       sjacob = reshape(ggsp%ggtosp (gjacob), (/nsh2/))
 
     else
 
       !   uniform dissipation
-!      sjacob = reshape(ggtosp (gjacob), (/nsh2/))
       sjacob = reshape(ggsp%ggtosp (gjacob), (/nsh2/))
 
       do k = 1, nsh2
@@ -730,30 +693,6 @@ contains
     return
 
   end function jacobd
-
-
-  !-----------------------------------------------------------------------
-  ! zonal derivative in spectral space
-  ! input spectral field as
-  ! output spectral field dadl which is as differentiated wrt lambda
-  !-----------------------------------------------------------------------
-  pure function ddl (as) result(dadl)
-      
-    implicit none
-
-    real(r8kind), intent( in) :: as(nsh, 2)
-    real(r8kind)              :: dadl(nsh, 2)
-
-    integer :: k
- 
-    do k = 1, nsh
-      dadl(k, 1) = -rm(k) * as(k, 2)
-      dadl(k, 2) =  rm(k) * as(k, 1)
-    enddo
- 
-    return
-
-  end function ddl
 
 
   !-----------------------------------------------------------------------
@@ -1003,9 +942,11 @@ contains
     real(r8kind), intent( in) :: y(:,:)
     real(r8kind), intent(out) :: dydt(:,:)
 
+    real(r8kind) :: dqprdt(nsh2,nvl) ! time derivative of qprime
+
     qprime = fstofm(y, nm)
     call qtopsi  ! qprime --> psi and psit
-    call ddt     ! psi, psit, qprime, for, diss --> dqprdt
+    dqprdt = ddt()     ! psi, psit, qprime, for, diss --> dqprdt
     dydt = fmtofs(dqprdt)
 
     return
@@ -1046,7 +987,6 @@ contains
     enddo
 
     do l = 1, nvl
-!      psig(:, :, l) = sptogg(psi(:, l), pp)
       psig(:, :, l) = ggsp%sptogg_pp(psi(:, l))
       do j = 1, nlon
         do i = 1, nlat
@@ -1054,7 +994,6 @@ contains
         enddo
       enddo
 
-!      qgpv(:, :, l) = sptogg(qprime(:, l), pp)
       qgpv(:, :, l) = ggsp%sptogg_pp(qprime(:, l))
       do j = 1, nlon
         do i = 1, nlat
@@ -1066,9 +1005,7 @@ contains
         psik(k) = psi(k, l)
       enddo
 
-      vv = reshape(ddl (psik), (/nsh2/))
-!      dpsdl = sptogg (vv, pp)
-!      dpsdm = sptogg (psik, pd)
+      vv = reshape(ggsp%ddl (psik), (/nsh2/))
       dpsdl = ggsp%sptogg_pp (vv)
       dpsdm = ggsp%sptogg_pd (psik)
 
@@ -1081,8 +1018,6 @@ contains
 
       ! solve linear balance equation
       delpsis = lap(psi(:, l))
-!      delpsig = sptogg(delpsis, pp)
-!      dmupsig = sptogg(psi(:, l), pd)
       delpsig = ggsp%sptogg_pp(delpsis)
       dmupsig = ggsp%sptogg_pd(psi(:, l))
 
@@ -1092,11 +1027,9 @@ contains
         enddo
       enddo
 
-!      delgeos = reshape(ggtosp(delgeog), (/nsh2/))
       delgeos = reshape(ggsp%ggtosp(delgeog), (/nsh2/))
       geos = lapinv(delgeos)
       geos(1) = 0.d0
-!      geopg(:, :, l) = sptogg(geos, pp)
       geopg(:, :, l) = ggsp%sptogg_pp(geos)
 
 
@@ -1166,6 +1099,7 @@ contains
     integer :: i, j, k, l, iday, fl, nvar
     real(r4kind) :: psi4(nsh2, 3)
     real(r8kind) :: sum(nsh2, 3), forg(nlat, nlon), dlon, psifs(nsh2, 3)
+    real(r8kind) :: dqprdt(nsh2,nvl) ! time derivative of qprime
 
     nvar = (nm + 2) * nm
 
@@ -1204,12 +1138,11 @@ contains
     enddo
     psi = fstofm(psifs, nm)
     do l = nvl, 1, -1
-!      forg = sptogg(psi(:, l), pp)
       forg = ggsp%sptogg_pp(psi(:, l))
       write(99) ((real(forg(j, i)), i = 1, nlon), j = 1, nlat)
     enddo
     call psitoq
-    call ddt
+    dqprdt = ddt()
     do l = 1, nvl
       do k = 1, nsh2
         sum(k, l) = sum(k, l) + dqprdt(k, l)
@@ -1228,7 +1161,6 @@ contains
     write(14, '(1E12.5)') ((for(k, l), k = 1, nsh2), l = 1, nvl)
 
     do l = nvl, 1, -1
-!      forg = sptogg(for(:, l), pp)
       forg = ggsp%sptogg_pp(for(:, l))
       write(32) ((real(forg(i, j)), j = 1, nlon), i = 1, nlat)
     enddo

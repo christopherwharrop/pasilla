@@ -20,12 +20,14 @@ module QG_GGSP
     real(r8kind), allocatable  :: pw(:,:)    ! Weights for Legendre integrals
     real(r8kind), allocatable  :: trigd(:,:) ! Trigonometric coefficients used by the nag version of the fft
     real(r8kind), allocatable  :: trigi(:,:) ! Trigonometric coefficients used by the nag version of the fft
+    real(r8kind), allocatable  :: rm(:)      ! contains zonal wavenumber m of each spherical harmonic of the corresponding index for zonal derivative operator
   contains
     final :: destructor_qg_ggsp
     procedure          :: sptogg_pp
     procedure          :: sptogg_pd
     procedure, private :: sptogg
     procedure          :: ggtosp
+    procedure          :: ddl
   end type qg_ggsp_type
 
   interface qg_ggsp_type
@@ -54,7 +56,7 @@ contains
     type(qg_ggsp_type) :: qg_ggsp
 
     ! Local data
-    integer :: i, j, ifail
+    integer :: i, j, k, k1, k2, m, ifail
     real(r8kind), allocatable :: ininag(:,:)  ! FFT initialization field
     real(r8kind), allocatable :: tmp(:,:)     ! Work space used by the nag version of the FFT
 
@@ -88,6 +90,19 @@ contains
     call c06fpf(nlat, nlon, ininag, 'i', qg_ggsp%trigd, tmp, ifail)
     ifail = 0
     call c06fqf(nlat, nlon, ininag, 'i', qg_ggsp%trigi, tmp, ifail)
+
+
+    ! Precalculate zonal derivative operator
+    allocate(qg_ggsp%rm(qg_ggsp%nsh))
+    k2 = 0
+    do m = 0, nm
+      k1 = k2 + 1
+      k2 = k2 + nshm(m)
+      do k = k1, k2
+        qg_ggsp%rm(k) = dble(m)
+      enddo
+    enddo
+
 
   end function constructor_qg_ggsp
 
@@ -269,5 +284,30 @@ contains
     enddo
 
   end function ggtosp
+
+
+  !-----------------------------------------------------------------------
+  ! zonal derivative in spectral space
+  ! input spectral field as
+  ! output spectral field dadl which is as differentiated wrt lambda
+  !-----------------------------------------------------------------------
+  pure function ddl (this,as) result(dadl)
+
+    implicit none
+
+    class(qg_ggsp_type), intent(in) :: this
+    real(r8kind),        intent(in) :: as(this%nsh, 2)
+    real(r8kind)                    :: dadl(this%nsh, 2)
+
+    integer :: k
+
+    do k = 1, this%nsh
+      dadl(k, 1) = -this%rm(k) * as(k, 2)
+      dadl(k, 2) =  this%rm(k) * as(k, 1)
+    enddo
+
+    return
+
+  end function ddl
 
 end module QG_GGSP

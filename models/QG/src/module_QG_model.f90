@@ -55,7 +55,7 @@ module QG
   real(r8kind), parameter :: radius = 6.37e+6 
   real(r8kind), parameter :: om = 4d0 * pi / (24d0 * 3600d0)
 
-  ! Used in gridfields for output
+  ! Used only in gridfields for output
   real(r8kind), allocatable  :: phi(:)   ! Gauss points in radians
   real(r8kind), allocatable  :: cosfi(:) ! cosine of phi
 
@@ -70,8 +70,6 @@ module QG
                                             !               (tdif sets timescale)
                                             !   diss(k,2) : Ekman friction at lower level
                                             !               (tdis sets timescale)
-  ! Only used in jacobd
-  logical :: lgdiss     ! if .true. then orography and land-sea mask dependent friction at the lower level plus Ekman friction, else only Ekman friction
 
   ! Only used in psitoq
   real(r8kind)  :: rl1     ! one over Rossby rad. of def. squared of 200-500 thickness
@@ -88,18 +86,19 @@ module QG
   real(r8kind), allocatable  :: for(:,:)    ! constant potential vorticity forcing at the nvl levels
 
   ! Only used in jacobd
+  logical                    :: lgdiss      ! if .true. then orography and land-sea mask dependent friction at the lower level plus Ekman friction, else only Ekman friction
   real(r8kind), allocatable  :: dorodl(:,:) ! derivative of orog wrt lambda
   real(r8kind), allocatable  :: dorodm(:,:) ! derivative of orag wrt sin(fi)
-  real(r8kind), allocatable  :: rdiss(:,:)   ! landsea-mask/orography dependent friction
-  real(r8kind), allocatable  :: ddisdx(:,:)  ! landsea-mask/orography dependent friction
-  real(r8kind), allocatable  :: ddisdy(:,:)  ! landsea-mask/orography dependent friction
+  real(r8kind), allocatable  :: rdiss(:,:)  ! landsea-mask/orography dependent friction
+  real(r8kind), allocatable  :: ddisdx(:,:) ! landsea-mask/orography dependent friction
+  real(r8kind), allocatable  :: ddisdy(:,:) ! landsea-mask/orography dependent friction
 
   ! Only used by gridfields/diag
-  real(r8kind), allocatable  :: psig(:,:,:)   ! grid values of dimensional streamfunction at the three levels
-  real(r8kind), allocatable  :: qgpv(:,:,:)   ! grid values of dimensional pv at the three levels
-  real(r8kind), allocatable  :: ug(:,:,:)     ! grid values of zonal velocity at the three levels in m/s
-  real(r8kind), allocatable  :: vg(:,:,:)     ! grid values of meridional velocity at the three levels in m/s
-  real(r8kind), allocatable  :: geopg(:,:,:)  ! geopotential on the grid
+  real(r8kind), allocatable  :: psig(:,:,:) ! grid values of dimensional streamfunction at the three levels
+  real(r8kind), allocatable  :: qgpv(:,:,:) ! grid values of dimensional pv at the three levels
+  real(r8kind), allocatable  :: ug(:,:,:)   ! grid values of zonal velocity at the three levels in m/s
+  real(r8kind), allocatable  :: vg(:,:,:)   ! grid values of meridional velocity at the three levels in m/s
+  real(r8kind), allocatable  :: geopg(:,:,:)! geopotential on the grid
 
 
 contains
@@ -316,12 +315,6 @@ contains
     ! Instantiate a ggsp grid conversion object
     ggsp = qg_ggsp_type(nm, nlat, nlon, nshm, pp, pd, pw)
 
-    ! Read initial streamfunction
-    open(12, file = './qgstartT' // trim(ft) // '.dat', form = 'formatted')
-    open(13, file = './qgbergT' // trim(ft) // '.dat', form = 'formatted')
-    if (inf) then
-      open(14, file = './qgpvforT' // trim(ft) // '.dat', form = 'formatted')
-    endif
 
     pigr4 = 4.d0 * pi
     rl1 = 1.0d0 / rrdef1**2
@@ -387,6 +380,7 @@ contains
     dlon = 360d0 / real(nlon)
 
     ! height of orography in meters
+    open(13, file = './qgbergT' // trim(ft) // '.dat', form = 'formatted')
     do i = 1, nlon
       do j = 1, nlat
         read(13, *) agg1(J, I)
@@ -432,6 +426,7 @@ contains
       enddo
 
     endif
+    close(13)
 
     ! forcing term
     do l = 1, 3
@@ -440,18 +435,23 @@ contains
       enddo
     enddo
     if (inf) then
+      open(14, file = './qgpvforT' // trim(ft) // '.dat', form = 'formatted')
       read(14, '(1e12.5)') ((for(k, l), k = 1, nsh2), l = 1, 3)
+      close(14)
     endif
     if (obsf) then
       call artiforc
     endif
 
     if (readstart) then
+      ! Read initial streamfunction
+      open(12, file = './qgstartT' // trim(ft) // '.dat', form = 'formatted')
       do l = 1, 3
         do k = 1, nsh2
           read(12, *) psi(k, l)
         enddo
       enddo
+      close(12)
     else
       do l = 1, 3
         do k = 1, nsh2
@@ -459,13 +459,9 @@ contains
         enddo
       enddo
     endif
-    close(12)
 
     ! Potential vorticity and streamfunction fields
     call psitoq
-
-    close(13)
-    close(14)
 
     open(13, file = 'qgbergT' // trim(ft) // '.grads', form = 'unformatted')
     write(13) ((real(agg1(j, i)), i = 1, nlon), j = 1, nlat)

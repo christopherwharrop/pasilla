@@ -89,7 +89,6 @@ module QG
   real(r8kind), allocatable  :: qprime(:,:) ! potential vorticity
   real(r8kind), allocatable  :: dqprdt(:,:) ! time derivative of qprime
   real(r8kind), allocatable  :: for(:,:)    ! constant potential vorticity forcing at the nvl levels
-  real(r8kind), allocatable  :: ws(:)       ! only used as portable workspace
 
   ! Only used in jacobd
   real(r8kind), allocatable  :: dorodl(:,:) ! derivative of orog wrt lambda
@@ -182,7 +181,7 @@ contains
     allocate(rdiss(nlat,nlon), ddisdx(nlat,nlon), ddisdy(nlat,nlon))
 
     allocate(psi(nsh2,nvl), psit(nsh2,ntl))
-    allocate(qprime(nsh2,nvl), dqprdt(nsh2,nvl), for(nsh2,nvl), ws(nsh2))
+    allocate(qprime(nsh2,nvl), dqprdt(nsh2,nvl), for(nsh2,nvl))
     allocate(dorodl(nlat,nlon), dorodm(nlat,nlon))
     allocate(psig(nlat,nlon,nvl), qgpv(nlat,nlon,nvl))
     allocate(ug(nlat,nlon,nvl), vg(nlat,nlon,nvl), geopg(nlat,nlon,nvl))
@@ -205,6 +204,7 @@ contains
     real(r8kind), allocatable :: orog(:)     ! orography in m. divided by h0
     real(r8kind), allocatable :: agg(:,:), agg1(:,:), agg2(:,:) 
     real(r8kind), allocatable :: fmu(:,:), wsx(:)
+    real(r8kind), allocatable :: ws(:)       ! Only used as temporary workspace
 
     ! Namelist param variables
     real(r8kind)  :: tdis    ! Ekman dissipation timescale in days at lower level
@@ -273,6 +273,7 @@ contains
     call allocate_comqg(resolution)
 
     ! Allocate local data
+    allocate(ws(nsh2))
     allocate(orog(nsh2))
     allocate(agg(nlat, nlon), agg1(nlat, nlon), agg2(nlat, nlon))
     allocate(fmu(nlat, 2), wsx(nsh2))
@@ -716,7 +717,7 @@ contains
       sjacob = reshape(ggsp%ggtosp (gjacob), (/nsh2/))
 
       do k = 1, nsh2
-        sjacob(k) = sjacob(k) + diss(k, 2) * psi(k, 3)
+        sjacob(k) = sjacob(k) + diss(k, 2) * psiloc(k)
       enddo
 
     endif
@@ -764,6 +765,7 @@ contains
 
     integer :: k
     real(r8kind) :: r3
+    real(r8kind) :: ws(nsh2)       ! only used as portable workspace
 
     do k = 1, size(psi,1)
       ws(k) = qprime(k, 1) + qprime(k, 3)
@@ -1003,7 +1005,7 @@ contains
 
     qprime = fstofm(y, nm)
     call qtopsi  ! qprime --> psi and psit
-    call ddt
+    call ddt     ! psi, psit, qprime, for, diss --> dqprdt
     dydt = fmtofs(dqprdt)
 
     return

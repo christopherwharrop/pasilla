@@ -9,17 +9,30 @@ module QG
   private
 
   public :: ndayskip, dt, nday, initqg, forward, diag, writestate
-!  public :: qg_model_type
+  public :: qg_model_type
 
-!  type, extends(model_type) :: qg_model_type
-!    private
-!  contains
-!    final :: destructor_qg_model
-!  end type qg_model_type
+  type, extends(model_type) :: qg_model_type
+    private
+    real(r8kind), allocatable  :: psi(:,:)    ! stream function at the nvl levels
+    real(r8kind), allocatable  :: psit(:,:)   ! thickness at the ntl levels
+    real(r8kind), allocatable  :: qprime(:,:) ! potential vorticity
+    real(r8kind), allocatable  :: for(:,:)    ! constant potential vorticity forcing at the nvl levels
+  contains
+    final :: destructor_qg_model
+    procedure :: forward
+    procedure :: diag
+    procedure :: writestate
+    procedure, private :: initqg
+    procedure, private :: allocate_comqg
+    procedure, private :: artiforc
+    procedure, private :: dqdt
+    procedure, private :: ddt
+    procedure, private :: gridfields
+  end type qg_model_type
 
-!  interface qg_model_type
-!    procedure constructor_qg_model
-!  end interface
+  interface qg_model_type
+    procedure constructor_qg_model
+  end interface
 
   ! Grid conversion object
   type(qg_ggsp_type) :: ggsp
@@ -79,11 +92,10 @@ module QG
   real(r8kind)  :: relt1   ! nondimensional relaxation coefficient of 200-500 thickness
   real(r8kind)  :: relt2   ! nondimensional relaxation coefficient of 500-800 thickness
 
-
-  real(r8kind), allocatable  :: psi(:,:)    ! stream function at the nvl levels
-  real(r8kind), allocatable  :: psit(:,:)   ! thickness at the ntl levels
-  real(r8kind), allocatable  :: qprime(:,:) ! potential vorticity
-  real(r8kind), allocatable  :: for(:,:)    ! constant potential vorticity forcing at the nvl levels
+!  real(r8kind), allocatable  :: psi(:,:)    ! stream function at the nvl levels
+!  real(r8kind), allocatable  :: psit(:,:)   ! thickness at the ntl levels
+!  real(r8kind), allocatable  :: qprime(:,:) ! potential vorticity
+!  real(r8kind), allocatable  :: for(:,:)    ! constant potential vorticity forcing at the nvl levels
 
   ! Only used in jacobd
   logical                    :: lgdiss      ! if .true. then orography and land-sea mask dependent friction at the lower level plus Ekman friction, else only Ekman friction
@@ -107,11 +119,13 @@ contains
   !-------------------------------------------------------------------------------
   ! constructor_qg_model
   !-------------------------------------------------------------------------------
-!  function constructor_qg_model() result (qg_model)
-!
-!    type(qg_model_type) :: qg_model
-!
-!  end function constructor_qg_model
+  function constructor_qg_model() result (qg_model)
+
+    type(qg_model_type) :: qg_model
+
+    call initqg(qg_model)
+
+  end function constructor_qg_model
 
 
   !------------------------------------------------------------------
@@ -119,20 +133,21 @@ contains
   !
   ! Deallocates pointers used by a qg_model_type object (none currently)
   !------------------------------------------------------------------
-!  elemental subroutine destructor_qg_model(this)
-!
-!    type(qg_model_type), intent(inout) :: this
-!
-!    ! No pointers in qg_model_type object so we do nothing
-!
-!  end subroutine destructor_qg_model
+  elemental subroutine destructor_qg_model(this)
+
+    type(qg_model_type), intent(inout) :: this
+
+    ! No pointers in qg_model_type object so we do nothing
+
+  end subroutine destructor_qg_model
 
 
   !-------------------------------------------------------------------------------
   ! allocate_comqg
   !-------------------------------------------------------------------------------
-  subroutine allocate_comqg(resolution)
+  subroutine allocate_comqg(this, resolution)
 
+    class(qg_model_type) :: this
     integer, intent(in) :: resolution
 
     select case (resolution)
@@ -176,8 +191,6 @@ contains
     allocate(rinhel(nsh2,0:5), diss(nsh2,2))
     allocate(rdiss(nlat,nlon), ddisdx(nlat,nlon), ddisdy(nlat,nlon))
 
-    allocate(psi(nsh2,nvl), psit(nsh2,ntl))
-    allocate(qprime(nsh2,nvl), for(nsh2,nvl))
     allocate(dorodl(nlat,nlon), dorodm(nlat,nlon))
     allocate(psig(nlat,nlon,nvl), qgpv(nlat,nlon,nvl))
     allocate(ug(nlat,nlon,nvl), vg(nlat,nlon,nvl), geopg(nlat,nlon,nvl))
@@ -190,7 +203,9 @@ contains
   !
   ! initialise parameters and operators and read initial state
   !-------------------------------------------------------------------------------
-  subroutine initqg
+  subroutine initqg(this)
+
+    class(qg_model_type) :: this
 
     integer      :: resolution
     integer      :: i, j, k1, k2, k, l, m, n, ifail, ii, jj, i1, j1, nn
@@ -266,7 +281,13 @@ contains
     close(16)
 
     ! Set model resolution dependent parameters and allocate model state variables
-    call allocate_comqg(resolution)
+    call this%allocate_comqg(resolution)
+
+    allocate(this%psi(nsh2,nvl))
+    allocate(this%psit(nsh2,ntl))
+    allocate(this%qprime(nsh2,nvl))
+    allocate(this%for(nsh2,nvl))
+
 
     ! Allocate local data
     allocate(ws(nsh2))
@@ -431,16 +452,16 @@ contains
     ! forcing term
     do l = 1, 3
       do k = 1, nsh2
-        for(k, l) = 0d0
+        this%for(k, l) = 0d0
       enddo
     enddo
     if (inf) then
       open(14, file = './qgpvforT' // trim(ft) // '.dat', form = 'formatted')
-      read(14, '(1e12.5)') ((for(k, l), k = 1, nsh2), l = 1, 3)
+      read(14, '(1e12.5)') ((this%for(k, l), k = 1, nsh2), l = 1, 3)
       close(14)
     endif
     if (obsf) then
-      call artiforc
+      this%for = this%artiforc()
     endif
 
     if (readstart) then
@@ -448,20 +469,20 @@ contains
       open(12, file = './qgstartT' // trim(ft) // '.dat', form = 'formatted')
       do l = 1, 3
         do k = 1, nsh2
-          read(12, *) psi(k, l)
+          read(12, *) this%psi(k, l)
         enddo
       enddo
       close(12)
     else
       do l = 1, 3
         do k = 1, nsh2
-          psi(k, l) = 0d0
+          this%psi(k, l) = 0d0
         enddo
       enddo
     endif
 
     ! Potential vorticity and streamfunction fields
-    call psitoq
+    call psitoq(this%psi, this%psit, this%qprime)
 
     open(13, file = 'qgbergT' // trim(ft) // '.grads', form = 'unformatted')
     write(13) ((real(agg1(j, i)), i = 1, nlon), j = 1, nlat)
@@ -491,7 +512,7 @@ contains
 
     open(14, file = 'qgpvforT' // trim(ft) // '.grads', form = 'unformatted')
     do l = 1, nvl
-      agg1 = ggsp%sptogg_pp(for(:, l))
+      agg1 = ggsp%sptogg_pp(this%for(:, l))
       write(14) ((real(agg1(j, i)), i = 1, nlon), j = 1, nlat)
     enddo
     close(14)
@@ -530,9 +551,14 @@ contains
   ! input qprime,  psi,  psit
   ! output dqprdt
   !----------------------------------------------------------------------
-  function ddt() result(dqprdt)
+  function ddt(this, psi, psit, qprime, for) result(dqprdt)
 
-    real(r8kind) :: dqprdt(nsh2,nvl) ! time derivative of qprime
+    class(qg_model_type), intent(in) :: this
+    real(r8kind),         intent(in) :: psi(nsh2,nvl)    ! stream function at the nvl levels
+    real(r8kind),         intent(in) :: psit(nsh2,ntl)   ! thickness at the ntl levels
+    real(r8kind),         intent(in) :: qprime(nsh2,nvl) ! potential vorticity
+    real(r8kind),         intent(in) :: for(nsh2,nvl)    ! constant potential vorticity forcing at the nvl levels
+    real(r8kind)                     :: dqprdt(nsh2,nvl)
 
     integer :: k, l, i, j
     real(r8kind) :: dum1, dum2
@@ -696,7 +722,11 @@ contains
   ! input  qprime which is potential vorticity field
   ! output psi,  the streamfunction and psit,  the layer thicknesses
   !-----------------------------------------------------------------------
-  subroutine qtopsi
+  subroutine qtopsi(qprime, psi, psit)
+
+    real(r8kind), intent( in) :: qprime(:,:) ! potential vorticity
+    real(r8kind), intent(out) :: psi(:,:)    ! stream function at the nvl levels
+    real(r8kind), intent(out) :: psit(:,:)   ! thickness at the ntl levels
 
     integer :: k
     real(r8kind) :: r3
@@ -731,8 +761,12 @@ contains
   ! input psi streamfunction
   ! output qprime,  the potential vorticity and psit,  the layer thick.
   !-----------------------------------------------------------------------
-  subroutine psitoq 
+  subroutine psitoq(psi, psit, qprime)
       
+    real(r8kind), intent( in) :: psi(:,:)    ! stream function at the nvl levels
+    real(r8kind), intent(out) :: psit(:,:)   ! thickness at the ntl levels
+    real(r8kind), intent(out) :: qprime(:,:) ! potential vorticity
+
     integer :: k
 
     do k = 1, size(psit,1)
@@ -882,9 +916,9 @@ contains
   ! input  qprime at current time
   ! output qprime at current time plus dt
   !-----------------------------------------------------------------------
-  subroutine forward
+  subroutine forward(this)
 
-    implicit none
+    class(qg_model_type) :: this
 
     integer :: k, l, nvar
     real(r8kind) :: dt2, dt6
@@ -894,37 +928,35 @@ contains
     nvar = (nm + 2) * nm
     dt2 = dtt * 0.5d0
     dt6 = dtt / 6d0
-    y = fmtofs(qprime)
-    call dqdt(y, dydt)
+    y = fmtofs(this%qprime)
+    call this%dqdt(y, dydt)
     do l = 1, nvl
       do k = 1, nvar
         yt(k, l) = y(k, l) + dt2 * dydt(k, l)
       enddo
     enddo
-    call dqdt(yt, dyt)
+    call this%dqdt(yt, dyt)
     do l = 1, nvl
       do k = 1, nvar
         yt(k, l) = y(k, l) + dt2 * dyt(k, l)
       enddo
     enddo
-    call dqdt(yt, dym)
+    call this%dqdt(yt, dym)
     do l = 1, nvl
       do k = 1, nvar
         yt(k, l) = y(k, l) + dtt * dym(k, l)
         dym(k, l) = dyt(k, l) + dym(k, l)
       enddo
     enddo
-    call dqdt(yt, dyt)
+    call this%dqdt(yt, dyt)
     do l = 1, nvl
       do k = 1, nvar
         y(k, l) = y(k, l) + dt6 * (dydt(k, l) + dyt(k, l) + 2. * dym(k, l))
       enddo
     enddo
-    qprime = fstofm(y, nm)
+    this%qprime = fstofm(y, nm)
 
-    call qtopsi
-
-    return
+    call qtopsi(this%qprime, this%psi, this%psit)
 
   end subroutine forward
 
@@ -935,16 +967,17 @@ contains
   ! output dydt time derivative of y in french format
   ! values of qprime,  psi and psit are changed
   !-----------------------------------------------------------------------
-  subroutine dqdt(y, dydt)
+  subroutine dqdt(this, y, dydt)
 
-    real(r8kind), intent( in) :: y(:,:)
-    real(r8kind), intent(out) :: dydt(:,:)
+    class(qg_model_type), intent(inout) :: this
+    real(r8kind),         intent(   in) :: y(:,:)
+    real(r8kind),         intent(  out) :: dydt(:,:)
 
     real(r8kind) :: dqprdt(nsh2,nvl) ! time derivative of qprime
 
-    qprime = fstofm(y, nm)
-    call qtopsi  ! qprime --> psi and psit
-    dqprdt = ddt()     ! psi, psit, qprime, for, diss --> dqprdt
+    this%qprime = fstofm(y, nm)
+    call qtopsi(this%qprime, this%psi, this%psit)  ! qprime --> psi and psit
+    dqprdt = this%ddt(this%psi, this%psit, this%qprime, this%for)     ! psi, psit, qprime, for, diss --> dqprdt
     dydt = fmtofs(dqprdt)
 
     return
@@ -960,9 +993,9 @@ contains
   ! the global mean value is not determined and set to zero
   !  
   !-----------------------------------------------------------------------
-  subroutine gridfields
+  subroutine gridfields(this)
 
-    implicit none
+    class(qg_model_type), intent(in) :: this
 
     integer :: i, j, k, l
     real(r8kind) :: facwind, facsf, facgp, facpv
@@ -983,14 +1016,14 @@ contains
     enddo
 
     do l = 1, nvl
-      psig(:, :, l) = ggsp%sptogg_pp(psi(:, l))
+      psig(:, :, l) = ggsp%sptogg_pp(this%psi(:, l))
       do j = 1, nlon
         do i = 1, nlat
           psig(i, j, l) = facsf * psig(i, j, l)
         enddo
       enddo
 
-      qgpv(:, :, l) = ggsp%sptogg_pp(qprime(:, l))
+      qgpv(:, :, l) = ggsp%sptogg_pp(this%qprime(:, l))
       do j = 1, nlon
         do i = 1, nlat
           qgpv(i, j, l) = facpv * qgpv(i, j, l)
@@ -998,7 +1031,7 @@ contains
       enddo
 
       do k = 1, nsh2
-        psik(k) = psi(k, l)
+        psik(k) = this%psi(k, l)
       enddo
 
       vv = reshape(ggsp%ddl (psik), (/nsh2/))
@@ -1013,9 +1046,9 @@ contains
       enddo
 
       ! solve linear balance equation
-      delpsis = lap(psi(:, l))
+      delpsis = lap(this%psi(:, l))
       delpsig = ggsp%sptogg_pp(delpsis)
-      dmupsig = ggsp%sptogg_pd(psi(:, l))
+      dmupsig = ggsp%sptogg_pd(this%psi(:, l))
 
       do j = 1, nlon
         do i = 1, nlat
@@ -1088,13 +1121,17 @@ contains
   ! computation of artifical forcing according to roads(1987)
   ! the forcing is computed from file obsfile
   !------------------------------------------------------------------------
-  subroutine artiforc
+  function artiforc(this) result(for)
 
-    implicit none
+    class(qg_model_type), intent(in) :: this
 
     integer :: i, j, k, l, iday, fl, nvar
     real(r4kind) :: psi4(nsh2, 3)
     real(r8kind) :: sum(nsh2, 3), forg(nlat, nlon), dlon, psifs(nsh2, 3)
+    real(r8kind) :: psi(nsh2,nvl)    ! stream function at the nvl levels
+    real(r8kind) :: psit(nsh2,ntl)   ! thickness at the ntl levels
+    real(r8kind) :: qprime(nsh2,nvl) ! potential vorticity
+    real(r8kind) :: for(nsh2,nvl)    ! constant potential vorticity forcing at the nvl levels
     real(r8kind) :: dqprdt(nsh2,nvl) ! time derivative of qprime
 
     nvar = (nm + 2) * nm
@@ -1137,8 +1174,8 @@ contains
       forg = ggsp%sptogg_pp(psi(:, l))
       write(99) ((real(forg(j, i)), i = 1, nlon), j = 1, nlat)
     enddo
-    call psitoq
-    dqprdt = ddt()
+    call psitoq(psi, psit, qprime)
+    dqprdt = this%ddt(psi, psit, qprime, for)
     do l = 1, nvl
       do k = 1, nsh2
         sum(k, l) = sum(k, l) + dqprdt(k, l)
@@ -1190,19 +1227,16 @@ contains
     write(*, '(A)') 'qgpvforT' // trim(ft) // '.grads'
     write(*, '(A)') 'qgpvforT' // trim(ft) // '.dat'
 
-    return
-
-  end subroutine artiforc
+  end function artiforc
 
 
   !-----------------------------------------------------------------------
   ! output model data to outputfile
   !-----------------------------------------------------------------------
-  subroutine diag(istep)
+  subroutine diag(this, istep)
 
-    implicit none
-
-    integer, intent(in) :: istep
+    class(qg_model_type), intent(in) :: this
+    integer,              intent(in) :: istep
 
     integer :: i, j, k, nout
 
@@ -1241,7 +1275,7 @@ contains
     endif
 
     if (mod(istep, nstepsbetweenoutput) .eq. 0) then
-      call gridfields
+      call this%gridfields
       do k = nvl, 1, -1
         write(50) ((real(geopg(j, i, k)), i = 1, nlon), j = 1, nlat)
       enddo
@@ -1265,16 +1299,16 @@ contains
   !-----------------------------------------------------------------------
   ! output streamfunction state that can be read as initial state
   !-----------------------------------------------------------------------
-  subroutine writestate
+  subroutine writestate(this)
 
-    implicit none
+    class(qg_model_type), intent(in) :: this
 
     integer :: i, j, k, l
 
     open(12, file = 'qgendT' // trim(ft) // '.dat', form = 'formatted')
     do l = 1, 3
       do k = 1, nsh2
-         write(12, *) psi(k, l)
+         write(12, *) this%psi(k, l)
       enddo
     enddo
     close(12)

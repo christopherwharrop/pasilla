@@ -926,6 +926,8 @@ contains
     enddo
     qprime = fstofm(y, nm)
 
+    call qtopsi
+
     return
 
   end subroutine forward
@@ -973,8 +975,6 @@ contains
     real(r8kind) :: delpsis(nsh2), delpsig(nlat, nlon)
     real(r8kind) :: dmupsig(nlat, nlon), delgeog(nlat, nlon)
     real(r8kind) :: delgeos(nsh2), geos(nsh2)
-
-    call qtopsi      
 
     ! space derivatives of streamfunction
     facwind = radius * om

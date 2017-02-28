@@ -8,7 +8,7 @@ module QG
 
   private
 
-  public :: ndayskip, dt, nday, initqg, forward, diag, writestate
+  public :: ndayskip, dt, nday
   public :: qg_model_type
 
   type, extends(model_type) :: qg_model_type
@@ -22,8 +22,9 @@ module QG
     procedure :: forward
     procedure :: diag
     procedure :: writestate
-    procedure, private :: initqg
     procedure, private :: allocate_comqg
+    procedure, private :: init_forcing
+    procedure, private :: init_psi
     procedure, private :: artiforc
     procedure, private :: dqdt
     procedure, private :: ddt
@@ -92,11 +93,6 @@ module QG
   real(r8kind)  :: relt1   ! nondimensional relaxation coefficient of 200-500 thickness
   real(r8kind)  :: relt2   ! nondimensional relaxation coefficient of 500-800 thickness
 
-!  real(r8kind), allocatable  :: psi(:,:)    ! stream function at the nvl levels
-!  real(r8kind), allocatable  :: psit(:,:)   ! thickness at the ntl levels
-!  real(r8kind), allocatable  :: qprime(:,:) ! potential vorticity
-!  real(r8kind), allocatable  :: for(:,:)    ! constant potential vorticity forcing at the nvl levels
-
   ! Only used in jacobd
   logical                    :: lgdiss      ! if .true. then orography and land-sea mask dependent friction at the lower level plus Ekman friction, else only Ekman friction
   real(r8kind), allocatable  :: dorodl(:,:) ! derivative of orog wrt lambda
@@ -122,90 +118,6 @@ contains
   function constructor_qg_model() result (qg_model)
 
     type(qg_model_type) :: qg_model
-
-    call initqg(qg_model)
-
-  end function constructor_qg_model
-
-
-  !------------------------------------------------------------------
-  ! destructor_qg_model
-  !
-  ! Deallocates pointers used by a qg_model_type object (none currently)
-  !------------------------------------------------------------------
-  elemental subroutine destructor_qg_model(this)
-
-    type(qg_model_type), intent(inout) :: this
-
-    ! No pointers in qg_model_type object so we do nothing
-
-  end subroutine destructor_qg_model
-
-
-  !-------------------------------------------------------------------------------
-  ! allocate_comqg
-  !-------------------------------------------------------------------------------
-  subroutine allocate_comqg(this, resolution)
-
-    class(qg_model_type) :: this
-    integer, intent(in) :: resolution
-
-    select case (resolution)
-
-      case(106)
-        nm = 106
-        nlon = 320
-        nlat = 160
-        ft = "106"
-
-      case(63)
-        nm = 63
-        nlon = 192
-        nlat = 96
-        ft = "63"
-
-      case(42)
-        nm = 42
-        nlon = 128
-        nlat = 64
-        ft = "42"
-
-      case(21)
-        nm = 21
-        nlon = 64
-        nlat = 32
-        ft = "21"
-
-      case DEFAULT
-        stop 'ERROR: Unsupported resolution'
-
-    end select
-
-    nvl = 3
-    ntl = nvl - 1
-    nsh = ((nm + 1) * (nm + 2)) / 2
-    nsh2 = 2 * nsh
-    ngp = nlon * nlat
-
-    allocate(phi(nlat), cosfi(nlat), sinfi(nlat))
-    allocate(rinhel(nsh2,0:5), diss(nsh2,2))
-    allocate(rdiss(nlat,nlon), ddisdx(nlat,nlon), ddisdy(nlat,nlon))
-
-    allocate(dorodl(nlat,nlon), dorodm(nlat,nlon))
-    allocate(psig(nlat,nlon,nvl), qgpv(nlat,nlon,nvl))
-    allocate(ug(nlat,nlon,nvl), vg(nlat,nlon,nvl), geopg(nlat,nlon,nvl))
-
-  end subroutine allocate_comqg
-
-
-  !-------------------------------------------------------------------------------
-  ! initqg
-  !
-  ! initialise parameters and operators and read initial state
-  !-------------------------------------------------------------------------------
-  subroutine initqg(this)
-
-    class(qg_model_type) :: this
 
     integer      :: resolution
     integer      :: i, j, k1, k2, k, l, m, n, ifail, ii, jj, i1, j1, nn
@@ -281,12 +193,12 @@ contains
     close(16)
 
     ! Set model resolution dependent parameters and allocate model state variables
-    call this%allocate_comqg(resolution)
+    call qg_model%allocate_comqg(resolution)
 
-    allocate(this%psi(nsh2,nvl))
-    allocate(this%psit(nsh2,ntl))
-    allocate(this%qprime(nsh2,nvl))
-    allocate(this%for(nsh2,nvl))
+    allocate(qg_model%psi(nsh2,nvl))
+    allocate(qg_model%psit(nsh2,ntl))
+    allocate(qg_model%qprime(nsh2,nvl))
+    allocate(qg_model%for(nsh2,nvl))
 
 
     ! Allocate local data
@@ -449,40 +361,14 @@ contains
     endif
     close(13)
 
-    ! forcing term
-    do l = 1, 3
-      do k = 1, nsh2
-        this%for(k, l) = 0d0
-      enddo
-    enddo
-    if (inf) then
-      open(14, file = './qgpvforT' // trim(ft) // '.dat', form = 'formatted')
-      read(14, '(1e12.5)') ((this%for(k, l), k = 1, nsh2), l = 1, 3)
-      close(14)
-    endif
-    if (obsf) then
-      this%for = this%artiforc()
-    endif
+    ! Initialize model forcing
+    qg_model%for = qg_model%init_forcing(inf, obsf)
 
-    if (readstart) then
-      ! Read initial streamfunction
-      open(12, file = './qgstartT' // trim(ft) // '.dat', form = 'formatted')
-      do l = 1, 3
-        do k = 1, nsh2
-          read(12, *) this%psi(k, l)
-        enddo
-      enddo
-      close(12)
-    else
-      do l = 1, 3
-        do k = 1, nsh2
-          this%psi(k, l) = 0d0
-        enddo
-      enddo
-    endif
+    ! Initialize streamfunction
+    qg_model%psi = qg_model%init_psi(readstart)
 
-    ! Potential vorticity and streamfunction fields
-    call psitoq(this%psi, this%psit, this%qprime)
+    ! Initialize potential vorticity from streamfunction
+    call psitoq(qg_model%psi, qg_model%psit, qg_model%qprime)
 
     open(13, file = 'qgbergT' // trim(ft) // '.grads', form = 'unformatted')
     write(13) ((real(agg1(j, i)), i = 1, nlon), j = 1, nlat)
@@ -512,7 +398,7 @@ contains
 
     open(14, file = 'qgpvforT' // trim(ft) // '.grads', form = 'unformatted')
     do l = 1, nvl
-      agg1 = ggsp%sptogg_pp(this%for(:, l))
+      agg1 = ggsp%sptogg_pp(qg_model%for(:, l))
       write(14) ((real(agg1(j, i)), i = 1, nlon), j = 1, nlat)
     enddo
     close(14)
@@ -538,9 +424,141 @@ contains
 
     close(50)
 
-    return
+  end function constructor_qg_model
 
-  end subroutine initqg
+
+  !------------------------------------------------------------------
+  ! destructor_qg_model
+  !
+  ! Deallocates pointers used by a qg_model_type object (none currently)
+  !------------------------------------------------------------------
+  elemental subroutine destructor_qg_model(this)
+
+    type(qg_model_type), intent(inout) :: this
+
+    ! No pointers in qg_model_type object so we do nothing
+
+  end subroutine destructor_qg_model
+
+
+  !-------------------------------------------------------------------------------
+  ! allocate_comqg
+  !-------------------------------------------------------------------------------
+  subroutine allocate_comqg(this, resolution)
+
+    class(qg_model_type) :: this
+    integer, intent(in) :: resolution
+
+    select case (resolution)
+
+      case(106)
+        nm = 106
+        nlon = 320
+        nlat = 160
+        ft = "106"
+
+      case(63)
+        nm = 63
+        nlon = 192
+        nlat = 96
+        ft = "63"
+
+      case(42)
+        nm = 42
+        nlon = 128
+        nlat = 64
+        ft = "42"
+
+      case(21)
+        nm = 21
+        nlon = 64
+        nlat = 32
+        ft = "21"
+
+      case DEFAULT
+        stop 'ERROR: Unsupported resolution'
+
+    end select
+
+    nvl = 3
+    ntl = nvl - 1
+    nsh = ((nm + 1) * (nm + 2)) / 2
+    nsh2 = 2 * nsh
+    ngp = nlon * nlat
+
+    allocate(phi(nlat), cosfi(nlat), sinfi(nlat))
+    allocate(rinhel(nsh2,0:5), diss(nsh2,2))
+    allocate(rdiss(nlat,nlon), ddisdx(nlat,nlon), ddisdy(nlat,nlon))
+
+    allocate(dorodl(nlat,nlon), dorodm(nlat,nlon))
+    allocate(psig(nlat,nlon,nvl), qgpv(nlat,nlon,nvl))
+    allocate(ug(nlat,nlon,nvl), vg(nlat,nlon,nvl), geopg(nlat,nlon,nvl))
+
+  end subroutine allocate_comqg
+
+
+  !-------------------------------------------------------------------------------
+  ! init_forcing
+  !-------------------------------------------------------------------------------
+  function init_forcing(this, inf, obsf) result(for)
+
+    class(qg_model_type), intent(inout) :: this
+    logical,              intent(   in) :: inf
+    logical,              intent(   in) :: obsf
+    real(r8kind)                        :: for(nsh2,nvl)
+
+    integer :: l,k
+
+    if (inf) then
+      ! Read forcing from input file if requested
+      open(14, file = './qgpvforT' // trim(ft) // '.dat', form = 'formatted')
+      read(14, '(1e12.5)') ((for(k, l), k = 1, nsh2), l = 1, 3)
+      close(14)
+    elseif (obsf) then
+      ! Calculate an artificial forcing from observations if requested
+      for = this%artiforc()
+    else
+      ! Initialize the forcing to zero
+      do l = 1, nvl
+        do k = 1, nsh2
+          for(k, l) = 0d0
+        enddo
+      enddo
+    endif
+
+  end function init_forcing
+
+
+  !-------------------------------------------------------------------------------
+  ! init_psi
+  !-------------------------------------------------------------------------------
+  function init_psi(this, readstart) result(psi)
+
+    class(qg_model_type), intent(inout) :: this
+    logical,              intent(   in) :: readstart
+    real(r8kind)                        :: psi(nsh2,nvl)
+
+    integer :: l,k
+
+    if (readstart) then
+      ! Read initial streamfunction from a restart file
+      open(12, file = './qgstartT' // trim(ft) // '.dat', form = 'formatted')
+      do l = 1, nvl
+        do k = 1, nsh2
+          read(12, *) psi(k, l)
+        enddo
+      enddo
+      close(12)
+    else
+      ! Intialize streamfunction to zero
+      do l = 1, nvl
+        do k = 1, nsh2
+          psi(k, l) = 0d0
+        enddo
+      enddo
+    endif
+
+  end function init_psi
 
 
   !----------------------------------------------------------------------
@@ -1138,13 +1156,7 @@ contains
 
     dlon = 360d0 / real(nlon)
 
-    open(14, file = 'qgpvforT' // trim(ft) // '.dat', form = 'formatted')
 
-    open(unit = 46, file = './' // obsfile, status = 'old', form = 'unformatted')
-    fl = index(obsfile, " ") - 1
-    open(unit = 32, file = 'qgpvforT' // trim(ft) // '.grads', form = 'unformatted')
-
-    open(unit = 99, file = './' // obsfile(1:fl) // trim(ft) // '.grads', form = 'unformatted')
 
     write(*, '(A, A)') "Calculating forcing from ", obsfile
 
@@ -1156,8 +1168,10 @@ contains
     enddo
 
     ! calculate the mean tendency
+    fl = index(obsfile, " ") - 1
+    open(unit = 99, file = './' // obsfile(1:fl) // trim(ft) // '.grads', form = 'unformatted')
+    open(unit = 46, file = './' // obsfile, status = 'old', form = 'unformatted')
     iday = 0
-
  10 continue
     do l = 1, nvl
       read(46, end = 20) (psi4(k, nvl - l + 1), k = 1, nvar)
@@ -1183,6 +1197,7 @@ contains
     enddo
     goto 10
  20 continue
+    close(46)
     close(99)
 
     do l = 1, nvl
@@ -1191,14 +1206,15 @@ contains
       enddo
     enddo
 
+    open(14, file = 'qgpvforT' // trim(ft) // '.dat', form = 'formatted')
     write(14, '(1E12.5)') ((for(k, l), k = 1, nsh2), l = 1, nvl)
+    close(14)
 
+    open(unit = 32, file = 'qgpvforT' // trim(ft) // '.grads', form = 'unformatted')
     do l = nvl, 1, -1
       forg = ggsp%sptogg_pp(for(:, l))
       write(32) ((real(forg(i, j)), j = 1, nlon), i = 1, nlat)
     enddo
-
-    close(46)
     close(32)
 
     open(50, file = './' // obsfile(1:fl) // trim(ft) // '.ctl', form = 'formatted')

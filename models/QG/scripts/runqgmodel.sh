@@ -62,7 +62,7 @@ sed -i "s/obsfile = '.*'/obsfile = \'${obsfile}\'/" namelist.input
 cp ${qgdir}/exe/QG.exe .
 
 # Run the model
-./QG.exe
+./QG.exe < namelist.input
 
 # Parse the GPTL timing
 ${GPTL_PATH}/hex2name.pl ./QG.exe ./timing.0 > ./timing.QG.txt

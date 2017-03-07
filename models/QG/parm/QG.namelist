@@ -20,19 +20,20 @@
 ! NOTE: Depending on resolution the scale selective damping should be set differently as
 !       well as the nstepsperday
 
-&control
-resolution = 21,
-inf = .false.,
-obsf = .true.,
+&runtime
+start_step = 0,
+spinup_steps = 720,
+run_steps = 1440,
+output_interval_steps = 3,
 readstart=.true.,
-nstepsperday = 72,
-nstepsbetweenoutput = 3,
-ndayskip = 10,
-nday = 20,
-obsfile = 'obsfile' ,
 /
 
-&param
+&params
+resolution = 21,
+time_step = 1200,
+obsfile = 'obsfile' ,
+inf = .false.,
+obsf = .true.,
 tdis=5.0,
 addisl=0.6,
 addish=0.4,

@@ -121,13 +121,14 @@ contains
     type(qg_config_type), intent(in) :: config
     type(qg_model_type)              :: qg_model
 
-    real(r8kind) :: dt
+    real(r8kind) :: nsteps_per_day
 
     ! Set the model config
     qg_model%config = config
 
     ! Initialize time step of the model:
-    qg_model%dtt    = (1d0 / real(config%get_nstepsperday())) * pi * 4d0
+    nsteps_per_day = 24.0d0 * 3600.0d0 / real(config%get_time_step())
+    qg_model%dtt = (1d0 / nsteps_per_day) * pi * 4d0
 
     ! Set model resolution dependent parameters and allocate model state variables
     call qg_model%allocate_comqg(config%get_resolution())
@@ -148,7 +149,9 @@ contains
     call qg_model%init_forcing(config%get_inf(), config%get_obsf())
 
     ! Initialize streamfunction
-    call qg_model%init_state(config%get_readstart())
+    ! Temporary hard code to do a restart
+!    call qg_model%init_state(config%get_readstart())
+    call qg_model%init_state(.true.)
 
   end function constructor_qg_model
 
@@ -1281,8 +1284,16 @@ contains
 
     real(r8kind) :: psiloc(nsh2),  pvor(nsh2),  sjacob(nsh2),  dlon
     real(r4kind) :: psi4(nsh2, 3)
+    integer :: nday
+    integer :: nsteps_per_day
+    integer :: nstepsbetweenoutput
 
-    nout = this%config%get_nday() * this%config%get_nstepsperday() / this%config%get_nstepsbetweenoutput() + 1
+    ! Temporary hard code for 20 day simulation
+    nday = 20
+    nsteps_per_day = (24 * 3600) / this%config%get_time_step()
+    ! Temporary hard code for output every 3 steps
+    nstepsbetweenoutput = 3
+    nout = nday * nsteps_per_day / nstepsbetweenoutput + 1
     dlon = 360d0 / real(nlon)
 
     if (istep .eq. 0) then
@@ -1311,7 +1322,7 @@ contains
       close(50)
     endif
 
-    if (mod(istep, this%config%get_nstepsbetweenoutput()) .eq. 0) then
+    if (mod(istep, nstepsbetweenoutput) .eq. 0) then
       open(50, file = 'qgmodelT' // trim(ft) // '.grads', form = 'unformatted')
       call this%gridfields
       do k = nvl, 1, -1

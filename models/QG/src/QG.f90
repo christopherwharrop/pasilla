@@ -12,38 +12,43 @@ program QG
 
   implicit none
 
+  integer :: start_step = 0
+  integer :: spinup_steps = 720
+  integer :: run_steps = 1440
+  integer :: output_interval_steps = 3
+  logical :: readstart = .true.
+
+  namelist /runtime/ start_step, spinup_steps, run_steps, output_interval_steps, readstart
+
   type(qg_config_type) :: config
   type(qg_model_type) :: model
 
-  integer istep, nstep, ret
-  real(r8kind) :: dt
+  integer step, ret
 
   ret = gptlsetutr (gptlnanotime)
   ret = gptlinitialize ()
   ret = gptlstart ('QG')
 
+  ! Read namelist from stdin
+  read(stdin,nml=runtime)
+  rewind(stdin)
+
   config = qg_config_type(stdin)
   model = qg_model_type(config)
 
-  write(*,*) 'Integrating transient days: ', config%get_ndayskip()
+  write(*,*) 'Integrating transient days: ', spinup_steps
 
-  dt = 1d0 / real(config%get_nstepsperday())
-  nstep = config%get_ndayskip() / dt
-
-  do istep = 1, nstep
+  do step = 1, spinup_steps
     call model%forward
   enddo
 
-  write(*,*) 'Integrating trajectory of days: ', config%get_nday()
+  write(*,*) 'Integrating trajectory of days: ', run_steps
 
-  istep = 0
-  nstep = config%get_nday() / dt
+  call model%diag(0)
 
-  call model%diag(istep)
-
-  do istep = 1, nstep
+  do step = 1, run_steps
     call model%forward
-    call model%diag(istep)
+    call model%diag(step)
   enddo
 
   call model%writestate

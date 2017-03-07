@@ -50,19 +50,19 @@ if [ ! -e $obsfile ]; then
 fi
 
 # Copy the namelist into the run directory
-cp ${parmdir}/namelist namelist.input
+cp ${parmdir}/QG.namelist QG.namelist
 
 # Set the resolution in the namelist
-sed -i "s/resolution = [[:digit:]]*/resolution = ${resol}/" namelist.input
+sed -i "s/resolution = [[:digit:]]*/resolution = ${resol}/" QG.namelist
 
 # Set the obs file in the namelist
-sed -i "s/obsfile = '.*'/obsfile = \'${obsfile}\'/" namelist.input
+sed -i "s/obsfile = '.*'/obsfile = \'${obsfile}\'/" QG.namelist
 
 # Copy the executable to the run directory
 cp ${qgdir}/exe/QG.exe .
 
 # Run the model
-./QG.exe < namelist.input
+./QG.exe < QG.namelist
 
 # Parse the GPTL timing
 ${GPTL_PATH}/hex2name.pl ./QG.exe ./timing.0 > ./timing.QG.txt

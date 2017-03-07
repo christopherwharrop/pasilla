@@ -1321,7 +1321,13 @@ contains
       close(50)
     endif
 
-    open(50, file = 'qgmodelT' // trim(ft) // '.grads', form = 'unformatted')
+    if (istep .eq. 0) then
+      ! Open for creation
+      open(50, file = 'qgmodelT' // trim(ft) // '.grads', form = 'unformatted', status="new", action="write")
+    else
+      ! Open for appending
+      open(50, file = 'qgmodelT' // trim(ft) // '.grads', form = 'unformatted', status="old", position="append", action="write")      
+    end if
     call this%gridfields
     do k = nvl, 1, -1
       write(50) ((real(geopg(j, i, k)), i = 1, nlon), j = 1, nlat)
@@ -1338,7 +1344,7 @@ contains
     do k = nvl, 1, -1
       write(50) ((real(vg(j, i, k)), i = 1, nlon), j = 1, nlat)
     enddo
-!   close(50)
+    close(50)
 
   end subroutine diag
       

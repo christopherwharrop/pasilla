@@ -949,11 +949,12 @@ contains
   ! input  qprime at current time
   ! output qprime at current time plus dt
   !-----------------------------------------------------------------------
-  subroutine forward(this)
+  subroutine forward(this, nsteps)
 
     class(qg_model_type) :: this
+    integer              :: nsteps
 
-    integer :: k, l, nvar
+    integer :: step, k, l, nvar
     real(r8kind) :: dt2, dt6
     real(r8kind) :: y(nsh2, nvl), dydt(nsh2, nvl), yt(nsh2, nvl)
     real(r8kind) :: dyt(nsh2, nvl), dym(nsh2, nvl)
@@ -961,34 +962,39 @@ contains
     nvar = (nm + 2) * nm
     dt2 = this%dtt * 0.5d0
     dt6 = this%dtt / 6d0
-    y = fmtofs(this%qprime)
-    call this%dqdt(y, dydt)
-    do l = 1, nvl
-      do k = 1, nvar
-        yt(k, l) = y(k, l) + dt2 * dydt(k, l)
-      enddo
-    enddo
-    call this%dqdt(yt, dyt)
-    do l = 1, nvl
-      do k = 1, nvar
-        yt(k, l) = y(k, l) + dt2 * dyt(k, l)
-      enddo
-    enddo
-    call this%dqdt(yt, dym)
-    do l = 1, nvl
-      do k = 1, nvar
-        yt(k, l) = y(k, l) + this%dtt * dym(k, l)
-        dym(k, l) = dyt(k, l) + dym(k, l)
-      enddo
-    enddo
-    call this%dqdt(yt, dyt)
-    do l = 1, nvl
-      do k = 1, nvar
-        y(k, l) = y(k, l) + dt6 * (dydt(k, l) + dyt(k, l) + 2. * dym(k, l))
-      enddo
-    enddo
-    this%qprime = fstofm(y, nm)
 
+    ! Advance the model forward in time n steps
+    do step = 1, nsteps
+      y = fmtofs(this%qprime)
+      call this%dqdt(y, dydt)
+      do l = 1, nvl
+        do k = 1, nvar
+          yt(k, l) = y(k, l) + dt2 * dydt(k, l)
+        enddo
+      enddo
+      call this%dqdt(yt, dyt)
+      do l = 1, nvl
+        do k = 1, nvar
+          yt(k, l) = y(k, l) + dt2 * dyt(k, l)
+        enddo
+      enddo
+      call this%dqdt(yt, dym)
+      do l = 1, nvl
+        do k = 1, nvar
+          yt(k, l) = y(k, l) + this%dtt * dym(k, l)
+          dym(k, l) = dyt(k, l) + dym(k, l)
+        enddo
+      enddo
+      call this%dqdt(yt, dyt)
+      do l = 1, nvl
+        do k = 1, nvar
+          y(k, l) = y(k, l) + dt6 * (dydt(k, l) + dyt(k, l) + 2. * dym(k, l))
+        enddo
+      enddo
+      this%qprime = fstofm(y, nm)
+    end do
+
+    ! Make stream function consistent with potential vorticity
     call this%qtopsi(this%qprime, this%psi, this%psit)
 
   end subroutine forward
@@ -1009,8 +1015,8 @@ contains
     real(r8kind) :: dqprdt(nsh2,nvl) ! time derivative of qprime
 
     this%qprime = fstofm(y, nm)
-    call this%qtopsi(this%qprime, this%psi, this%psit)  ! qprime --> psi and psit
-    dqprdt = this%ddt(this%psi, this%psit, this%qprime, this%for)     ! psi, psit, qprime, for, diss --> dqprdt
+    call this%qtopsi(this%qprime, this%psi, this%psit)            ! qprime --> psi and psit
+    dqprdt = this%ddt(this%psi, this%psit, this%qprime, this%for) ! psi, psit, qprime, for, diss --> dqprdt
     dydt = fmtofs(dqprdt)
 
     return
@@ -1275,25 +1281,18 @@ contains
   !-----------------------------------------------------------------------
   ! output model data to outputfile
   !-----------------------------------------------------------------------
-  subroutine diag(this, istep)
+  subroutine diag(this, istep, run_steps, output_interval_steps)
 
     class(qg_model_type), intent(in) :: this
     integer,              intent(in) :: istep
+    integer,              intent(in) :: run_steps
+    integer,              intent(in) :: output_interval_steps
 
-    integer :: i, j, k, nout
-
+    integer      :: i, j, k, nout
     real(r8kind) :: psiloc(nsh2),  pvor(nsh2),  sjacob(nsh2),  dlon
     real(r4kind) :: psi4(nsh2, 3)
-    integer :: nday
-    integer :: nsteps_per_day
-    integer :: nstepsbetweenoutput
 
-    ! Temporary hard code for 20 day simulation
-    nday = 20
-    nsteps_per_day = (24 * 3600) / this%config%get_time_step()
-    ! Temporary hard code for output every 3 steps
-    nstepsbetweenoutput = 3
-    nout = nday * nsteps_per_day / nstepsbetweenoutput + 1
+    nout = run_steps / output_interval_steps + 1
     dlon = 360d0 / real(nlon)
 
     if (istep .eq. 0) then
@@ -1322,26 +1321,24 @@ contains
       close(50)
     endif
 
-    if (mod(istep, nstepsbetweenoutput) .eq. 0) then
-      open(50, file = 'qgmodelT' // trim(ft) // '.grads', form = 'unformatted')
-      call this%gridfields
-      do k = nvl, 1, -1
-        write(50) ((real(geopg(j, i, k)), i = 1, nlon), j = 1, nlat)
-      enddo
-      do k = nvl, 1, -1
-        write(50) ((real(psig(j, i, k)), i = 1, nlon), j = 1, nlat)
-      enddo
-      do k = nvl, 1, -1
-        write(50) ((real(qgpv(j, i, k)), i = 1, nlon), j = 1, nlat)
-      enddo
-      do k = nvl, 1, -1
-        write(50) ((real(ug(j, i, k)), i = 1, nlon), j = 1, nlat)
-      enddo
-      do k = nvl, 1, -1
-        write(50) ((real(vg(j, i, k)), i = 1, nlon), j = 1, nlat)
-      enddo
-!      close(50)
-    endif
+    open(50, file = 'qgmodelT' // trim(ft) // '.grads', form = 'unformatted')
+    call this%gridfields
+    do k = nvl, 1, -1
+      write(50) ((real(geopg(j, i, k)), i = 1, nlon), j = 1, nlat)
+    enddo
+    do k = nvl, 1, -1
+      write(50) ((real(psig(j, i, k)), i = 1, nlon), j = 1, nlat)
+    enddo
+    do k = nvl, 1, -1
+      write(50) ((real(qgpv(j, i, k)), i = 1, nlon), j = 1, nlat)
+    enddo
+    do k = nvl, 1, -1
+      write(50) ((real(ug(j, i, k)), i = 1, nlon), j = 1, nlat)
+    enddo
+    do k = nvl, 1, -1
+      write(50) ((real(vg(j, i, k)), i = 1, nlon), j = 1, nlat)
+    enddo
+!   close(50)
 
   end subroutine diag
       

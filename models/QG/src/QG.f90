@@ -36,21 +36,28 @@ program QG
   config = qg_config_type(stdin)
   model = qg_model_type(config)
 
+  ! Spinup the model (if required)
   write(*,*) 'Integrating transient days: ', spinup_steps
+  call model%forward(spinup_steps)
 
-  do step = 1, spinup_steps
-    call model%forward
-  enddo
+  ! Output fields derived from initial state
+  call model%diag(0, run_steps, output_interval_steps)
 
+  ! Run the model
   write(*,*) 'Integrating trajectory of days: ', run_steps
+  do step = 1, run_steps, output_interval_steps
 
-  call model%diag(0)
+    ! Advance the model to next output interval
+    call model%forward(min(output_interval_steps, run_steps))
 
-  do step = 1, run_steps
-    call model%forward
-    call model%diag(step)
+    ! Output fields derived from model state
+    if (output_interval_steps <= run_steps) then
+      call model%diag(step, run_steps, output_interval_steps)
+    end if
+
   enddo
 
+  ! Output final model state
   call model%writestate
 
   ret = gptlstop ('QG') 

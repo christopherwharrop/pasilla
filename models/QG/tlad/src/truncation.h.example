@@ -1,0 +1,19 @@
+c *** PARAMETERS
+c     nm  :   the truncation is of type T(riangular) nm. 
+c     nlon:   number of longitude points of the Gaussian grid
+c     nlat:   number of latitude  points of the Gaussian grid
+c     nvl :   number of vorticity levels in the vertical 
+c             (should be set to 3)
+c     ntl :   number of temperature levels in the vertical 
+c             (equal to nvl-1)
+c     nsh :   half of nsh2
+c     nsh2:   number of coefficients needed to define one level of the 
+c             T nm model
+c     nsh23:  nsh2*nvl (assumed to be 3)
+c     ngp:    number of grid points of the Gaussian grid
+c 
+      integer nm,nlon,nlat,nvl,ntl,nsh,nsh2,nsh23,ngp
+      character*3 ft
+      parameter ( nm=106,nlon=320,nlat=160,nvl=3,ntl=nvl-1,ft="106")
+      parameter ( nsh=((nm+1)*(nm+2))/2, nsh2=2*nsh, ngp=nlon*nlat)
+      parameter ( nsh23=NSH2*NVL )

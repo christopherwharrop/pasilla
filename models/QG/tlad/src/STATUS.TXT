@@ -1,0 +1,17 @@
+STATUS FEB 3, 2017
+My attempt to 'Frankenstein' the two codes together failed. Too many instances of one
+set of routines using the same variables as the other. Lots of COMMON blocks really 
+made a mess of things.
+
+New plan: create 3 new files, sort of from the ground up. They are:
+util
+tang
+adjo
+
+util is complete - all the 'utility' routines are there, with IMPLICIT NONE, and then the 
+variables defined as they should be
+
+tang is next - I shall need to get in all the routines that TANG uses, and revamp them to
+be consistent with the existing code
+
+adjo is last - same as above, but for the ADJOINT

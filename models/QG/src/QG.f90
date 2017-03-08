@@ -21,7 +21,7 @@ program QG
   namelist /runtime/ start_step, spinup_steps, run_steps, output_interval_steps, readstart
 
   type(qg_config_type) :: config
-  type(qg_model_type) :: model
+  type(qg_model_type)  :: model
 
   integer step, ret
 
@@ -37,14 +37,14 @@ program QG
   model = qg_model_type(config)
 
   ! Spinup the model (if required)
-  write(*,*) 'Integrating transient days: ', spinup_steps
+  write(*,*) 'Integrating model spinup steps: ', spinup_steps
   call model%forward(spinup_steps)
 
   ! Output fields derived from initial state
   call model%diag(0, run_steps, output_interval_steps)
 
   ! Run the model
-  write(*,*) 'Integrating trajectory of days: ', run_steps
+  write(*,*) 'Integrating model trajectory steps: ', run_steps
   do step = 1, run_steps, output_interval_steps
 
     ! Advance the model to next output interval

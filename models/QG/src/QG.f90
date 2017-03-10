@@ -8,6 +8,7 @@ program QG
   use kind
   use QG_Config
   use QG_Model
+  use QG_Writer
   use gptl
 
   implicit none
@@ -22,6 +23,8 @@ program QG
 
   type(qg_config_type) :: config
   type(qg_model_type)  :: model
+  type(qg_writer_type) :: writer
+  character(len=64)    :: filename  ! output/input filename
 
   integer step, ret
 
@@ -35,6 +38,7 @@ program QG
 
   config = qg_config_type(stdin)
   model = qg_model_type(config)
+  writer = qg_writer_type('NETCDF')
 
   ! Spinup the model (if required)
   write(*,*) 'Integrating model spinup steps: ', spinup_steps
@@ -42,6 +46,10 @@ program QG
 
   ! Output fields derived from initial state
   call model%diag(0, run_steps, output_interval_steps)
+
+    ! Construct name of restart file
+  write(filename,'(A,I0.7)') 'qgout_', 0
+  call writer%write(model, filename)
 
   ! Run the model
   write(*,*) 'Integrating model trajectory steps: ', run_steps

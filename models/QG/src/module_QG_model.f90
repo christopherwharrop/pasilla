@@ -26,8 +26,9 @@ module QG_Model
     integer :: nsh            ! Half of nsh2
     integer :: nsh2           ! Number of coefficients needed to define one level of the T nm model
 
-    ! Current model step
-    integer :: step
+    ! Current model step and simulaiton clock
+    integer      :: step
+    real(r8kind) :: clock
 
     ! Model time step
     real(r8kind) :: dtt                      ! dimensionless time step
@@ -77,10 +78,18 @@ module QG_Model
   contains
     final :: destructor_qg_model
     procedure :: forward
+    procedure :: gridfields
     procedure :: diag
     procedure :: writestate
     procedure :: get_config
     procedure :: get_step
+    procedure :: get_clock
+    procedure :: get_nlat
+    procedure :: get_nlon
+    procedure :: get_nsh2
+    procedure :: get_nvl
+    procedure :: get_psi
+    procedure :: get_for
     procedure, private :: allocate_comqg
     procedure, private :: init_spectral_coeff
     procedure, private :: init_laplace_helmholtz
@@ -98,7 +107,6 @@ module QG_Model
     procedure, private :: lapinv
     procedure, private :: fmtofs
     procedure, private :: fstofm
-    procedure, private :: gridfields
   end type qg_model_type
 
   interface qg_model_type
@@ -107,13 +115,6 @@ module QG_Model
 
   ! Mathematical and physical constants
   real(r8kind), parameter :: pi = 4d0 * atan(1d0)     ! value of pi
-
-  ! Only used by gridfields/diag
-  real(r8kind), allocatable  :: psig(:,:,:) ! grid values of dimensional streamfunction at the three levels
-  real(r8kind), allocatable  :: qgpv(:,:,:) ! grid values of dimensional pv at the three levels
-  real(r8kind), allocatable  :: ug(:,:,:)   ! grid values of zonal velocity at the three levels in m/s
-  real(r8kind), allocatable  :: vg(:,:,:)   ! grid values of meridional velocity at the three levels in m/s
-  real(r8kind), allocatable  :: geopg(:,:,:)! geopotential on the grid
 
 
 contains
@@ -133,12 +134,13 @@ contains
     ! Set the model config
     qg_model%config = config
 
-    ! Initialize model step
+    ! Initialize model step and clock
     if (present(step)) then
       qg_model%step = step
     else
       qg_model%step = 0
     end if
+    qg_model%clock = qg_model%step * config%get_time_step()
 
     ! Initialize time step of the model:
     nsteps_per_day = 24.0d0 * 3600.0d0 / real(config%get_time_step())
@@ -228,9 +230,6 @@ contains
     this%ntl = this%nvl - 1
     this%nsh = ((this%nm + 1) * (this%nm + 2)) / 2
     this%nsh2 = 2 * this%nsh
-
-    allocate(psig(this%nlat,this%nlon,this%nvl), qgpv(this%nlat,this%nlon,this%nvl))
-    allocate(ug(this%nlat,this%nlon,this%nvl), vg(this%nlat,this%nlon,this%nvl), geopg(this%nlat,this%nlon,this%nvl))
 
   end subroutine allocate_comqg
 
@@ -510,8 +509,7 @@ contains
     logical,              intent(   in) :: inf
     logical,              intent(   in) :: obsf
 
-    real(r8kind), allocatable :: for_gg(:,:)
-    integer                   :: i, j, k, l
+    integer :: k, l
 
     ! Allocate forcing array
     allocate(this%for(this%nsh2,this%nvl))
@@ -533,15 +531,6 @@ contains
         enddo
       enddo
     endif
-
-    allocate(for_gg(this%nlat, this%nlon))
-    open(14, file = 'qgpvforT' // trim(this%ft) // '.grads', form = 'unformatted')
-    do l = 1, this%nvl
-      for_gg = this%ggsp%sptogg_pp(this%for(:, l))
-      write(14) ((real(for_gg(j, i)), i = 1, this%nlon), j = 1, this%nlat)
-    enddo
-    close(14)
-
 
   end subroutine init_forcing
 
@@ -1060,9 +1049,15 @@ contains
   ! the global mean value is not determined and set to zero
   !  
   !-----------------------------------------------------------------------
-  subroutine gridfields(this)
+  subroutine gridfields(this, geopg, psig, forg, qgpv, ug, vg)
 
-    class(qg_model_type), intent(in) :: this
+    class(qg_model_type), intent( in) :: this
+    real(r8kind),         intent(out) :: geopg(:,:,:)! geopotential on the grid
+    real(r8kind),         intent(out) :: psig(:,:,:) ! grid values of dimensional streamfunction at the three levels
+    real(r8kind),         intent(out) :: forg(:,:,:) ! grid values of dimensional forcing at the three levels
+    real(r8kind),         intent(out) :: qgpv(:,:,:) ! grid values of dimensional pv at the three levels
+    real(r8kind),         intent(out) :: ug(:,:,:)   ! grid values of zonal velocity at the three levels in m/s
+    real(r8kind),         intent(out) :: vg(:,:,:)   ! grid values of meridional velocity at the three levels in m/s
 
     ! Physical constants
     real(r8kind), parameter :: radius = 6.37e+6
@@ -1091,19 +1086,10 @@ contains
     enddo
 
     do l = 1, this%nvl
-      psig(:, :, l) = ggsp%sptogg_pp(this%psi(:, l))
-      do j = 1, this%nlon
-        do i = 1, this%nlat
-          psig(i, j, l) = facsf * psig(i, j, l)
-        enddo
-      enddo
 
+      psig(:, :, l) = ggsp%sptogg_pp(this%psi(:, l))
+      forg(:,:,l) = ggsp%sptogg_pp(this%for(:, l))
       qgpv(:, :, l) = ggsp%sptogg_pp(this%qprime(:, l))
-      do j = 1, this%nlon
-        do i = 1, this%nlat
-          qgpv(i, j, l) = facpv * qgpv(i, j, l)
-        enddo
-      enddo
 
       do k = 1, this%nsh2
         psik(k) = this%psi(k, l)
@@ -1113,13 +1099,6 @@ contains
       dpsdl = ggsp%sptogg_pp (vv)
       dpsdm = ggsp%sptogg_pd (psik)
 
-      do j = 1, this%nlon
-        do i = 1, this%nlat
-          ug(i, j, l) = -facwind * dpsdm(i, j) * this%cosfi(i)
-          vg(i, j, l) = +facwind * dpsdl(i, j) / this%cosfi(i)
-        enddo
-      enddo
-
       ! solve linear balance equation
       delpsis = this%lap(this%psi(:, l))
       delpsig = ggsp%sptogg_pp(delpsis)
@@ -1127,6 +1106,10 @@ contains
 
       do j = 1, this%nlon
         do i = 1, this%nlat
+          psig(i, j, l) = facsf * psig(i, j, l)
+          qgpv(i, j, l) = facpv * qgpv(i, j, l)
+          ug(i, j, l) = -facwind * dpsdm(i, j) * this%cosfi(i)
+          vg(i, j, l) = +facwind * dpsdl(i, j) / this%cosfi(i)
           delgeog(i, j) = fmu(i) * dmupsig(i, j) + this%sinfi(i) * delpsig(i, j)
         enddo
       enddo
@@ -1136,7 +1119,6 @@ contains
       geos(1) = 0.d0
       geopg(:, :, l) = ggsp%sptogg_pp(geos)
 
-
       do j = 1, this%nlon
         do i = 1, this%nlat
           geopg(i, j, l) = facgp * geopg(i, j, l)
@@ -1144,8 +1126,6 @@ contains
       enddo
 
     enddo
-
-    return
 
   end subroutine gridfields
 
@@ -1275,13 +1255,6 @@ contains
     write(14, '(1E12.5)') ((for(k, l), k = 1, this%nsh2), l = 1, this%nvl)
     close(14)
 
-    open(unit = 32, file = 'qgpvforT' // trim(this%ft) // '.grads', form = 'unformatted')
-    do l = this%nvl, 1, -1
-      forg = ggsp%sptogg_pp(for(:, l))
-      write(32) ((real(forg(i, j)), j = 1, this%nlon), i = 1, this%nlat)
-    enddo
-    close(32)
-
     open(50, file = './' // obsfile(1:fl) // trim(this%ft) // '.ctl', form = 'formatted')
     write(50, '(A)') 'dset ^' // obsfile(1:fl) // trim(this%ft) // '.grads'
     write(50, '(A)') 'undef 9.99e+10'
@@ -1325,6 +1298,22 @@ contains
     real(r8kind) :: psiloc(this%nsh2),  pvor(this%nsh2),  sjacob(this%nsh2),  dlon
     real(r4kind) :: psi4(this%nsh2, 3)
 
+    ! Output grid fields
+    real(r8kind), allocatable  :: geopg(:,:,:)! geopotential on the grid
+    real(r8kind), allocatable  :: psig(:,:,:) ! grid values of dimensional streamfunction at the three levels
+    real(r8kind), allocatable  :: forg(:,:,:) ! grid values of dimensional forcing at the three levels
+    real(r8kind), allocatable  :: qgpv(:,:,:) ! grid values of dimensional pv at the three levels
+    real(r8kind), allocatable  :: ug(:,:,:)   ! grid values of zonal velocity at the three levels in m/s
+    real(r8kind), allocatable  :: vg(:,:,:)   ! grid values of meridional velocity at the three levels in m/s
+
+    ! Allocate the output fields
+    allocate(geopg(this%nlat,this%nlon,this%nvl))
+    allocate(psig(this%nlat,this%nlon,this%nvl))
+    allocate(forg(this%nlat,this%nlon,this%nvl))
+    allocate(qgpv(this%nlat,this%nlon,this%nvl))
+    allocate(ug(this%nlat,this%nlon,this%nvl))
+    allocate(vg(this%nlat,this%nlon,this%nvl))
+
     nout = run_steps / output_interval_steps + 1
     dlon = 360d0 / real(this%nlon)
 
@@ -1361,7 +1350,7 @@ contains
       ! Open for appending
       open(50, file = 'qgmodelT' // trim(this%ft) // '.grads', form = 'unformatted', status="old", position="append", action="write")
     end if
-    call this%gridfields
+    call this%gridfields(geopg, psig, forg, qgpv, ug, vg)
     do k = this%nvl, 1, -1
       write(50) ((real(geopg(j, i, k)), i = 1, this%nlon), j = 1, this%nlat)
     enddo
@@ -1407,8 +1396,8 @@ contains
   !-------------------------------------------------------------------------------
   function get_config(this) result(config)
 
-    class(qg_model_type) :: this
-    type(qg_config_type) :: config
+    class(qg_model_type), intent(in) :: this
+    type(qg_config_type)             :: config
 
     config = this%config
 
@@ -1420,11 +1409,102 @@ contains
   !-------------------------------------------------------------------------------
   function get_step(this) result(step)
 
-    class(qg_model_type) :: this
-    integer              :: step
+    class(qg_model_type), intent(in) :: this
+    integer                          :: step
 
     step = this%step
 
   end function get_step
+
+
+  !-------------------------------------------------------------------------------
+  ! get_clock
+  !-------------------------------------------------------------------------------
+  function get_clock(this) result(clock)
+
+    class(qg_model_type), intent(in) :: this
+    real(r8kind)                     :: clock
+
+    clock = this%clock
+
+  end function get_clock
+
+
+  !-------------------------------------------------------------------------------
+  ! get_nlat
+  !-------------------------------------------------------------------------------
+  function get_nlat(this) result(nlat)
+
+    class(qg_model_type), intent(in) :: this
+    integer                          :: nlat
+
+    nlat = this%nlat
+
+  end function get_nlat
+
+
+  !-------------------------------------------------------------------------------
+  ! get_nlon
+  !-------------------------------------------------------------------------------
+  function get_nlon(this) result(nlon)
+
+    class(qg_model_type), intent(in) :: this
+    integer                          :: nlon
+
+    nlon = this%nlon
+
+  end function get_nlon
+
+
+  !-------------------------------------------------------------------------------
+  ! get_nsh2
+  !-------------------------------------------------------------------------------
+  function get_nsh2(this) result(nsh2)
+
+    class(qg_model_type), intent(in) :: this
+    integer                          :: nsh2
+
+    nsh2 = this%nsh2
+
+  end function get_nsh2
+
+  !-------------------------------------------------------------------------------
+  ! get_nvl
+  !-------------------------------------------------------------------------------
+  function get_nvl(this) result(nvl)
+
+    class(qg_model_type), intent(in) :: this
+    integer                          :: nvl
+
+    nvl = this%nvl
+
+  end function get_nvl
+
+
+  !-------------------------------------------------------------------------------
+  ! get_psi
+  !-------------------------------------------------------------------------------
+  function get_psi(this) result(psi)
+
+    class(qg_model_type),            intent(in) :: this
+    real(r8kind), dimension(this%nsh2,this%nvl) :: psi
+
+    psi = this%psi
+
+  end function get_psi
+
+
+  !-------------------------------------------------------------------------------
+  ! get_for
+  !-------------------------------------------------------------------------------
+  function get_for(this) result(for)
+
+    class(qg_model_type),            intent(in) :: this
+    real(r8kind), dimension(this%nsh2,this%nvl) :: for
+
+    for = this%for
+
+  end function get_for
+
 
 end module QG_Model

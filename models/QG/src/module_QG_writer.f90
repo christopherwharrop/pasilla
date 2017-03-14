@@ -3,6 +3,7 @@ module QG_Writer
   use kind,          only : r8kind
   use QG_Model,      only : qg_model_type
   use QG_Config,     only : qg_config_type
+  use gptl
 !  use NetCDF_Writer, only : netcdf_writer_type
 
   implicit none
@@ -203,7 +204,7 @@ contains
   end subroutine ascii_write
 
 
- !------------------------------------------------------------------
+  !------------------------------------------------------------------
   ! netcdf_write
   !
   ! Writes model state to NetCDF file
@@ -222,29 +223,30 @@ contains
 
     use netcdf
 
-    class(qg_writer_type),    intent(in) :: this
-    class(qg_model_type),     intent(in) :: model
-    character(len=*),          intent(in) :: filename
-
-    integer :: ierr          ! return value of function
+    class(qg_writer_type), intent(in) :: this
+    class(qg_model_type),  intent(in) :: model
+    character(len=*),      intent(in) :: filename
 
     type(QG_config_type) :: config
     integer :: nlat, nlon, nsh2, nvl
     real(r8kind), allocatable :: location(:)
 
     ! Output grid fields
-    real(r8kind), allocatable :: geopg(:,:,:)! geopotential on the grid
-    real(r8kind), allocatable :: psig(:,:,:) ! grid values of dimensional streamfunction at the three levels
-    real(r8kind), allocatable :: forg(:,:,:) ! grid values of dimensional forcing at the three levels
-    real(r8kind), allocatable :: qgpv(:,:,:) ! grid values of dimensional pv at the three levels
-    real(r8kind), allocatable :: ug(:,:,:)   ! grid values of zonal velocity at the three levels in m/s
-    real(r8kind), allocatable :: vg(:,:,:)   ! grid values of meridional velocity at the three levels in m/s
+    real(r8kind), allocatable :: lat(:)      ! Grid Latitude
+    real(r8kind), allocatable :: lon(:)      ! Grid Longitude
+    real(r8kind), allocatable :: lvl(:)      ! Grid Level
+    real(r8kind), allocatable :: geopg(:,:,:)! Geopotential on the grid
+    real(r8kind), allocatable :: psig(:,:,:) ! Grid values of dimensional streamfunction at the three levels
+    real(r8kind), allocatable :: forg(:,:,:) ! Grid values of dimensional forcing at the three levels
+    real(r8kind), allocatable :: qgpv(:,:,:) ! Grid values of dimensional pv at the three levels
+    real(r8kind), allocatable :: ug(:,:,:)   ! Grid values of zonal velocity at the three levels in m/s
+    real(r8kind), allocatable :: vg(:,:,:)   ! Grid values of meridional velocity at the three levels in m/s
 
     ! General netCDF variables
     integer :: ncFileID      ! netCDF file identifier
     integer :: nDimensions, nVariables, nAttributes, unlimitedDimID
     integer :: LatDimID, LonDimID, Nsh2DimID, NvlDimID
-    integer :: CoordinatesVarID, LocationVarID, GeopgVarID, PsiVarID, PsigVarID, ForVarID, ForgVarID, QgpvVarID, UgVarID, VgVarID
+    integer :: LatVarID, LonVarID, LvlVarID, GeopgVarID, PsiVarID, PsigVarID, ForVarID, ForgVarID, QgpvVarID, UgVarID, VgVarID
 
     ! local variables
     integer               :: i, j, k     ! loop index variable
@@ -254,8 +256,6 @@ contains
     integer, dimension(8) :: values      ! needed by F90 DATE_AND_TIME intrinsic
     character(len=19)     :: timestr
 
-    ! assume normal termination
-    ierr = 0 
 
     ! Get the model configuration
     config = model%get_config()
@@ -267,6 +267,9 @@ contains
     nvl = model%get_nvl()
 
     ! Allocate space for output fields
+    allocate(lat(nlat))
+    allocate(lon(nlon))
+    allocate(lvl(nvl))
     allocate(geopg(nlat,nlon,nvl))
     allocate(psig(nlat,nlon,nvl))
     allocate(forg(nlat,nlon,nvl))
@@ -275,15 +278,7 @@ contains
     allocate(vg(nlat,nlon,nvl))
 
     ! Get model streamfunction and derived fields on gaussian grid
-    call model%gridfields(geopg, psig, forg, qgpv, ug, vg)
-
-    ! Get the model location
-!    allocate(location(config%get_nx()))
-!    location = model%get_location()
-
-    ! Get the model state
-!    allocate(state(config%get_nx()))
-!    state = model%get_state()
+    call model%gridfields(lat, lon, lvl, geopg, psig, forg, qgpv, ug, vg)
 
     ! Open new file, overwriting previous contents
     call nc_check(nf90_create(trim(filename) // trim(this%format_extension), NF90_CLOBBER, ncFileID))
@@ -317,83 +312,93 @@ contains
     call nc_check(nf90_put_att(ncFileID, NF90_GLOBAL, "step", model%get_step() ))
 
     ! Define the lat/lon dimensions
-    call nc_check(nf90_def_dim(ncid=ncFileID, name="nLat", len=nlat, dimid = LatDimID))
-    call nc_check(nf90_def_dim(ncid=ncFileID, name="nLon", len=nlon, dimid = LonDimID))
-    call nc_check(nf90_def_dim(ncid=ncFileID, name="nvl", len=nvl, dimid = NvlDimID))
+    call nc_check(nf90_def_dim(ncid=ncFileID, name="lat", len=nlat, dimid = LatDimID))
+    call nc_check(nf90_def_dim(ncid=ncFileID, name="lon", len=nlon, dimid = LonDimID))
+    call nc_check(nf90_def_dim(ncid=ncFileID, name="level", len=nvl, dimid = NvlDimID))
 
     ! Define the spectral dimensions
     call nc_check(nf90_def_dim(ncid=ncFileID, name="nsh2", len=nsh2, dimid = Nsh2DimID))
 
-    ! Define the state vector coordinates
-    call nc_check(nf90_def_var(ncid=ncFileID,name="Coordinates", xtype=nf90_int, &
-                  dimids=(/LatDimID, LonDimID/), varid=CoordinatesVarID))
-    call nc_check(nf90_put_att(ncFileID, CoordinatesVarID, "long_name", "Model State Coordinates"))
-    call nc_check(nf90_put_att(ncFileID, CoordinatesVarID, "units",     "Indexical"))
-!    call nc_check(nf90_put_att(ncFileID, CoordinatesVarID, "valid_range", (/ 1, config%get_nx() /)))
+    ! Define the lat field
+    call nc_check(nf90_def_var(ncid=ncFileID,name="lat", xtype=nf90_double, &
+                  dimids=(/LatDimID/), varid=LatVarID))
+    call nc_check(nf90_put_att(ncFileID, LatVarID, "long_name", "latitude"))
+    call nc_check(nf90_put_att(ncFileID, LatVarID, "units",     "degrees_north"))
+    call nc_check(nf90_put_att(ncFileID, LatVarID, "valid_range", (/ -90.0_r8kind, 90.0_r8kind /)))
 
-    ! Define the state vector locations
-    call nc_check(NF90_def_var(ncFileID, name="Location", xtype=nf90_double, &
-                  dimids=(/LatDimID, LonDimID/), varid=LocationVarID))
-    call nc_check(nf90_put_att(ncFileID, LocationVarID, "long_name", "Model State Location"))
-    call nc_check(nf90_put_att(ncFileID, LocationVarID, "units", "Nondimensional"))
-!    call nc_check(nf90_put_att(ncFileID, LocationVarID, "valid_range", (/ 0.0_r8kind, 1.0_r8kind /)))
+    ! Define the lon field
+    call nc_check(NF90_def_var(ncFileID, name="lon", xtype=nf90_double, &
+                  dimids=(/LonDimID/), varid=LonVarID))
+    call nc_check(nf90_put_att(ncFileID, LonVarID, "long_name", "longitude"))
+    call nc_check(nf90_put_att(ncFileID, LonVarID, "units", "degrees_east"))
+    call nc_check(nf90_put_att(ncFileID, LonVarID, "valid_range", (/ 0.0_r8kind, 360.0_r8kind /)))
+
+    ! Define the level field
+    call nc_check(NF90_def_var(ncFileID, name="level", xtype=nf90_double, &
+                  dimids=(/NvlDimID/), varid=LvlVarID))
+    call nc_check(nf90_put_att(ncFileID, LvlVarID, "long_name", "pressure_level"))
+    call nc_check(nf90_put_att(ncFileID, LvlVarID, "units", "millibar"))
+    call nc_check(nf90_put_att(ncFileID, LvlVarID, "valid_range", (/ 800, 200, 200 /)))
 
     ! Define the geopg variable
-    call nc_check(nf90_def_var(ncid=ncFileID, name="Geopg", xtype=nf90_double, &
-               dimids=(/LonDimID, LatDimID, NvlDimID/), varid=GeopgVarID))
+    call nc_check(nf90_def_var(ncid=ncFileID, name="Zg", xtype=nf90_double, &
+                  dimids=(/LonDimID, LatDimID, NvlDimID/), varid=GeopgVarID))
     call nc_check(nf90_put_att(ncFileID, GeopgVarID, "long_name", "Geopotential Height"))
-    call nc_check(nf90_put_att(ncFileID, GeopgVarID, "units", "m2 / s"))
+    call nc_check(nf90_put_att(ncFileID, GeopgVarID, "units", "m2 / s2"))
 
     ! Define the spectral streamfunction variable
     call nc_check(nf90_def_var(ncid=ncFileID, name="Psi", xtype=nf90_double, &
-               dimids=(/Nsh2DimID, NvlDimID/), varid=PsiVarID))
-    call nc_check(nf90_put_att(ncFileID, PsiVarID, "long_name", "Streamfunction"))
+                  dimids=(/Nsh2DimID, NvlDimID/), varid=PsiVarID))
+    call nc_check(nf90_put_att(ncFileID, PsiVarID, "long_name", "Spectral Streamfunction"))
     call nc_check(nf90_put_att(ncFileID, PsiVarID, "units", "m2 / s"))
 
     ! Define the gaussian grid streamfunction variable
     call nc_check(nf90_def_var(ncid=ncFileID, name="Psig", xtype=nf90_double, &
-               dimids=(/LonDimID, LatDimID, NvlDimID/), varid=PsigVarID))
-    call nc_check(nf90_put_att(ncFileID, PsigVarID, "long_name", "Streamfunction"))
+                  dimids=(/LonDimID, LatDimID, NvlDimID/), varid=PsigVarID))
+    call nc_check(nf90_put_att(ncFileID, PsigVarID, "long_name", "Gaussian Streamfunction"))
     call nc_check(nf90_put_att(ncFileID, PsigVarID, "units", "m2 / s"))
 
     ! Define the spectral forcing variable
     call nc_check(nf90_def_var(ncid=ncFileID, name="For", xtype=nf90_double, &
-               dimids=(/Nsh2DimID, NvlDimID/), varid=ForVarID))
-    call nc_check(nf90_put_att(ncFileID, ForVarID, "long_name", "Forcing"))
-    call nc_check(nf90_put_att(ncFileID, ForVarID, "units", "m2 / s"))
+                  dimids=(/Nsh2DimID, NvlDimID/), varid=ForVarID))
+    call nc_check(nf90_put_att(ncFileID, ForVarID, "long_name", "Spectral Forcing"))
+    call nc_check(nf90_put_att(ncFileID, ForVarID, "units", "Nondimensional"))
 
     ! Define the gaussian grid forcing variable
     call nc_check(nf90_def_var(ncid=ncFileID, name="Forg", xtype=nf90_double, &
-               dimids=(/LonDimID, LatDimID, NvlDimID/), varid=ForgVarID))
-    call nc_check(nf90_put_att(ncFileID, ForgVarID, "long_name", "Forcing"))
-    call nc_check(nf90_put_att(ncFileID, ForgVarID, "units", "m2 / s"))
+                  dimids=(/LonDimID, LatDimID, NvlDimID/), varid=ForgVarID))
+    call nc_check(nf90_put_att(ncFileID, ForgVarID, "long_name", "Gaussian Forcing"))
+    call nc_check(nf90_put_att(ncFileID, ForgVarID, "units", "Nondimensional"))
 
     ! Define the qgpv variable
     call nc_check(nf90_def_var(ncid=ncFileID, name="Q", xtype=nf90_double, &
-               dimids=(/LonDimID, LatDimID, NvlDimID/), varid=QgpvVarID))
+                  dimids=(/LonDimID, LatDimID, NvlDimID/), varid=QgpvVarID))
     call nc_check(nf90_put_att(ncFileID, QgpvVarID, "long_name", "Potential Vorticity"))
     call nc_check(nf90_put_att(ncFileID, QgpvVarID, "units", "m2 / s"))
 
     ! Define the ug variable
     call nc_check(nf90_def_var(ncid=ncFileID, name="U", xtype=nf90_double, &
-               dimids=(/LonDimID, LatDimID, NvlDimID/), varid=UgVarID))
-    call nc_check(nf90_put_att(ncFileID, UgVarID, "long_name", "U"))
-    call nc_check(nf90_put_att(ncFileID, UgVarID, "units", "m2 / s"))
+                  dimids=(/LonDimID, LatDimID, NvlDimID/), varid=UgVarID))
+    call nc_check(nf90_put_att(ncFileID, UgVarID, "long_name", "Zonal Wind"))
+    call nc_check(nf90_put_att(ncFileID, UgVarID, "units", "m / s"))
 
     ! Define the vg variable
     call nc_check(nf90_def_var(ncid=ncFileID, name="V", xtype=nf90_double, &
-               dimids=(/LonDimID, LatDimID, NvlDimID/), varid=VgVarID))
-    call nc_check(nf90_put_att(ncFileID, VgVarID, "long_name", "V"))
-    call nc_check(nf90_put_att(ncFileID, VgVarID, "units", "m2 / s"))
+                  dimids=(/LonDimID, LatDimID, NvlDimID/), varid=VgVarID))
+    call nc_check(nf90_put_att(ncFileID, VgVarID, "long_name", "Meridional Wind"))
+    call nc_check(nf90_put_att(ncFileID, VgVarID, "units", "m / s"))
 
     ! Leave define mode so we can fill
     call nc_check(nf90_enddef(ncfileID))
 
-    ! Fill the state coordinate variable
-!    call nc_check(nf90_put_var(ncFileID, CoordinatesVarID, (/ (i,i=1, config%get_nx()) /) ))
+    ! Fill the lat variable
+    call nc_check(nf90_put_var(ncFileID, LatVarID, lat))
 
-    ! Fill the location variable
-!    call nc_check(nf90_put_var(ncFileID, LocationVarID, (/ (location(i),i=1, config%get_nx()) /) ))
+    ! Fill the lon variable
+    call nc_check(nf90_put_var(ncFileID, LonVarID, lon))
+
+    ! Fill the level variable
+    call nc_check(nf90_put_var(ncFileID, LvlVarID, lvl))
 
     ! Fill the geopotential height variable
     call nc_check(nf90_put_var(ncFileID, GeopgVarID, geopg, count=(/nlon, nlat, nvl/), map=(/nlat, 1, nlat*nlon/) ))

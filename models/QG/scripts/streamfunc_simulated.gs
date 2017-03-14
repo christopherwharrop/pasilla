@@ -2,14 +2,15 @@ function test(args)
 
 resol=subwrd(args,1)
 lev=subwrd(args,2)
-expid=subwrd(args,3)
+step=subwrd(args,3)
+expid=subwrd(args,4)
 
 offset=0
 * light grey (reserve 81-89)
 'set rgb 81 180 180 180'
 'set rgb 82 160 160 160'
 
-'open qgmodelT'resol'.ctl'
+'sdfopen qgout_'step'.nc'
 
 'q file'
 line=sublin(result,5)
@@ -31,7 +32,7 @@ ntime=subwrd(line,12)
 'set clevs 9e32'
 'set mpdraw off'
 'set grid off'
-'d psi'
+'d psig'
 'run basemap.gs L 81 81 M'
 
 'set ccolor 1'
@@ -43,7 +44,7 @@ ntime=subwrd(line,12)
 'set poli off'
 'set xaxis 0 360 30'
 'set ylevs 15 30 45 60 75'
-'d 1e-7*ave(psi,t=1,t='ntime')'
+'d 1e-7*ave(psig,t=1,t='ntime')'
 'set string 1 tc'
 'set strsiz 0.16 0.18'
 'draw string 5.5 8. Mean T'resol'-'expid' streamfunction at 'lev
@@ -53,7 +54,7 @@ ntime=subwrd(line,12)
 'disable print'
 '!gxeps -c st.gx'
 '!epstopdf st.eps'
-'!mv st.pdf T'resol'-'expid'.mean'lev'.pdf'
-'!mv st.eps T'resol'-'expid'.mean'lev'.eps'
+'!mv st.pdf T'resol'-'step'-'expid'.mean'lev'.pdf'
+'!mv st.eps T'resol'-'step'-'expid'.mean'lev'.eps'
 'quit'
 return

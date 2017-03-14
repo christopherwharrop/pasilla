@@ -4,8 +4,9 @@
 
 module load grads
 
-# Set the resolution and experiment id
+# Set the resolution, output step, and experiment id
 resol="21"
+step="0002160"
 expid='harrop'
 
 # Set the path to the QG model install - DO NOT CHANGE THIS LINE
@@ -34,9 +35,9 @@ grads -blc "run ${qgdir}/scripts/streamfunc_observed.gs ${resol} 200 ${obsfile}"
 rm st.gx
 
 # Plot mean streamfunction in simulation output with grads
-grads -blc "run ${qgdir}/scripts/streamfunc_simulated.gs ${resol} 200 ${expid}"
-grads -blc "run ${qgdir}/scripts/streamfunc_simulated.gs ${resol} 500 ${expid}"
-grads -blc "run ${qgdir}/scripts/streamfunc_simulated.gs ${resol} 800 ${expid}"
+grads -blc "run ${qgdir}/scripts/streamfunc_simulated.gs ${resol} 200 ${step} ${expid}"
+grads -blc "run ${qgdir}/scripts/streamfunc_simulated.gs ${resol} 500 ${step} ${expid}"
+grads -blc "run ${qgdir}/scripts/streamfunc_simulated.gs ${resol} 800 ${step} ${expid}"
 rm st.gx
 
 exit

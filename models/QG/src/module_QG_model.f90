@@ -79,7 +79,6 @@ module QG_Model
     final :: destructor_qg_model
     procedure :: forward
     procedure :: gridfields
-    procedure :: diag
     procedure :: writestate
     procedure :: get_config
     procedure :: get_step
@@ -1049,21 +1048,25 @@ contains
   ! the global mean value is not determined and set to zero
   !  
   !-----------------------------------------------------------------------
-  subroutine gridfields(this, geopg, psig, forg, qgpv, ug, vg)
+  subroutine gridfields(this, lat, lon, lvl, geopg, psig, forg, qgpv, ug, vg)
 
     class(qg_model_type), intent( in) :: this
-    real(r8kind),         intent(out) :: geopg(:,:,:)! geopotential on the grid
-    real(r8kind),         intent(out) :: psig(:,:,:) ! grid values of dimensional streamfunction at the three levels
-    real(r8kind),         intent(out) :: forg(:,:,:) ! grid values of dimensional forcing at the three levels
-    real(r8kind),         intent(out) :: qgpv(:,:,:) ! grid values of dimensional pv at the three levels
-    real(r8kind),         intent(out) :: ug(:,:,:)   ! grid values of zonal velocity at the three levels in m/s
-    real(r8kind),         intent(out) :: vg(:,:,:)   ! grid values of meridional velocity at the three levels in m/s
+    real(r8kind),         intent(out) :: lat(:)      ! Grid latitude
+    real(r8kind),         intent(out) :: lon(:)      ! Grid longitude
+    real(r8kind),         intent(out) :: lvl(:)      ! Grid level
+    real(r8kind),         intent(out) :: geopg(:,:,:)! Geopotential on the grid
+    real(r8kind),         intent(out) :: psig(:,:,:) ! Grid values of dimensional streamfunction at the three levels
+    real(r8kind),         intent(out) :: forg(:,:,:) ! Grid values of dimensional forcing at the three levels
+    real(r8kind),         intent(out) :: qgpv(:,:,:) ! Grid values of dimensional pv at the three levels
+    real(r8kind),         intent(out) :: ug(:,:,:)   ! Grid values of zonal velocity at the three levels in m/s
+    real(r8kind),         intent(out) :: vg(:,:,:)   ! Grid values of meridional velocity at the three levels in m/s
 
     ! Physical constants
     real(r8kind), parameter :: radius = 6.37e+6
     real(r8kind), parameter :: om = 4d0 * pi / (24d0 * 3600d0)
 
     integer :: i, j, k, l
+    real(r8kind) :: dlon
     real(r8kind) :: facwind, facsf, facgp, facpv
     real(r8kind) :: dpsdl(this%nlat, this%nlon), dpsdm(this%nlat, this%nlon), psik(this%nsh2), vv(this%nsh2)
     real(r8kind) :: fmu(this%nlat)
@@ -1075,6 +1078,9 @@ contains
     ! Get grid conversion object
     ggsp = this%ggsp
 
+    ! Get longitude increment
+    dlon = 360d0 / real(this%nlon)
+
     ! space derivatives of streamfunction
     facwind = radius * om
     facsf = om * (radius)**2
@@ -1085,6 +1091,18 @@ contains
       fmu(i) = 1 - sin(pi * this%phi(i) / 180d0)**2
     enddo
 
+    ! Calculate in the latitude and longitude fields
+    do i = 1, this%nlat
+      lat(i) = this%phi(i)
+    end do
+    do j = 1, this%nlon
+      lon(j) = (j - 1) * dlon
+    end do
+
+    ! Calculate the level field
+    lvl = (/200.0, 500.0, 800.0/)
+
+    ! Calculate remaining fields
     do l = 1, this%nvl
 
       psig(:, :, l) = ggsp%sptogg_pp(this%psi(:, l))
@@ -1284,93 +1302,6 @@ contains
   end function artiforc
 
 
-  !-----------------------------------------------------------------------
-  ! output model data to outputfile
-  !-----------------------------------------------------------------------
-  subroutine diag(this, istep, run_steps, output_interval_steps)
-
-    class(qg_model_type), intent(in) :: this
-    integer,              intent(in) :: istep
-    integer,              intent(in) :: run_steps
-    integer,              intent(in) :: output_interval_steps
-
-    integer      :: i, j, k, nout
-    real(r8kind) :: psiloc(this%nsh2),  pvor(this%nsh2),  sjacob(this%nsh2),  dlon
-    real(r4kind) :: psi4(this%nsh2, 3)
-
-    ! Output grid fields
-    real(r8kind), allocatable  :: geopg(:,:,:)! geopotential on the grid
-    real(r8kind), allocatable  :: psig(:,:,:) ! grid values of dimensional streamfunction at the three levels
-    real(r8kind), allocatable  :: forg(:,:,:) ! grid values of dimensional forcing at the three levels
-    real(r8kind), allocatable  :: qgpv(:,:,:) ! grid values of dimensional pv at the three levels
-    real(r8kind), allocatable  :: ug(:,:,:)   ! grid values of zonal velocity at the three levels in m/s
-    real(r8kind), allocatable  :: vg(:,:,:)   ! grid values of meridional velocity at the three levels in m/s
-
-    ! Allocate the output fields
-    allocate(geopg(this%nlat,this%nlon,this%nvl))
-    allocate(psig(this%nlat,this%nlon,this%nvl))
-    allocate(forg(this%nlat,this%nlon,this%nvl))
-    allocate(qgpv(this%nlat,this%nlon,this%nvl))
-    allocate(ug(this%nlat,this%nlon,this%nvl))
-    allocate(vg(this%nlat,this%nlon,this%nvl))
-
-    nout = run_steps / output_interval_steps + 1
-    dlon = 360d0 / real(this%nlon)
-
-    if (istep .eq. 0) then
-      open(50, file = 'qgmodelT' // trim(this%ft) // '.ctl', form = 'formatted')
-      write(50, '(A)') 'dset ^qgmodelT' // trim(this%ft) // '.grads'
-      write(50, '(A)') 'undef 9.99e+10'
-      write(50, '(A)') 'options sequential big_endian'
-      write(50, '(A)') 'title T' // trim(this%ft)
-      write(50, '(A)') '*'
-      write(50, '(A, i4, A, F19.14)') 'xdef ', this%nlon, ' linear  0.000 ', dlon
-      write(50, '(A)') '*'
-      write(50, '(A, I4, A, 1F19.14)') 'ydef ', this%nlat, ' levels ', this%phi(1)
-      write(50, '(F19.14)') (this%phi(j), j = 2, this%nlat)
-      write(50, '(A)') '*'
-      write(50, '(A)') 'zdef  3 levels 800 500 200'
-      write(50, '(A)') '*'
-      write(50, '(A, I6, A)') 'tdef ', nout, ' linear 1jan0001 1dy'
-      write(50, '(A)') '*'
-      write(50, '(A)') 'vars   5'
-      write(50, '(A)') 'geopg  3  99 geopotential [m2 / s2]'
-      write(50, '(A)') 'psi    3  99 streamfunction [m2 / s]'
-      write(50, '(A)') 'pv     3  99 pv [1 / s]'
-      write(50, '(A)') 'u      3  99 zonal velocity [m / s]'
-      write(50, '(A)') 'v      3  99 meridional velocity [m / s]'
-      write(50, '(A)') 'endvars'
-      close(50)
-    endif
-
-    if (istep .eq. 0) then
-      ! Open for creation
-      open(50, file = 'qgmodelT' // trim(this%ft) // '.grads', form = 'unformatted', status="new", action="write")
-    else
-      ! Open for appending
-      open(50, file = 'qgmodelT' // trim(this%ft) // '.grads', form = 'unformatted', status="old", position="append", action="write")
-    end if
-    call this%gridfields(geopg, psig, forg, qgpv, ug, vg)
-    do k = this%nvl, 1, -1
-      write(50) ((real(geopg(j, i, k)), i = 1, this%nlon), j = 1, this%nlat)
-    enddo
-    do k = this%nvl, 1, -1
-      write(50) ((real(psig(j, i, k)), i = 1, this%nlon), j = 1, this%nlat)
-    enddo
-    do k = this%nvl, 1, -1
-      write(50) ((real(qgpv(j, i, k)), i = 1, this%nlon), j = 1, this%nlat)
-    enddo
-    do k = this%nvl, 1, -1
-      write(50) ((real(ug(j, i, k)), i = 1, this%nlon), j = 1, this%nlat)
-    enddo
-    do k = this%nvl, 1, -1
-      write(50) ((real(vg(j, i, k)), i = 1, this%nlon), j = 1, this%nlat)
-    enddo
-    close(50)
-
-  end subroutine diag
-      
-      
   !-----------------------------------------------------------------------
   ! output streamfunction state that can be read as initial state
   !-----------------------------------------------------------------------

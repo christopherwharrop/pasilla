@@ -45,10 +45,7 @@ program QG
   call model%forward(spinup_steps)
 
   ! Output fields derived from initial state
-  call model%diag(0, run_steps, output_interval_steps)
-
-    ! Construct name of restart file
-  write(filename,'(A,I0.7)') 'qgout_', 0
+  write(filename,'(A,I0.7)') 'qgout_', model%get_step()
   call writer%write(model, filename)
 
   ! Run the model
@@ -58,19 +55,16 @@ program QG
     ! Advance the model to next output interval
     call model%forward(min(output_interval_steps, run_steps))
 
-    ! Output fields derived from model state
+    ! Output fields derived from current model state
     if (output_interval_steps <= run_steps) then
-      call model%diag(step, run_steps, output_interval_steps)
+      write(filename,'(A,I0.7)') 'qgout_', model%get_step()
+      call writer%write(model, filename)
     end if
 
   enddo
 
-  ! Output final model state
-  call model%writestate
-
   ret = gptlstop ('QG') 
   ret = gptlpr (0) 
-  !ret = gptlpr_summary (MPI_COMM_WORLD) 
   ret = gptlfinalize ()
 
  

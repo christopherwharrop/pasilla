@@ -79,7 +79,6 @@ module QG_Model
     final :: destructor_qg_model
     procedure :: forward
     procedure :: gridfields
-    procedure :: writestate
     procedure :: get_config
     procedure :: get_step
     procedure :: get_clock
@@ -473,26 +472,6 @@ contains
     write(50, '(A)') 'vars  2'
     write(50, '(A)') 'oro    1  99 orography [m]'
     write(50, '(A)') 'friction    1  99 friction mask'
-    write(50, '(A)') 'endvars'
-    close(50)
-
-    open(50, file = 'qgpvforT' // trim(this%ft) // '.ctl', form = 'formatted')
-    write(50, '(A)') 'dset ^qgpvforT' // trim(this%ft) // '.grads'
-    write(50, '(A)') 'undef 9.99e+10'
-    write(50, '(A)') 'options sequential big_endian'
-    write(50, '(A)') 'title three level QG model'
-    write(50, '(A)') '*'
-    write(50, '(A, i4, A, F19.14)') 'xdef ', this%nlon, ' linear  0.000 ', dlon
-    write(50, '(A)') '*'
-    write(50, '(A, I4, A, 1F19.14)') 'ydef ', this%nlat, ' levels ', this%phi(1)
-    write(50, '(F19.14)') (this%phi(j), j = 2, this%nlat)
-    write(50, '(A)') '*'
-    write(50, '(A)') 'zdef  3 levels 800 500 200'
-    write(50, '(A)') '*'
-    write(50, '(A)') 'tdef 1 linear 1jan0001 1dy'
-    write(50, '(A)') '*'
-    write(50, '(A)') 'vars  1'
-    write(50, '(A)') 'pvfor    3  99 pv forcing field [nondim]'
     write(50, '(A)') 'endvars'
     close(50)
 
@@ -1200,7 +1179,7 @@ contains
 
     class(qg_model_type), intent(in) :: this
 
-    integer :: i, j, k, l, iday, fl, nvar
+    integer :: i, j, k, l, iday, nvar
     real(r4kind) :: psi4(this%nsh2, 3)
     real(r8kind) :: sum(this%nsh2, 3), forg(this%nlat, this%nlon), dlon, psifs(this%nsh2, 3)
     real(r8kind) :: psi(this%nsh2,this%nvl)    ! stream function at the nvl levels
@@ -1231,8 +1210,6 @@ contains
     enddo
 
     ! calculate the mean tendency
-    fl = index(obsfile, " ") - 1
-    open(unit = 99, file = './' // obsfile(1:fl) // trim(this%ft) // '.grads', form = 'unformatted')
     open(unit = 46, file = './' // obsfile, status = 'old', form = 'unformatted')
     iday = 0
  10 continue
@@ -1247,10 +1224,6 @@ contains
       enddo
     enddo
     psi = this%fstofm(psifs, this%nm)
-    do l = this%nvl, 1, -1
-      forg = ggsp%sptogg_pp(psi(:, l))
-      write(99) ((real(forg(j, i)), i = 1, this%nlon), j = 1, this%nlat)
-    enddo
     call this%psitoq(psi, psit, qprime)
     dqprdt = this%ddt(psi, psit, qprime, for)
     do l = 1, this%nvl
@@ -1261,7 +1234,6 @@ contains
     goto 10
  20 continue
     close(46)
-    close(99)
 
     do l = 1, this%nvl
       do k = 1, this%nsh2
@@ -1269,57 +1241,9 @@ contains
       enddo
     enddo
 
-    open(14, file = 'qgpvforT' // trim(this%ft) // '.dat', form = 'formatted')
-    write(14, '(1E12.5)') ((for(k, l), k = 1, this%nsh2), l = 1, this%nvl)
-    close(14)
-
-    open(50, file = './' // obsfile(1:fl) // trim(this%ft) // '.ctl', form = 'formatted')
-    write(50, '(A)') 'dset ^' // obsfile(1:fl) // trim(this%ft) // '.grads'
-    write(50, '(A)') 'undef 9.99e+10'
-    write(50, '(A)') 'options sequential big_endian'
-    write(50, '(A)') 'title three level QG model'
-    write(50, '(A)') '*'
-    write(50, '(A, i4, A, F19.14)') 'xdef ', this%nlon, ' linear  0.000 ', dlon
-    write(50, '(A)') '*'
-    write(50, '(A, I4, A, 1F19.14)') 'ydef ', this%nlat, ' levels ', this%phi(1)
-    write(50, '(F19.14)') (this%phi(j), j = 2, this%nlat)
-    write(50, '(A)') '*'
-    write(50, '(A)') 'zdef  3 levels 800 500 200'
-    write(50, '(A)') '*'
-    write(50, '(A, I6, A)') 'tdef ', iday, ' linear 1jan0001 1dy'
-    write(50, '(A)') '*'
-    write(50, '(A)') 'vars  1'
-    write(50, '(A)') 'sf    3  99 streamfunction (nondim)'
-    write(50, '(A)') 'endvars'
-
-    close(50)
-
     write(*, '(A, I6)') "Number of states used to calculate forcing: ", iday
-    write(*, '(A)') "Forcing saved in files: "
-    write(*, '(A)') 'qgpvforT' // trim(this%ft) // '.grads'
-    write(*, '(A)') 'qgpvforT' // trim(this%ft) // '.dat'
 
   end function artiforc
-
-
-  !-----------------------------------------------------------------------
-  ! output streamfunction state that can be read as initial state
-  !-----------------------------------------------------------------------
-  subroutine writestate(this)
-
-    class(qg_model_type), intent(in) :: this
-
-    integer :: i, j, k, l
-
-    open(12, file = 'qgendT' // trim(this%ft) // '.dat', form = 'formatted')
-    do l = 1, 3
-      do k = 1, this%nsh2
-         write(12, *) this%psi(k, l)
-      enddo
-    enddo
-    close(12)
-
-  end subroutine writestate
 
 
   !-------------------------------------------------------------------------------

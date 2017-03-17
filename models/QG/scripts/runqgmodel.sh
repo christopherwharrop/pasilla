@@ -42,7 +42,10 @@ cd ${rundir}
 cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/${obsfile} .
 cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/qgcoefT${resol}.dat .
 cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/qgbergT${resol}.dat .
-cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/qgstartT${resol}.dat .
+
+# These are needed for boostrapping model state without a restart file
+cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/qginitT${resol}.nc .
+cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/qgforcingT${resol}.nc .
 
 # Make sure obs file exists.
 if [ ! -e $obsfile ]; then

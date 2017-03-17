@@ -229,7 +229,6 @@ contains
 
     type(QG_config_type) :: config
     integer :: nlat, nlon, nsh2, nvl
-    real(r8kind), allocatable :: location(:)
 
     ! Output grid fields
     real(r8kind), allocatable :: lat(:)      ! Grid Latitude
@@ -255,7 +254,6 @@ contains
     character(len=5)      :: crzone      ! needed by F90 DATE_AND_TIME intrinsic
     integer, dimension(8) :: values      ! needed by F90 DATE_AND_TIME intrinsic
     character(len=19)     :: timestr
-
 
     ! Get the model configuration
     config = model%get_config()

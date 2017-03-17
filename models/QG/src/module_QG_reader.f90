@@ -200,53 +200,81 @@ contains
 
     use netcdf
 
-    class(qg_reader_type),    intent(   in) :: this
-    type(qg_model_type),      intent(inout) :: model
-    character(len=*),          intent(   in) :: filename
+    class(qg_reader_type), intent(   in) :: this
+    type(qg_model_type),   intent(inout) :: model
+    character(len=*),      intent(   in) :: filename
 
-    integer               :: nx
-    real(r8kind)          :: forcing
-    real(r8kind)          :: time_step
-    type(qg_config_type) :: config
-    integer               :: step
-    real(r8kind)          :: clock
-    real(r8kind), allocatable :: state(:)
-    real(r8kind), allocatable :: location(:)
+    ! Config variables
+    type(QG_config_type) :: config    ! Model configuration
+    integer              :: resolution ! Model resolution
+    integer              :: time_step  ! Model time step (in seconds)
+    character(len=32)    :: obsfile    ! Name of observation file
+    logical              :: inf        ! If .true. then artificial PV forcing read from file
+    logical              :: obsf       ! If .true. PV forcing is calculated from observations in routine artiforc
+    real(r8kind)         :: tdis       ! Ekman dissipation timescale in days at lower level
+    real(r8kind)         :: addisl     ! Parameter used in the computation of the dissipation timescale at the lower level over land
+    real(r8kind)         :: addish     ! Parameter used in the computation of the dissipation timescale at the lower level as a function of topography
+    real(r8kind)         :: trel       ! Relaxation time scale in days of the temperature
+    real(r8kind)         :: tdif       ! Dissipation timescale of scale-selective diffusion in days for wavenumber nm
+    integer              :: idif       ! Determines scale-selectivity of hyperviscosity; power of laplace operator
+    real(r8kind)         :: h0         ! Scale factor for the topographically induced upward motion at the lower level
+    real(r8kind)         :: rrdef1     ! Rossby radius of deformation of 200-500 thickness
+    real(r8kind)         :: rrdef2     ! Rossby radius of deformation of 500-800 thickness
+
+    ! Model variables
+    integer :: step                        ! Current model step
+    integer :: nsh2, nvl                   ! Model dimensions in spectral space
+    real(r8kind), allocatable :: psi(:,:)  ! Stream function at the nvl levela
+    real(r8kind), allocatable :: for(:,:)  ! Constant potential vorticity forcing at the nvl levels
 
     ! General netCDF variables
-    integer :: ncFileID  ! netCDF file identifier
+    integer :: ncFileID      ! netCDF file identifier
     integer :: nDimensions, nVariables, nAttributes, unlimitedDimID
-    integer :: StateVarDimID, CoordinatesVarID, LocationVarID, StateVarID
+    integer :: Nsh2DimID, NvlDimID
+    integer :: PsiVarID, ForVarID
 
     ! Open file for read only
     call nc_check(nf90_open(trim(filename) // trim(this%format_extension), NF90_NOWRITE, ncFileID))
     call nc_check(nf90_Inquire(ncFileID, nDimensions, nVariables, nAttributes, unlimitedDimID))
 
-    ! Read Global Attributes 
-    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_forcing", forcing ))
-    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_delta_t", time_step ))
-    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_t", clock ))
-    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "model_step", step ))
+    ! Read Global Attributes
+    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "resolution", resolution ))
+    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "time_step", time_step ))
+    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "obsfile", obsfile ))
+!    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "inf", inf ))
+!    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "obsf", obsf ))
+    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "tdis", tdis ))
+    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "addisl", addisl ))
+    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "addish", addish ))
+    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "trel", trel ))
+    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "tdif", tdif ))
+    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "idif", idif ))
+    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "h0", h0 ))
+    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "rrdef1", rrdef1 ))
+    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "rrdef2", rrdef2 ))
+    call nc_check(nf90_get_att(ncFileID, NF90_GLOBAL, "step", step ))
 
-    ! Read the model size
-    call nc_check(nf90_inq_dimid(ncFileID, "StateDim", StateVarDimID))
-    call nc_check(nf90_inquire_dimension(ncFileID, StateVarDimID, len=nx))
+    ! Read the spectral model dimensions
+    call nc_check(nf90_inq_dimid(ncFileID, "level", NvlDimID))
+    call nc_check(nf90_inquire_dimension(ncFileID, NvlDimID, len=nvl))
+    call nc_check(nf90_inq_dimid(ncFileID, "nsh2", Nsh2DimID))
+    call nc_check(nf90_inquire_dimension(ncFileID, Nsh2DimID, len=nsh2))
 
-    ! Allocate space for the model state and location
-    allocate(state(nx))
-    allocate(location(nx))
+    ! Allocate space for the model streamfunction and forcing
+    allocate(psi(nsh2, nvl))
+    allocate(for(nsh2, nvl))
 
-    ! Get the state vector location ID
-    call nc_check(nf90_inq_varid(ncFileID, "Location", LocationVarID))
+    ! Get the streamfunction ID
+    call nc_check(nf90_inq_varid(ncFileID, "Psi", PsiVarID))
 
-    ! Get the actual state vector ID
-    call nc_check(nf90_inq_varid(ncFileID, "State", StateVarID))
+    ! Get the forcing ID
+    call nc_check(nf90_inq_varid(ncFileID, "For", ForVarID))
 
-    ! Get the location variable
-    call nc_check(nf90_get_var(ncFileID, LocationVarID, location))
+    ! Get the streamfunction variable
+    call nc_check(nf90_get_var(ncFileID, PsiVarID, psi))
 
-    ! Get the state variable
-    call nc_check(nf90_get_var(ncFileID, StateVarID, state))
+    ! Get the forcing variable
+    call nc_check(nf90_get_var(ncFileID, ForVarID, for))
 
     ! Flush buffers
     call nc_check(nf90_sync(ncFileID))
@@ -255,10 +283,10 @@ contains
     call nc_check(nf90_close(ncFileID))
 
     ! Create the model configuration
-!    config = qg_config_type(nx, time_step, forcing)
+    config = qg_config_type(resolution, time_step, obsfile, .false., .false., tdis, addisl, addish, trel, tdif, idif, h0, rrdef1, rrdef2)
 
     ! Instantiate a model from the configuration
-!    model = qg_model_type(config, state=state, step=step)
+    model = qg_model_type(config, psi=psi, for=for, step=step)
 
   end subroutine netcdf_read
 

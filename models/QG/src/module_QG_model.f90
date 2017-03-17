@@ -121,11 +121,13 @@ contains
   !-------------------------------------------------------------------------------
   ! constructor_qg_model
   !-------------------------------------------------------------------------------
-  function constructor_qg_model(config, step) result (qg_model)
+  function constructor_qg_model(config, psi, for, step) result (qg_model)
 
-    type(qg_config_type), intent(in) :: config
-    integer,    optional, intent(in) :: step
-    type(qg_model_type)              :: qg_model
+    type(qg_config_type),   intent(in) :: config
+    real(r8kind), optional, intent(in) :: psi(:,:)
+    real(r8kind), optional, intent(in) :: for(:,:)
+    integer,      optional, intent(in) :: step
+    type(qg_model_type)                :: qg_model
 
     real(r8kind) :: nsteps_per_day
 
@@ -160,12 +162,18 @@ contains
     call qg_model%init_orography(config%get_h0(), config%get_addisl(), config%get_addish())
 
     ! Initialize model forcing
-    call qg_model%init_forcing(config%get_inf(), config%get_obsf())
+    if (present(for)) then
+      call qg_model%init_forcing(config%get_obsf(), for=for)
+    else
+      call qg_model%init_forcing(config%get_obsf())
+    end if
 
     ! Initialize streamfunction
-    ! Temporary hard code to do a restart
-!    call qg_model%init_state(config%get_readstart())
-    call qg_model%init_state(.true.)
+    if (present(psi)) then
+      call qg_model%init_state(psi=psi)
+    else
+      call qg_model%init_state()
+    end if
 
   end function constructor_qg_model
 
@@ -481,34 +489,60 @@ contains
   !-------------------------------------------------------------------------------
   ! init_forcing
   !-------------------------------------------------------------------------------
-  subroutine init_forcing(this, inf, obsf)
+  subroutine init_forcing(this, obsf, for)
 
-    class(qg_model_type), intent(inout) :: this
-    logical,              intent(   in) :: inf
-    logical,              intent(   in) :: obsf
+    use netcdf
+    use netcdf_utilities
 
-    integer :: k, l
+    class(qg_model_type),   intent(inout) :: this
+    logical,                intent(   in) :: obsf
+    real(r8kind), optional, intent(   in) :: for(:,:)
 
-    ! Allocate forcing array
-    allocate(this%for(this%nsh2,this%nvl))
+!    integer :: k, l
+
+    ! General netCDF variables
+    integer :: ncFileID      ! netCDF file identifier
+    integer :: nDimensions, nVariables, nAttributes, unlimitedDimID
+    integer :: ForVarID
 
     ! Initialize forcing
-    if (inf) then
-      ! Read forcing from input file if requested
-      open(14, file = './qgpvforT' // trim(this%ft) // '.dat', form = 'formatted')
-      read(14, '(1e12.5)') ((this%for(k, l), k = 1, this%nsh2), l = 1, 3)
-      close(14)
+    if (present(for)) then
+
+      ! Initialize forcing to optional input
+      allocate(this%for(this%nsh2,this%nvl), source=for)
+
     elseif (obsf) then
       ! Calculate an artificial forcing from observations if requested
+      allocate(this%for(this%nsh2,this%nvl))
       this%for = this%artiforc()
     else
-      ! Initialize the forcing to zero
-      do l = 1, this%nvl
-        do k = 1, this%nsh2
-          this%for(k, l) = 0d0
-        enddo
-      enddo
-    endif
+
+      ! Initialize the forcing from a bootstrap file
+      allocate(this%for(this%nsh2,this%nvl))
+
+      ! Open file for read only
+      call nc_check(nf90_open('qgforcingT' // trim(this%ft) // '.nc', NF90_NOWRITE, ncFileID))
+      call nc_check(nf90_Inquire(ncFileID, nDimensions, nVariables, nAttributes, unlimitedDimID))
+
+      ! Get the streamfunction ID
+      call nc_check(nf90_inq_varid(ncFileID, "For", ForVarID))
+
+      ! Get the streamfunction variable
+      call nc_check(nf90_get_var(ncFileID, ForVarID, this%for))
+
+      ! Flush buffers
+      call nc_check(nf90_sync(ncFileID))
+
+      ! Close the NetCDF file
+      call nc_check(nf90_close(ncFileID))
+
+!      do l = 1, this%nvl
+!        do k = 1, this%nsh2
+!          this%for(k, l) = 0d0
+!        enddo
+!      enddo
+
+   endif
 
   end subroutine init_forcing
 
@@ -516,34 +550,57 @@ contains
   !-------------------------------------------------------------------------------
   ! init_state
   !-------------------------------------------------------------------------------
-  subroutine init_state(this, readstart)
+  subroutine init_state(this, psi)
 
-    class(qg_model_type), intent(inout) :: this
-    logical,              intent(   in) :: readstart
+    use netcdf
+    use netcdf_utilities
 
-    integer :: l,k
+    class(qg_model_type),   intent(inout) :: this
+    real(r8kind), optional, intent(   in) :: psi(:,:)
+
+!    integer :: l,k
+
+    ! General netCDF variables
+    integer :: ncFileID      ! netCDF file identifier
+    integer :: nDimensions, nVariables, nAttributes, unlimitedDimID
+    integer :: PsiVarID
+
+    if (present(psi)) then
+
+      ! Initialize streamfunction to optional input
+      allocate(this%psi(this%nsh2,this%nvl), source=psi)
+
+    else
+
+      ! Read initial streamfunction from a bootstrap file
+      allocate(this%psi(this%nsh2,this%nvl))
+
+      ! Open file for read only
+      call nc_check(nf90_open('qginitT' // trim(this%ft) // '.nc', NF90_NOWRITE, ncFileID))
+      call nc_check(nf90_Inquire(ncFileID, nDimensions, nVariables, nAttributes, unlimitedDimID))
+
+      ! Get the streamfunction ID
+      call nc_check(nf90_inq_varid(ncFileID, "Psi", PsiVarID))
+
+      ! Get the streamfunction variable
+      call nc_check(nf90_get_var(ncFileID, PsiVarID, this%psi))
+
+      ! Flush buffers
+      call nc_check(nf90_sync(ncFileID))
+
+      ! Close the NetCDF file
+      call nc_check(nf90_close(ncFileID))
+
+!      do l = 1, this%nvl
+!        do k = 1, this%nsh2
+!          this%psi(k, l) = 0d0
+!        enddo
+!      enddo
+
+    endif
 
     ! Allocate streamfunction and layer thickness arrays
-    allocate(this%psi(this%nsh2,this%nvl))
     allocate(this%psit(this%nsh2,this%ntl))
-
-    if (readstart) then
-      ! Read initial streamfunction from a restart file
-      open(12, file = './qgstartT' // trim(this%ft) // '.dat', form = 'formatted')
-      do l = 1, this%nvl
-        do k = 1, this%nsh2
-          read(12, *) this%psi(k, l)
-        enddo
-      enddo
-      close(12)
-    else
-      ! Intialize streamfunction to zero
-      do l = 1, this%nvl
-        do k = 1, this%nsh2
-          this%psi(k, l) = 0d0
-        enddo
-      enddo
-    endif
 
     ! Allocate potential vorticity array
     allocate(this%qprime(this%nsh2,this%nvl))
@@ -950,47 +1007,51 @@ contains
     real(r8kind) :: y(this%nsh2, this%nvl), dydt(this%nsh2, this%nvl), yt(this%nsh2, this%nvl)
     real(r8kind) :: dyt(this%nsh2, this%nvl), dym(this%nsh2, this%nvl)
 
-    nvar = (this%nm + 2) * this%nm
-    dt2 = this%dtt * 0.5d0
-    dt6 = this%dtt / 6d0
+    if (nsteps > 0) then
 
-    ! Advance the model forward in time n steps
-    do step = 1, nsteps
-      y = this%fmtofs(this%qprime)
-      call this%dqdt(y, dydt)
-      do l = 1, this%nvl
-        do k = 1, nvar
-          yt(k, l) = y(k, l) + dt2 * dydt(k, l)
-        enddo
-      enddo
-      call this%dqdt(yt, dyt)
-      do l = 1, this%nvl
-        do k = 1, nvar
-          yt(k, l) = y(k, l) + dt2 * dyt(k, l)
-        enddo
-      enddo
-      call this%dqdt(yt, dym)
-      do l = 1, this%nvl
-        do k = 1, nvar
-          yt(k, l) = y(k, l) + this%dtt * dym(k, l)
-          dym(k, l) = dyt(k, l) + dym(k, l)
-        enddo
-      enddo
-      call this%dqdt(yt, dyt)
-      do l = 1, this%nvl
-        do k = 1, nvar
-          y(k, l) = y(k, l) + dt6 * (dydt(k, l) + dyt(k, l) + 2. * dym(k, l))
-        enddo
-      enddo
-      this%qprime = this%fstofm(y, this%nm)
+      nvar = (this%nm + 2) * this%nm
+      dt2 = this%dtt * 0.5d0
+      dt6 = this%dtt / 6d0
 
-      ! Inrement the step count
-      this%step = this%step + 1
+      ! Advance the model forward in time n steps
+      do step = 1, nsteps
+        y = this%fmtofs(this%qprime)
+        call this%dqdt(y, dydt)
+        do l = 1, this%nvl
+          do k = 1, nvar
+            yt(k, l) = y(k, l) + dt2 * dydt(k, l)
+          enddo
+        enddo
+        call this%dqdt(yt, dyt)
+        do l = 1, this%nvl
+          do k = 1, nvar
+            yt(k, l) = y(k, l) + dt2 * dyt(k, l)
+          enddo
+        enddo
+        call this%dqdt(yt, dym)
+        do l = 1, this%nvl
+          do k = 1, nvar
+            yt(k, l) = y(k, l) + this%dtt * dym(k, l)
+            dym(k, l) = dyt(k, l) + dym(k, l)
+          enddo
+        enddo
+        call this%dqdt(yt, dyt)
+        do l = 1, this%nvl
+          do k = 1, nvar
+            y(k, l) = y(k, l) + dt6 * (dydt(k, l) + dyt(k, l) + 2. * dym(k, l))
+          enddo
+        enddo
+        this%qprime = this%fstofm(y, this%nm)
 
-    end do
+        ! Inrement the step count
+        this%step = this%step + 1
 
-    ! Make stream function consistent with potential vorticity
-    call this%qtopsi(this%qprime, this%psi, this%psit)
+      end do
+
+      ! Make stream function consistent with potential vorticity
+      call this%qtopsi(this%qprime, this%psi, this%psit)
+
+    end if
 
   end subroutine forward
 

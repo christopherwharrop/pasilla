@@ -482,7 +482,7 @@ contains
        print *,"Cost at ",nitr,jnew
     end do
 
-    print *,'final cost = ',jnew,' after ',nitr,' iterations'
+    write(*,'(A,F16.12,A,I,A)') 'final cost = ', jnew, ' after ', nitr, ' iterations'
     print *,"SOLVER COMPLETE"
 
   end subroutine solve

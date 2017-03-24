@@ -5,13 +5,13 @@ module module_varsolver_l96
 
   use gptl
   use module_constants
-  use model, only : model_type
-  use L96_Config, only : l96_config_type
-  use L96_Model,  only : l96_model_type
-  use L96_TL,     only : l96_tl_type
-  use L96_ADJ,    only : l96_adj_type
-  use L96_Reader, only : l96_reader_type
-  use L96_Writer, only : l96_writer_type
+  use Abstract_Model, only : abstract_model_type
+  use L96_Config,     only : l96_config_type
+  use L96_Model,      only : l96_model_type
+  use L96_TL,         only : l96_tl_type
+  use L96_ADJ,        only : l96_adj_type
+  use L96_Reader,     only : l96_reader_type
+  use L96_Writer,     only : l96_writer_type
 
   ! Get unit numbers for stdin, stdout, stderr in a portable way
   use, intrinsic :: iso_fortran_env, only : stdin=>input_unit, &

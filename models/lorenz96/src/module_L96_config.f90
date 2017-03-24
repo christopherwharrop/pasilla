@@ -1,7 +1,7 @@
 module L96_Config
 
-  use kind,   only : r8kind
-!  use Config, only : config_type
+  use kind,            only : r8kind
+  use Abstract_Config, only : abstract_config_type
 
   implicit none
 
@@ -9,7 +9,7 @@ module L96_Config
 
   public :: l96_config_type
 
-  type :: l96_config_type
+  type, extends(abstract_config_type) :: l96_config_type
       private
       integer      :: nx
       real(r8kind) :: time_step

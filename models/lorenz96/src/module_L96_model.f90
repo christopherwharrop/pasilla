@@ -1,8 +1,8 @@
 module L96_Model
 
-  use kind,       only : r8kind
-  use model,      only : model_type
-  use L96_Config, only : l96_config_type
+  use Kind,           only : r8kind
+  use Abstract_Model, only : abstract_model_type
+  use L96_Config,     only : l96_config_type
 
   implicit none
 
@@ -10,7 +10,7 @@ module L96_Model
 
   public :: l96_model_type
 
-  type, extends(model_type) :: l96_model_type
+  type, extends(abstract_model_type) :: l96_model_type
     private
     type(l96_config_type)     :: config
     real(r8kind), allocatable :: state(:)

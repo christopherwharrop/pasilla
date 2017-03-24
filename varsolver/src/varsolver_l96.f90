@@ -5,7 +5,7 @@ program adept
 
   use gptl
   use module_varsolver_l96
-  use model, only : model_type
+  use Abstract_Model, only : abstract_model_type
 
   implicit none
 

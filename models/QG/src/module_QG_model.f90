@@ -1,7 +1,7 @@
 module QG_Model
 
   use kind
-  use model, only : model_type
+  use Abstract_Model, only : abstract_model_type
   use QG_Config
   use QG_GGSP
 
@@ -11,7 +11,7 @@ module QG_Model
 
   public :: qg_model_type
 
-  type, extends(model_type) :: qg_model_type
+  type, extends(abstract_model_type) :: qg_model_type
     private
     ! Model configuration
     type(qg_config_type) :: config

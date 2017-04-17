@@ -77,7 +77,7 @@ module QG_Model
 
   contains
     final :: destructor_qg_model
-    procedure :: forward
+    procedure :: adv_nsteps
     procedure :: gridfields
     procedure :: get_config
     procedure :: get_step
@@ -88,6 +88,7 @@ module QG_Model
     procedure :: get_nvl
     procedure :: get_psi
     procedure :: get_for
+    procedure :: get_state_vector
     procedure, private :: allocate_comqg
     procedure, private :: init_spectral_coeff
     procedure, private :: init_laplace_helmholtz
@@ -108,7 +109,7 @@ module QG_Model
   end type qg_model_type
 
   interface qg_model_type
-    procedure constructor_qg_model
+    procedure :: constructor_qg_model
   end interface
 
   ! Mathematical and physical constants
@@ -121,12 +122,14 @@ contains
   !-------------------------------------------------------------------------------
   ! constructor_qg_model
   !-------------------------------------------------------------------------------
-  function constructor_qg_model(config, psi, for, step) result (qg_model)
+  function constructor_qg_model(config, state, state_vector, for, step) result (qg_model)
 
     type(qg_config_type),   intent(in) :: config
-    real(r8kind), optional, intent(in) :: psi(:,:)
+    real(r8kind), optional, intent(in) :: state(:,:)
+    real(r8kind), optional, intent(in) :: state_vector(:)
     real(r8kind), optional, intent(in) :: for(:,:)
     integer,      optional, intent(in) :: step
+
     type(qg_model_type)                :: qg_model
 
     real(r8kind) :: nsteps_per_day
@@ -169,8 +172,10 @@ contains
     end if
 
     ! Initialize streamfunction
-    if (present(psi)) then
-      call qg_model%init_state(psi=psi)
+    if (present(state)) then
+      call qg_model%init_state(psi=state)
+    else if (present(state_vector)) then
+      call qg_model%init_state(psi=reshape(state_vector,(/qg_model%nsh2, qg_model%nvl/)))
     else
       call qg_model%init_state()
     end if
@@ -997,7 +1002,7 @@ contains
   ! input  qprime at current time
   ! output qprime at current time plus dt
   !-----------------------------------------------------------------------
-  subroutine forward(this, nsteps)
+  subroutine adv_nsteps(this, nsteps)
 
     class(qg_model_type) :: this
     integer              :: nsteps
@@ -1053,7 +1058,7 @@ contains
 
     end if
 
-  end subroutine forward
+  end subroutine adv_nsteps
 
 
   !-----------------------------------------------------------------------
@@ -1421,6 +1426,19 @@ contains
     for = this%for
 
   end function get_for
+
+
+  !-------------------------------------------------------------------------------
+  ! get_state_vector
+  !-------------------------------------------------------------------------------
+  function get_state_vector(this) result(state_vector)
+
+    class(qg_model_type),            intent(in) :: this
+    real(r8kind), dimension(this%nsh2 * this%nvl) :: state_vector
+
+    state_vector = reshape(this%psi,(/this%nsh2 * this%nvl/))
+
+  end function get_state_vector
 
 
 end module QG_Model

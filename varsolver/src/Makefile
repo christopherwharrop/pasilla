@@ -1,12 +1,26 @@
 include ../../macros.mk
 
-INCLUDES=-I$(GPTL)/include -I../../utilities/include -I../../models/abstract/include -I../../models/sine/include -I../../models/lorenz96/include -I.
-LIBS=-L$(GPTL)/lib -lgptl -L../../models/sine/lib -lsine -L$(NETCDF)/lib -lnetcdf -lnetcdff -L../../models/lorenz96/lib -llorenz96
+UTILITIES=../../utilities
+
+INCLUDES=-I. -I$(GPTL)/include            \
+         -I../../utilities/include        \
+         -I../../models/abstract/include  \
+         -I../../models/sine/include      \
+         -I../../models/lorenz96/include  \
+         -I../../models/QG/include
+
+LIBS=-L$(GPTL)/lib -lgptl                   \
+     -L$(NETCDF)/lib -lnetcdf -lnetcdff     \
+     -L../../models/sine/lib -lsine         \
+     -L../../models/lorenz96/lib -llorenz96 \
+     -L../../models/QG/lib -lqg             \
+     -L$(UTILITIES)/lib -lpasilla_util
+
 FFLAGS+=$(OPENMP)
 FFLAGS+=$(GPTLFLAGS)
 
 
-all: varsolver_sine.exe varsolver_l96.exe
+all: varsolver_sine.exe varsolver_l96.exe varsolver_qg.exe
 
 varsolver_sine.exe: varsolver_sine.f90 module_varsolver_sine.o
 	$(FC) -o varsolver_sine.exe varsolver_sine.f90 module_varsolver_sine.o $(FFLAGS) $(LAPACK) $(INCLUDES) $(LIBS)
@@ -19,6 +33,12 @@ varsolver_l96.exe: varsolver_l96.f90 module_varsolver_l96.o
 
 module_varsolver_l96.o: module_varsolver_l96.f90
 	$(FC) -c module_varsolver_l96.f90 $(FFLAGS) $(INCLUDES)
+
+varsolver_qg.exe: varsolver_qg.f90 module_varsolver_qg.o
+	$(FC) -o varsolver_qg.exe varsolver_qg.f90 module_varsolver_qg.o $(FFLAGS) $(LAPACK) $(INCLUDES) $(LIBS)
+
+module_varsolver_qg.o: module_varsolver_qg.f90
+	$(FC) -c module_varsolver_qg.f90 $(FFLAGS) $(INCLUDES)
 
 clean:
 	rm -f *.exe *.o *.mod

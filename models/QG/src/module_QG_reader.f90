@@ -286,7 +286,7 @@ contains
     config = qg_config_type(resolution, time_step, obsfile, .false., .false., tdis, addisl, addish, trel, tdif, idif, h0, rrdef1, rrdef2)
 
     ! Instantiate a model from the configuration
-    model = qg_model_type(config, psi=psi, for=for, step=step)
+    model = qg_model_type(config, state=psi, for=for, step=step)
 
   end subroutine netcdf_read
 

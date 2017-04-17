@@ -10,7 +10,10 @@ FFLAGS+=$(ENDIAN_FLAG)
 
 OBJS=module_QG_model.o module_QG_config.o module_QG_writer.o module_QG_reader.o module_QG_ggsp.o nag.o
 
-all: QG.exe
+all: QG.exe libqg.a
+
+libqg.a: $(OBJS) # module_qg_tl.o module_qg_adj.o
+	ar rcs libqg.a $(OBJS) # module_qg_tl.o module_qg_adj.o
 
 QG.exe: QG.f90 $(OBJS)
 	$(FC) $(FFLAGS) -o QG.exe QG.f90 $(OBJS) $(INCLUDES) $(LIBS)

@@ -69,7 +69,7 @@ program QG
 
   ! Spinup the model (if required)
   write(*,*) 'Integrating model spinup steps: ', spinup_steps
-  call model%forward(spinup_steps)
+  call model%adv_nsteps(spinup_steps)
 
   ! Write the post-spinup state
   write(filename,'(A,I0.7)') 'qgout_', model%get_step()
@@ -80,7 +80,7 @@ program QG
   do step = 1, run_steps, output_interval_steps
 
     ! Advance the model to next output interval
-    call model%forward(min(output_interval_steps, run_steps))
+    call model%adv_nsteps(min(output_interval_steps, run_steps))
 
     ! Output fields derived from current model state
     if (output_interval_steps <= run_steps) then

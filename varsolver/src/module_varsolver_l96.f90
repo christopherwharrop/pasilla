@@ -81,9 +81,9 @@ contains
 
     implicit none
     integer, intent(in)         :: obs_tim(:)
-    integer, intent(in)         :: obs_pos(:)
+    real(KIND=8), intent(in)    :: obs_pos(:)
     real(KIND=8), intent(inout) :: obs_cov(:,:,:)
-    integer                     :: i,t 
+    integer                     :: i,t
     print *,"GET_OBS_COV_MAT"
 
     obs_cov(:,:,:)=0.0
@@ -163,8 +163,8 @@ contains
 
     implicit none
     integer, intent(inout), allocatable      :: obs_tim(:)
-    integer, intent(inout), allocatable      :: obs_pos(:) 
-    real(KIND=8), intent(inout), allocatable :: obs_vec(:) 
+    real(KIND=8), intent(inout), allocatable :: obs_pos(:)
+    real(KIND=8), intent(inout), allocatable :: obs_vec(:)
 
     integer            :: i
     character(len=128) :: filename   ! name of output file
@@ -187,7 +187,7 @@ contains
     allocate(obs_vec(obs_len))
 
     do i=1,obs_len
-      read(fileunit, '(2I,F)') obs_tim(i), obs_pos(i), obs_vec(i) 
+      read(fileunit, '(I11,2F12.1)') obs_tim(i), obs_pos(i), obs_vec(i)
     end do
 
     close(fileunit)
@@ -224,11 +224,13 @@ contains
   subroutine get_obs_opr(obs_tim,obs_pos,obs_opr)
 
     implicit none
-    integer, intent(inout)      :: obs_tim(:)
-    integer, intent(inout)      :: obs_pos(:)
-    real(KIND=8), intent(inout) :: obs_opr(:,:,:)
 
-    integer                     :: i,t 
+    integer,      intent( in) :: obs_tim(:)
+    real(KIND=8), intent( in) :: obs_pos(:)
+    real(KIND=8), intent(out) :: obs_opr(:,:,:)
+
+    integer :: i
+
     print *,"GET_OBS_VEC"
 
     obs_opr(:,:,:)=0.0
@@ -286,24 +288,26 @@ contains
   ! BJE
   ! GENERATE THE INNOVATION VECTOR (Y-HXb)
   ! USE OBS_VEC TO STORE THE OUTPUT
-  subroutine get_ino_vec(bkg_tim,bkg_pos,obs_tim,obs_pos,obs_vec,bkg_vec)
+  subroutine get_ino_vec(obs_vec, obs_opr, bkg_vec, obs_tim, obs_pos)
 
     implicit none
-    integer, intent(in)         :: bkg_tim(:)
-    integer, intent(in)         :: bkg_pos(:,:)
-    integer, intent(in)         :: obs_tim(:)
-    integer, intent(in)         :: obs_pos(:)
+
     real(KIND=8), intent(inout) :: obs_vec(:)
+    real(KIND=8), intent(in)    :: obs_opr(:,:,:)
     real(KIND=8), intent(in)    :: bkg_vec(:,:)
-    integer                     :: i 
+
+    integer      :: obs_tim(:)
+    real(KIND=8) :: obs_pos(:)
+    integer      :: i,t
+
     print *,"GET_INO_VEC"
 
-40  FORMAT(A8,3I5,2F10.4)
+    do t=1,tim_len
+      obs_vec(:)=obs_vec(:) - matmul(obs_opr(t,:,:),bkg_vec(t,:))
+    end do
 
     do i=1,obs_len
-       obs_vec(i)=obs_vec(i)-bkg_vec(obs_tim(i),obs_pos(i))
-!       obs_vec(i)=obs_vec(i)-matmult(obs_opr,bkg_vec)
-       write(*,40) "INO ",i,obs_tim(i),obs_pos(i),obs_vec(i),bkg_vec(obs_tim(i),obs_pos(i))
+      write(*,'(A8,3I5,2F10.4)') "INO ",i,obs_tim(i),obs_pos(i),obs_vec(i),bkg_vec(obs_tim(i),obs_pos(i))
     end do
 
     print *,"GET_INO_VEC COMPLETE"

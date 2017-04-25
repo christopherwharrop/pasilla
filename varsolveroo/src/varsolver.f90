@@ -55,7 +55,7 @@ program adept
   obs_opr = Observation_Operator_Type(bkg, obs)
 
   ! GET THE INNOVATION VECTOR - (Y-HXb) - DO NOT OVERWRITE OBS
-  inno_vec = Innovation_Vector_Type(bkg, obs)
+  inno_vec = Innovation_Vector_Type(bkg, obs, obs_opr)
 
   ! Initialize a solver
   varsolver = Solver_Type(cfg)

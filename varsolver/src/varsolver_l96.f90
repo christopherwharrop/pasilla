@@ -12,7 +12,7 @@ program adept
   integer, allocatable         ::      bkg_tim(:)
   integer, allocatable         ::      bkg_pos(:,:)
   integer, allocatable         ::      obs_tim(:)
-  integer, allocatable         ::      obs_pos(:) 
+  real(KIND=8), allocatable    ::      obs_pos(:)
   real(KIND=8), allocatable    ::      obs_opr(:,:,:)
   real(KIND=8), allocatable    ::      obs_cov(:,:,:)
   real(KIND=8), allocatable    ::      bkg_cov(:,:,:)
@@ -65,12 +65,12 @@ program adept
   bht_ino(:,:,:) = 0.0
 
   ! BJE
-  ! GET THE INNOVATION VECTOR - (Y-HXb) - OVERWRITE OBS_VEC
-  call get_ino_vec(bkg_tim,bkg_pos,obs_tim,obs_pos,obs_vec,bkg_vec)
-
-  ! BJE
   ! KNOWING THE LOCATION OF THE OBS, CREATE OBS OPERATOR, H 
   call get_obs_opr(obs_tim,obs_pos,obs_opr)
+
+  ! BJE
+  ! GET THE INNOVATION VECTOR - (Y-HXb) - OVERWRITE OBS_VEC
+  call get_ino_vec(obs_vec,obs_opr,bkg_vec,obs_tim,obs_pos)
 
   ! BJE   
   ! OBTAIN THE COVARIANCE MATRIX R - OBS ERROR

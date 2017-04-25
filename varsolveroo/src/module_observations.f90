@@ -14,7 +14,7 @@ module observations
       ! instance variable
       integer                   :: nobs
       real(r8kind), allocatable :: value(:)
-      integer, allocatable      :: position(:)
+      real(r8kind), allocatable :: position(:)
       integer, allocatable      :: time(:)
   contains
       ! methods
@@ -25,6 +25,7 @@ module observations
       procedure :: get_position_element
       procedure :: get_position_vector
       procedure :: get_value_element
+      procedure :: get_value_vector
   end type Observations_Type
 
   interface Observations_Type
@@ -62,7 +63,7 @@ contains
     allocate(constructor%time(constructor%nobs))
 
     do i=1,constructor%nobs
-      read(fileunit, '(2I,F)') constructor%time(i), constructor%position(i), constructor%value(i)
+      read(fileunit, '(I,2F12.1)') constructor%time(i), constructor%position(i), constructor%value(i)
     end do
 
     close(fileunit)
@@ -179,6 +180,21 @@ contains
     get_value_element = this%value(i)
 
   end function get_value_element
+
+
+  !------------------------------------------------------------------
+  ! get_value_vector
+  !
+  ! Return the observation values
+  !------------------------------------------------------------------
+  function get_value_vector(this) result(obs_vector)
+
+    class(Observations_Type)           :: this
+    real(r8kind), dimension(this%nobs) :: obs_vector
+
+    obs_vector = this%value
+
+  end function get_value_vector
 
 
 end module observations

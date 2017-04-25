@@ -138,9 +138,9 @@ contains
     real(KIND=8), intent(in)    :: bkg_cov(:,:)
     real(KIND=8), allocatable   :: con_vec(:,:)
     real(KIND=8), allocatable   :: bkg_cpy(:,:)
-    integer                     :: i,j,jj,rad,info 
+    integer                     :: info
     integer, allocatable        :: ipiv(:)
-    real(KIND=8)                :: var
+
     print *,"PRE_CON_DIF"
 
     allocate (ipiv(bkg_len))
@@ -302,6 +302,7 @@ contains
 
     do i=1,obs_len
        obs_vec(i)=obs_vec(i)-bkg_vec(obs_tim(i),obs_pos(i))
+!       obs_vec(i)=obs_vec(i)-matmult(obs_opr,bkg_vec)
        write(*,40) "INO ",i,obs_tim(i),obs_pos(i),obs_vec(i),bkg_vec(obs_tim(i),obs_pos(i))
     end do
 

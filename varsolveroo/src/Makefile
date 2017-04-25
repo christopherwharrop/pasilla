@@ -32,7 +32,7 @@ module_background_covariance.o: module_background_covariance.f90
 module_observation_covariance.o: module_observation_covariance.f90
 	$(FC) -c module_observation_covariance.f90 $(FFLAGS) $(INCLUDES)
 
-module_innovation_vector.o: module_innovation_vector.f90
+module_innovation_vector.o: module_innovation_vector.f90 module_background.o module_observations.o module_observation_operator.o
 	$(FC) -c module_innovation_vector.f90 $(FFLAGS) $(INCLUDES)
 
 module_observation_operator.o: module_observation_operator.f90

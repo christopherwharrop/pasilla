@@ -187,7 +187,7 @@ contains
     allocate(obs_vec(obs_len))
 
     do i=1,obs_len
-      read(fileunit, '(I11,2F12.1)') obs_tim(i), obs_pos(i), obs_vec(i)
+      read(fileunit, '(I11,F12.3,F12.1)') obs_tim(i), obs_pos(i), obs_vec(i)
     end do
 
     close(fileunit)
@@ -230,13 +230,20 @@ contains
     real(KIND=8), intent(out) :: obs_opr(:,:,:)
 
     integer :: i
+    integer :: lower_index, upper_index
+    real(KIND=8) :: lower_weight, upper_weight
+    type(l96_model_type) :: model
 
     print *,"GET_OBS_VEC"
+
+    model = l96_model_type(bkg_config)
 
     obs_opr(:,:,:)=0.0
 
     do i=1,obs_len
-       obs_opr(obs_tim(i),i,obs_pos(i))=1.0
+       call model%get_interpolation_weights(obs_pos(i), lower_index, upper_index, lower_weight, upper_weight)
+       obs_opr(obs_tim(i),i,lower_index)=lower_weight
+       obs_opr(obs_tim(i),i,upper_index)=upper_weight
     end do
 
     print *,"GET_OBS_OPR COMPLETE"

@@ -28,6 +28,7 @@ module L96_Model
     procedure          :: get_clock
     procedure          :: print
     procedure          :: interpolate
+    procedure          :: get_interpolation_weights
   end type l96_model_type
 
   interface l96_model_type
@@ -301,6 +302,39 @@ contains
     state_val = (1.0_r8kind - lctnfrac) * this%state(lower_index) + lctnfrac * this%state(upper_index)
 
   end subroutine interpolate
+
+
+  !------------------------------------------------------------------
+  ! Interpolates from state vector state to the location.
+  !------------------------------------------------------------------
+  subroutine get_interpolation_weights(this, location, lower_index, upper_index, lower_weight, upper_weight)
+
+    class(l96_model_type), intent( in) :: this
+    real(r8kind),          intent( in) :: location
+    integer,               intent(out) :: lower_index, upper_index
+    real(r8kind),          intent(out) :: lower_weight, upper_weight
+
+    integer      :: i, size
+    real(r8kind) :: lctn, lctnfrac
+
+    ! Get the number of grid points
+    size = this%config%get_nx()
+
+    ! Scale the location to the size of the domain
+    lctn = size * location
+
+    ! Compute grid indices bounding the location
+    lower_index = int(lctn) + 1
+    upper_index = lower_index + 1
+    if(lower_index > size) lower_index = lower_index - size
+    if(upper_index > size) upper_index = upper_index - size
+
+    ! Compute interpolation weights
+    lctnfrac = lctn - int(lctn)
+    lower_weight = (1.0_r8kind - lctnfrac)
+    upper_weight = lctnfrac
+
+  end subroutine get_interpolation_weights
 
 
 end module L96_Model

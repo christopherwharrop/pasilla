@@ -3,6 +3,7 @@ module observation_operator
   use kind, only         : r8kind
   use background, only   : Background_Type
   use observations, only : Observations_Type
+  use L96_Model,  only   : l96_model_type
 
   implicit none
 
@@ -40,6 +41,9 @@ contains
     class(Observations_Type), intent(in) :: obs
 
     integer :: i, nobs
+    integer :: lower_index, upper_index
+    real(KIND=8) :: lower_weight, upper_weight
+    type(L96_Model_Type) :: model
 
     nobs = obs%get_nobs()
 
@@ -54,9 +58,14 @@ contains
     ! Initialize the matrix to zero
     constructor%operator(:,:,:) = 0.0
 
+    ! Instantiate a L96 model to get interpolation weights from
+    model = l96_model_type(bkg%get_config())
+
     ! Initialize non-zero values
     do i = 1, nobs
-       constructor%operator(obs%get_time_element(i), i, obs%get_position_element(i)) = 1.0
+       call model%get_interpolation_weights(obs%get_position_element(i), lower_index, upper_index, lower_weight, upper_weight)
+       constructor%operator(obs%get_time_element(i), i, lower_index) = lower_weight
+       constructor%operator(obs%get_time_element(i), i, upper_index) = upper_weight
     end do
 
   end function

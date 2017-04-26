@@ -47,7 +47,6 @@ contains
     character(len=128) :: filename   ! name of output file
     integer            :: fileunit
 
-
     ! Construct name of obs input file
     write(filename, '(A,I1,A)') 'lorenz96obs_', cfg%get_method(), '.txt'
 
@@ -63,7 +62,7 @@ contains
     allocate(constructor%time(constructor%nobs))
 
     do i=1,constructor%nobs
-      read(fileunit, '(I,2F12.1)') constructor%time(i), constructor%position(i), constructor%value(i)
+      read(fileunit, '(I,F12.3,F12.1)') constructor%time(i), constructor%position(i), constructor%value(i)
     end do
 
     close(fileunit)
@@ -158,7 +157,7 @@ contains
     class(Observations_Type) :: this
     integer                  :: i
 
-    integer :: get_position_element
+    real(r8kind) :: get_position_element
 
     get_position_element = this%position(i)
 

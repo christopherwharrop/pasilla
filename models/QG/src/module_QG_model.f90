@@ -139,6 +139,11 @@ contains
 
     real(r8kind) :: nsteps_per_day
 
+    ! Physical constants
+    real(r8kind), parameter :: radius = 6.37e+6
+    real(r8kind), parameter :: om = 4d0 * pi / (24d0 * 3600d0)
+    real(r8kind), parameter :: facsf = om * (radius)**2
+
     ! Set the model config
     qg_model%config = config
 
@@ -184,6 +189,7 @@ contains
       allocate(psig3d(qg_model%nlat, qg_model%nlon, qg_model%nvl))
       allocate(psisp(qg_model%nsh2, qg_model%nvl))
       psig3d = reshape(state_vector,(/qg_model%nlat, qg_model%nlon, qg_model%nvl/))
+      psig3d(:,:,:) = psig3d(:,:,:) / facsf
       psisp(:,1) = reshape(qg_model%ggsp%ggtosp(psig3d(:,:,1)), (/qg_model%nsh2/))
       psisp(:,2) = reshape(qg_model%ggsp%ggtosp(psig3d(:,:,2)), (/qg_model%nsh2/))
       psisp(:,3) = reshape(qg_model%ggsp%ggtosp(psig3d(:,:,3)), (/qg_model%nsh2/))

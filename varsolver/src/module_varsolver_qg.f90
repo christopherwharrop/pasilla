@@ -26,6 +26,7 @@ module module_varsolver_qg
   type(qg_config_type) :: bkg_config
   integer          :: bkg_step
   integer          :: bkg_len
+  real(KIND=8)     :: bkg_nx, bkg_ny, bkg_nz
   integer          :: obs_len
   real(KIND=8)     :: alph
   real(KIND=8)     :: sigma
@@ -81,14 +82,14 @@ contains
 
     implicit none
     integer, intent(in)         :: obs_tim(:)
-    real(KIND=8), intent(in)    :: obs_pos(:)
+    real(KIND=8), intent(in)    :: obs_pos(:,:)
     real(KIND=8), intent(inout) :: obs_cov(:,:,:)
     integer                     :: i,t
     print *,"GET_OBS_COV_MAT"
 
     obs_cov(:,:,:)=0.0
 
-  ! IN THIS CASE, R=I, THE IDENTITY MATRIX
+    ! IN THIS CASE, R=I, THE IDENTITY MATRIX
     do i=1,obs_len
        obs_cov(obs_tim(i),i,i)=1.0
     end do
@@ -101,26 +102,40 @@ contains
   ! GENERATE THE BACKGROUND ERROR COVARIANCE MATRIX, "B"
   subroutine get_bkg_cov(bkg_cov)
 
+    use netcdf
+    use NetCDF_Utilities
+
     implicit none
     real(KIND=8), intent(inout) :: bkg_cov(:,:,:)
     real(KIND=8)                :: var
     integer                     :: t,i,j,jj,rad 
 
+    ! General netCDF variables
+    integer :: ncFileID  ! netCDF file identifier
+    integer :: nDimensions, nVariables, nAttributes, unlimitedDimID
+    integer :: BVarDimID, CoordinatesVarID, LocationVarID, BVarID
+
     print *,"GET_BKG_COV_MAT"
 
-    var=3.61
-    bkg_cov(:,:,:)=0.0
-    rad=bkg_len/10
+    ! Open file for read only
+    call nc_check(nf90_open("b.nc", NF90_NOWRITE, ncFileID))
+    call nc_check(nf90_Inquire(ncFileID, nDimensions, nVariables, nAttributes, unlimitedDimID))
 
-    do t=1,tim_len
-       do i=1,bkg_len
-          do j=-rad,+rad
-             jj=i+j
-             if(jj.gt.bkg_len) jj=jj-bkg_len
-             if(jj.lt.1) jj=bkg_len+jj
-             bkg_cov(t,i,jj)=var*exp(-((float(j)*sigma)**2))
-          end do
-       end do
+    ! Get the B variable ID
+    call nc_check(nf90_inq_varid(ncFileID, "B", BVarID))
+
+    ! Get the B variable
+    call nc_check(nf90_get_var(ncFileID, BVarID, bkg_cov(1,:,:)))
+
+    ! Flush buffers
+    call nc_check(nf90_sync(ncFileID))
+
+    ! Close the NetCDF file
+    call nc_check(nf90_close(ncFileID))
+
+    ! Use same B for each time (only needed for moving nests)
+    do t = 2, tim_len
+      bkg_cov(t,:,:) = bkg_cov(1,:,:)
     end do
 
     print *,"GET_BKG_COV_MAT COMPLETE"
@@ -163,7 +178,7 @@ contains
 
     implicit none
     integer, intent(inout), allocatable      :: obs_tim(:)
-    real(KIND=8), intent(inout), allocatable :: obs_pos(:)
+    real(KIND=8), intent(inout), allocatable :: obs_pos(:,:)
     real(KIND=8), intent(inout), allocatable :: obs_vec(:)
 
     integer            :: i
@@ -173,7 +188,7 @@ contains
     print *,"GET_OBS_VEC"
 
     ! Construct name of obs input file
-    write(filename, '(A,I1,A)') 'lorenz96obs_', mthd, '.txt'
+    write(filename, '(A,I1,A)') 'qgobs_', mthd, '.txt'
 
     ! Open the output csv file
     open(newunit=fileunit, file=trim(filename), form='formatted', status='old')
@@ -183,36 +198,14 @@ contains
 
     ! Allocate space for obs arrays
     allocate(obs_tim(obs_len))
-    allocate(obs_pos(obs_len))
+    allocate(obs_pos(obs_len, 3))
     allocate(obs_vec(obs_len))
 
     do i=1,obs_len
-      read(fileunit, '(I11,F12.3,F12.1)') obs_tim(i), obs_pos(i), obs_vec(i)
+      read(fileunit, *) obs_tim(i), obs_pos(i,1), obs_pos(i,2), obs_pos(i,3), obs_vec(i)
     end do
 
     close(fileunit)
-
-! THIS IS HOW THE OBS FILES FOR LORENZ96 WERE CREATED
-!
-!    do i=1,obs_len
-!        x=modulo(i,8)
-!        obs_tim(i)=2
-!        obs_pos(i)=i*200 
-!        if(x.gt.3) then
-!            obs_tim(i)=1
-!            obs_pos(i)=i*200-35 
-!        end if
-!        if(x.gt.5) then
-!            obs_tim(i)=3
-!            obs_pos(i)=i*200-75 
-!        end if 
-!!       FOR MATCHED 3DVAR
-!        if(mthd.eq.2) obs_tim(i)=2
-!        obs_vec(i)=50.0+50.0*sin(((20.0*float(obs_tim(i)-1)+float(obs_pos(i)))/1000.0)*PI)
-!!       FOR 3DVAR
-!        if(mthd.le.2) obs_tim(i)=1
-!        write(*,'(2I,F)') obs_tim(i), obs_pos(i), obs_vec(i)
-!    end do
 
     print *,"GET_OBS_VEC COMPLETE" 
 
@@ -221,29 +214,37 @@ contains
 
   ! BJE
   ! GET THE OBSERVATION OPERATOR, H, FROM THE INPUTS
-  subroutine get_obs_opr(obs_tim,obs_pos,obs_opr)
+  subroutine get_obs_opr(bkg_vec,obs_tim,obs_pos,obs_opr,bkg_interp)
 
     implicit none
 
+    real(KIND=8), intent( in) :: bkg_vec(:,:)
     integer,      intent( in) :: obs_tim(:)
-    real(KIND=8), intent( in) :: obs_pos(:)
+    real(KIND=8), intent( in) :: obs_pos(:,:)
     real(KIND=8), intent(out) :: obs_opr(:,:,:)
+    real(KIND=8), intent(out) :: bkg_interp(:)
 
     integer :: i
-    integer :: lower_index, upper_index
-    real(KIND=8) :: lower_weight, upper_weight
+    integer :: NW_index, NE_index, SW_index, SE_index
+    real(KIND=8) :: NW_weight, NE_weight, SW_weight, SE_weight
     type(qg_model_type) :: model
 
-    print *,"GET_OBS_VEC"
+    print *,"GET_OBS_OPR"
 
     model = qg_model_type(bkg_config)
 
     obs_opr(:,:,:)=0.0
 
     do i=1,obs_len
-!       call model%get_interpolation_weights(obs_pos(i), lower_index, upper_index, lower_weight, upper_weight)
-       obs_opr(obs_tim(i),i,lower_index)=lower_weight
-       obs_opr(obs_tim(i),i,upper_index)=upper_weight
+       call model%get_interpolation_weights(obs_pos(i,1), obs_pos(i,2), obs_pos(i,3), NW_index, NE_index, SW_index, SE_index, NW_weight, NE_weight, SW_weight, SE_weight)
+       obs_opr(obs_tim(i),i,NW_index)=NW_weight
+       obs_opr(obs_tim(i),i,NE_index)=NE_weight
+       obs_opr(obs_tim(i),i,SW_index)=SW_weight
+       obs_opr(obs_tim(i),i,SE_index)=SE_weight
+       bkg_interp(i) = bkg_vec(obs_tim(i),NW_index) * NW_weight + &
+                     & bkg_vec(obs_tim(i),NE_index) * NE_weight + &
+                     & bkg_vec(obs_tim(i),SW_index) * SW_weight + &
+                     & bkg_vec(obs_tim(i),SE_index) * SE_weight
     end do
 
     print *,"GET_OBS_OPR COMPLETE"
@@ -256,7 +257,7 @@ contains
 
     implicit none
     real(KIND=8), intent(inout), allocatable :: bkg_vec(:,:)
-    integer,intent(inout), allocatable       :: bkg_pos(:,:)
+    integer,intent(inout), allocatable       :: bkg_pos(:,:,:)
     integer,intent(inout), allocatable       :: bkg_tim(:) 
 
     integer                                  :: i,t,tt
@@ -278,12 +279,15 @@ contains
        call reader%read(model, filename)
        if (t == 1) then
          bkg_config = model%get_config()
-         bkg_len = model%get_nsh2() * model%get_nvl()
+         bkg_nx = model%get_nlat()
+         bkg_ny = model%get_nlon()
+         bkg_nz = model%get_nvl()
+         bkg_len = bkg_nx * bkg_ny * bkg_nz
          allocate (bkg_vec(tim_len, bkg_len))
-         allocate (bkg_pos(tim_len, bkg_len))
+         allocate (bkg_pos(tim_len, bkg_len, 3))
        end if
        if (tt == 2) bkg_step = model%get_step()
-!       bkg_pos(t,:) = model%get_location_vector()
+       bkg_pos(t,:,:) = model%get_location_vector()
        bkg_vec(t,:) = model%get_state_vector()
     end do
 
@@ -295,26 +299,34 @@ contains
   ! BJE
   ! GENERATE THE INNOVATION VECTOR (Y-HXb)
   ! USE OBS_VEC TO STORE THE OUTPUT
-  subroutine get_ino_vec(obs_vec, obs_opr, bkg_vec, obs_tim, obs_pos)
+  subroutine get_ino_vec(obs_vec, obs_opr, bkg_vec, obs_tim, obs_pos, bkg_interp)
 
     implicit none
 
     real(KIND=8), intent(inout) :: obs_vec(:)
-    real(KIND=8), intent(in)    :: obs_opr(:,:,:)
-    real(KIND=8), intent(in)    :: bkg_vec(:,:)
+    real(KIND=8), intent(   in) :: obs_opr(:,:,:)
+    real(KIND=8), intent(   in) :: bkg_vec(:,:)
+    integer,      intent(   in) :: obs_tim(:)
+    real(KIND=8), intent(   in) :: obs_pos(:,:)
+    real(KIND=8), intent(   in) :: bkg_interp(:)
 
-    integer      :: obs_tim(:)
-    real(KIND=8) :: obs_pos(:)
+    real(KIND=8), allocatable :: Hxb(:)
     integer      :: i,t
+    integer :: NW_index, NE_index, SW_index, SE_index
+    real(KIND=8) :: NW_weight, NE_weight, SW_weight, SE_weight
 
     print *,"GET_INO_VEC"
 
+    allocate(Hxb(obs_len))
     do t=1,tim_len
-      obs_vec(:)=obs_vec(:) - matmul(obs_opr(t,:,:),bkg_vec(t,:))
+      call dgemv("N", obs_len, bkg_len, 1.d0, obs_opr(t,:,:), obs_len, bkg_vec(t,:), 1, 0.d0, Hxb, 1)
+
+      obs_vec(:)=obs_vec(:) - Hxb(:)
+!      obs_vec(:)=obs_vec(:) - matmul(obs_opr(t,:,:),bkg_vec(t,:))
     end do
 
     do i=1,obs_len
-      write(*,'(A8,3I5,2F10.4)') "INO ",i,obs_tim(i),obs_pos(i),obs_vec(i),bkg_vec(obs_tim(i),obs_pos(i))
+      write(*,'(A8,2I5,5F20.4)') "INO ",i,obs_tim(i),obs_pos(i,1),obs_pos(i,2),obs_pos(i,3),obs_vec(i),bkg_interp(i)
     end do
 
     print *,"GET_INO_VEC COMPLETE"
@@ -359,6 +371,7 @@ contains
     real(KIND=8), allocatable   :: obs_opt(:,:)
     real(KIND=8), allocatable   :: tmp_rhh(:,:)
     real(KIND=8), allocatable   :: tmp_hrr(:,:)
+
     print *, "PRE_SOLVER"
 
     allocate (tmp_mat(bkg_len,bkg_len))
@@ -484,6 +497,9 @@ contains
   subroutine var_solver(bkg_cov,hrh_cov,brh_cov,htr_ino,bht_ino,jvc_for,bkg_vec,anl_vec)
 
     implicit none
+
+    include 'mkl_blas.fi'
+
     real(KIND=8), intent(in)    :: htr_ino(:,:,:)
     real(KIND=8), intent(in)    :: bht_ino(:,:,:)
     real(KIND=8), intent(in)    :: bkg_cov(:,:,:)
@@ -583,7 +599,7 @@ contains
  
        new_vec(:,:)=0.0
        tlm_vec=anl_vec
-!$OMP PARALLEL DO SHARED (bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,bkg_config) DEFAULT(PRIVATE)
+!!$OMP PARALLEL DO SHARED (bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,bkg_config) DEFAULT(PRIVATE)
        do t=1,tim_len
           tid=OMP_GET_THREAD_NUM()
           tim_bkc(:,:)=bkg_cov(t,:,:)
@@ -619,16 +635,23 @@ contains
  
           !   SOLVE FOR COST FUNCTION J
           !   FIRST TERM
-          jvc_one=matmul(pre_tra,pre_dif)
+          jvc_one(1,1)=ddot(bkg_len, pre_tra(1,:), 1, pre_dif(:,1), 1)
+!          jvc_one=matmul(pre_tra,pre_dif)
+
           !   SECOND TERM
-          tmp_mat=matmul(dif_tra,tim_hrh)
-          jvc_two=matmul(tmp_mat,dif_vec)
+          call dgemm("N", "N", 1, bkg_len, bkg_len, 1.d0, dif_tra, 1, tim_hrh, bkg_len, 0.d0, tmp_mat, 1)
+!          tmp_mat=matmul(dif_tra,tim_hrh)
+
+          jvc_two=ddot(bkg_len, tmp_mat(1,:), 1, dif_vec(:,1), 1)
+!          jvc_two=matmul(tmp_mat,dif_vec)
+
           !   THIRD TERM
-          jvc_the=matmul(dif_tra,tim_htr)
+          jvc_the=ddot(bkg_len, dif_tra(1,:), 1, tim_htr(:,1), 1)
+!          jvc_the=matmul(dif_tra,tim_htr)
           !   COST FUNCTION
           jtim(t) = 0.5*(jvc_one(1,1)+jvc_two(1,1)-2.0*jvc_the(1,1)) 
        end do
-!$OMP END PARALLEL DO
+!!$OMP END PARALLEL DO
 
        if(mthd.eq.4) tlm_vec=new_vec 
        do t=1,tim_len
@@ -637,7 +660,7 @@ contains
        jnew=jnew+jvc_for(1,1)
        new_vec(:,:)=0.0
 
-!$OMP PARALLEL DO SHARED (bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q,bkg_config) DEFAULT(PRIVATE)
+!!$OMP PARALLEL DO SHARED (bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q,bkg_config) DEFAULT(PRIVATE)
        !   CALCULATE GRAD-J IN REVERSE TEMPORAL ORDER 
        do t=tim_len,1,-1
           tim_bkc(:,:)=bkg_cov(t,:,:)
@@ -676,25 +699,27 @@ contains
 !         THE FIRST GUESS
           call pre_con_dif(tim_bkc,tmp_vec)
           pre_dif(:,1)=tmp_vec(:,1)
-          tmp_vec=matmul(tim_hrh,dif_vec)
+          call dgemv("N", bkg_len, bkg_len, 1.d0, tim_hrh, bkg_len, dif_vec(:,1), 1, 0.d0, tmp_vec(:,1), 1)
+!          tmp_vec=matmul(tim_hrh,dif_vec)
 
           tmp_vec(:,1)=pre_dif(:,1)+tmp_vec(:,1)-tim_htr(:,1)
- 	  grd_jvc=matmul(tim_bkc,tmp_vec)
+ 	  call dgemv("N", bkg_len, bkg_len, 1.d0, tim_bkc, bkg_len, tmp_vec(:,1), 1, 0.d0, grd_jvc(:,1), 1)
+! 	  grd_jvc=matmul(tim_bkc,tmp_vec)
           new_vec(t,:)=ges_vec(:,1)-grd_jvc(:,1)*alph
 
           if(mthd.ne.4) tlm_vec(t,:)=new_vec(t,:)
        end do
-!$OMP END PARALLEL DO
+!!$OMP END PARALLEL DO
        
        if(mthd.eq.4) tlm_vec=new_vec
        anl_vec=tlm_vec
        if (nitr.gt.0 .and. jnew.gt.jold) jnew=jold
-       if (nitr.eq.0) write(*,'(A,F16.12)') 'initial cost = ', jnew
+       if (nitr.eq.0) write(*,'(A,E25.12)') 'initial cost = ', jnew
        nitr = nitr + 1 
-       write(*,'(A,I,F16.12)') "Cost at ", nitr, jnew
+       write(*,'(A,I,E25.12)') "Cost at ", nitr, jnew
     end do
 
-    write(*,'(A,F16.12,A,I,A)') 'final cost = ', jnew, ' after ', nitr, ' iterations'
+    write(*,'(A,E25.12,A,I,A)') 'final cost = ', jnew, ' after ', nitr, ' iterations'
     print *,"SOLVER COMPLETE"
 
   end subroutine var_solver
@@ -729,7 +754,7 @@ contains
       call writer%write(model, filename)
     end if
 
-40  FORMAT(A8,2I5,2F10.4)
+40  FORMAT(A8,2I5,2E15.4)
     do t=1,tim_len
        do i=1,bkg_len
 !         FOR 3DVAR

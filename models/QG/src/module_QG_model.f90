@@ -1210,6 +1210,10 @@ contains
 
     integer      :: i, j, l
     real(r8kind) :: dlon, lon, lvl
+    real(r8kind) :: levels(this%nvl)      ! Grid level
+
+    ! Set the levels
+    levels = (/200.0, 500.0, 800.0/)
 
     ! Get longitude increment
     dlon = 360d0 / real(this%nlon)

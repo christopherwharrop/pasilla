@@ -22,7 +22,7 @@
 
 &runtime
 start_step = 0,
-spinup_steps = 720,
+spinup_steps = 0,
 run_steps = 1440,
 output_interval_steps = 3,
 readstart=.true.,

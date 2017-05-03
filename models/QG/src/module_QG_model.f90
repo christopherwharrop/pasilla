@@ -87,8 +87,12 @@ module QG_Model
     procedure :: get_nsh2
     procedure :: get_nvl
     procedure :: get_psi
+    procedure :: get_psig
+    procedure :: get_lat_lon_grid
     procedure :: get_for
     procedure :: get_state_vector
+    procedure :: get_location_vector
+    procedure :: get_interpolation_weights
     procedure, private :: allocate_comqg
     procedure, private :: init_spectral_coeff
     procedure, private :: init_laplace_helmholtz
@@ -131,6 +135,7 @@ contains
     integer,      optional, intent(in) :: step
 
     type(qg_model_type)                :: qg_model
+    real(r8kind), allocatable          :: psig3d(:,:,:), psisp(:,:)
 
     real(r8kind) :: nsteps_per_day
 
@@ -175,7 +180,14 @@ contains
     if (present(state)) then
       call qg_model%init_state(psi=state)
     else if (present(state_vector)) then
-      call qg_model%init_state(psi=reshape(state_vector,(/qg_model%nsh2, qg_model%nvl/)))
+!      call qg_model%init_state(psi=reshape(state_vector,(/qg_model%nsh2, qg_model%nvl/)))
+      allocate(psig3d(qg_model%nlat, qg_model%nlon, qg_model%nvl))
+      allocate(psisp(qg_model%nsh2, qg_model%nvl))
+      psig3d = reshape(state_vector,(/qg_model%nlat, qg_model%nlon, qg_model%nvl/))
+      psisp(:,1) = reshape(qg_model%ggsp%ggtosp(psig3d(:,:,1)), (/qg_model%nsh2/))
+      psisp(:,2) = reshape(qg_model%ggsp%ggtosp(psig3d(:,:,2)), (/qg_model%nsh2/))
+      psisp(:,3) = reshape(qg_model%ggsp%ggtosp(psig3d(:,:,3)), (/qg_model%nsh2/))
+      call qg_model%init_state(psi=psisp)
     else
       call qg_model%init_state()
     end if
@@ -503,8 +515,6 @@ contains
     logical,                intent(   in) :: obsf
     real(r8kind), optional, intent(   in) :: for(:,:)
 
-!    integer :: k, l
-
     ! General netCDF variables
     integer :: ncFileID      ! netCDF file identifier
     integer :: nDimensions, nVariables, nAttributes, unlimitedDimID
@@ -562,8 +572,6 @@ contains
 
     class(qg_model_type),   intent(inout) :: this
     real(r8kind), optional, intent(   in) :: psi(:,:)
-
-!    integer :: l,k
 
     ! General netCDF variables
     integer :: ncFileID      ! netCDF file identifier
@@ -1091,7 +1099,6 @@ contains
   ! by solving the linear balance equation: 
   ! del phi = (1 - mu**2 ) d psi / dmu + mu del psi
   ! the global mean value is not determined and set to zero
-  !  
   !-----------------------------------------------------------------------
   subroutine gridfields(this, lat, lon, lvl, geopg, psig, forg, qgpv, ug, vg)
 
@@ -1193,6 +1200,72 @@ contains
   end subroutine gridfields
 
       
+  !-----------------------------------------------------------------------
+  ! Return the lat/lon grid values
+  !-----------------------------------------------------------------------
+  function get_lat_lon_grid(this) result(grid)
+
+    class(qg_model_type), intent( in) :: this
+    real(r8kind), dimension(3) :: grid(this%nlat, this%nlon, this%nvl, 3)
+
+    integer      :: i, j, l
+    real(r8kind) :: dlon, lon, lvl
+
+    ! Get longitude increment
+    dlon = 360d0 / real(this%nlon)
+
+    ! Calculate the grid locations
+    do l = 1, this%nvl
+      lvl = levels(l)
+      do j = 1, this%nlon
+        lon = (j - 1) * dlon
+        do i = 1, this%nlat
+          grid(i,j,l,:) = (/this%phi(i), lon, lvl/)
+        end do
+      end do
+    enddo
+
+  end function get_lat_lon_grid
+
+
+  !-----------------------------------------------------------------------
+  ! Return the streamfunction on the gaussian grid
+  !-----------------------------------------------------------------------
+  function get_psig(this) result(psig)
+
+    class(qg_model_type), intent( in) :: this
+    real(r8kind), dimension(this%nlat, this%nlon, this%nvl) :: psig ! Grid values of dimensional streamfunction at the three levels
+
+    ! Physical constants
+    real(r8kind), parameter :: radius = 6.37e+6
+    real(r8kind), parameter :: om = 4d0 * pi / (24d0 * 3600d0)
+
+    integer :: i, j, l
+    real(r8kind) :: facsf
+    type(qg_ggsp_type) :: ggsp
+
+    ! Get grid conversion object
+    ggsp = this%ggsp
+
+    ! space derivatives of streamfunction
+    facsf = om * (radius)**2
+
+    ! Calculate remaining fields
+    do l = 1, this%nvl
+
+      psig(:, :, l) = ggsp%sptogg_pp(this%psi(:, l))
+
+      do j = 1, this%nlon
+        do i = 1, this%nlat
+          psig(i, j, l) = facsf * psig(i, j, l)
+        enddo
+      enddo
+
+    enddo
+
+  end function get_psig
+
+
   !-----------------------------------------------------------------------
   ! computation of laplace operator in spectral domain
   ! input  xs  field in spectral form
@@ -1434,11 +1507,106 @@ contains
   function get_state_vector(this) result(state_vector)
 
     class(qg_model_type),            intent(in) :: this
-    real(r8kind), dimension(this%nsh2 * this%nvl) :: state_vector
+    real(r8kind), dimension(this%nlat * this%nlon * this%nvl) :: state_vector
 
-    state_vector = reshape(this%psi,(/this%nsh2 * this%nvl/))
+    state_vector = reshape(this%get_psig(),(/this%nlat * this%nlon * this%nvl/))
 
   end function get_state_vector
 
+
+  !-------------------------------------------------------------------------------
+  ! get_location_vector
+  !-------------------------------------------------------------------------------
+  function get_location_vector(this) result(location_vector)
+
+    class(qg_model_type),            intent(in) :: this
+    real(r8kind), dimension(this%nlat * this%nlon * this%nvl, 3) :: location_vector
+
+    location_vector = reshape(this%get_lat_lon_grid(),(/this%nlat * this%nlon * this%nvl, 3/))
+
+  end function get_location_vector
+
+
+  !------------------------------------------------------------------
+  ! get_interpolation_weights
+  !------------------------------------------------------------------
+  subroutine get_interpolation_weights(this, latx, lonx, lvl, NW_index, NE_index, SW_index, SE_index, NW_weight, NE_weight, SW_weight, SE_weight)
+
+    class(qg_model_type), intent( in) :: this
+    real(r8kind),         intent( in) :: latx, lonx, lvl
+    integer,              intent(out) :: NW_index, NE_index, SW_index, SE_index
+    real(r8kind),         intent(out) :: NW_weight, NE_weight, SW_weight, SE_weight
+
+    real(r8kind) :: lat, lon, lat_north, lat_south, lon_west, lon_east, sum_weight, levels(this%nvl)
+    integer      :: ilat_north, ilat_south, ilon_west, ilon_east, ilvl
+
+    ! Get the bounding latitudes
+    ilat_south = 1
+    do while (this%phi(ilat_south) < latx)
+      ilat_south = ilat_south + 1
+    end do
+    ilat_south = ilat_south - 1
+    ilat_north = ilat_south + 1
+    lat_north = this%phi(ilat_north)
+    lat_south = this%phi(ilat_south)
+
+    ! Get the bounding longitudes
+    ilon_west = int(lonx / (360d0 / real(this%nlon))) + 1
+    ilon_east = ilon_west + 1
+    if (ilon_east > this%nlon) ilon_east = 1
+    lon_west = (ilon_west - 1) * 360d0 / real(this%nlon)
+    lon_east = (ilon_east - 1) * 360d0 / real(this%nlon)
+
+    ! Get the level index
+    ilvl = 1
+    levels = (/200.0, 500.0, 800.0/)
+    do while (levels(ilvl) < lvl)
+      ilvl = ilvl + 1
+    end do
+
+    ! Compute the indices of the bounding box after it is mapped from 3D array into a 1D vector
+    NW_index = this%nlat * this%nlon * (ilvl - 1) + this%nlat * (ilon_west - 1) + ilat_north
+    NE_index = this%nlat * this%nlon * (ilvl - 1) + this%nlat * (ilon_east - 1) + ilat_north
+    SW_index = this%nlat * this%nlon * (ilvl - 1) + this%nlat * (ilon_west - 1) + ilat_south
+    SE_index = this%nlat * this%nlon * (ilvl - 1) + this%nlat * (ilon_east - 1) + ilat_south
+
+    ! Compute the distances to bounding box vertices
+    NW_weight = 1.0 / distance(latx, lonx, lat_north, lon_west)
+    NE_weight = 1.0 / distance(latx, lonx, lat_north, lon_east)
+    SW_weight = 1.0 / distance(latx, lonx, lat_south, lon_west)
+    SE_weight = 1.0 / distance(latx, lonx, lat_south, lon_east)
+
+    ! Compute weights by normalizing distances
+    sum_weight = NW_weight + NE_weight + SW_weight + SE_weight
+    NW_weight = NW_weight / sum_weight
+    NE_weight = NE_weight / sum_weight
+    SW_weight = SW_weight / sum_weight
+    SE_weight = SE_weight / sum_weight
+
+  end subroutine get_interpolation_weights
+
+
+  function distance(lat, lon, latx, lonx) result(d)
+
+    real(r8kind), intent(in) :: lat, lon, latx, lonx
+    real(r8kind)             :: d
+
+    real(r8kind) :: rlat, rlatx, dlat, dlon
+    real(r8kind) :: a, c
+
+    real(r8kind), parameter :: dtor = atan(1.0) / 45.0
+    real(r8kind), parameter :: erad = 6372.8
+
+    rlat = dtor * lat
+    rlatx = dtor * latx
+
+    dlat = dtor * (latx - lat)
+    dlon = dtor * (lonx - lon)
+
+    a = (sin(dlat / 2.0))**2 + cos(rlat) * cos(rlatx) * (sin(dlon / 2.0))**2
+    c = 2.0 * asin(sqrt(a))
+    d = erad * c
+
+  end function distance
 
 end module QG_Model

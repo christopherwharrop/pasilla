@@ -91,7 +91,7 @@ contains
 
     ! IN THIS CASE, R=I, THE IDENTITY MATRIX
     do i=1,obs_len
-       obs_cov(obs_tim(i),i,i)=1.0
+       obs_cov(obs_tim(i),i,i)=1.0/100000.0
     end do
 
     print *,"GET_OBS_COV_MAT COMPLETE"
@@ -132,6 +132,8 @@ contains
 
     ! Close the NetCDF file
     call nc_check(nf90_close(ncFileID))
+
+    bkg_cov(1,:,:) = sqrt(abs(bkg_cov(1,:,:)))
 
     ! Use same B for each time (only needed for moving nests)
     do t = 2, tim_len
@@ -279,8 +281,8 @@ contains
        call reader%read(model, filename)
        if (t == 1) then
          bkg_config = model%get_config()
-         bkg_nx = model%get_nlat()
-         bkg_ny = model%get_nlon()
+         bkg_nx = model%get_nlon()
+         bkg_ny = model%get_nlat()
          bkg_nz = model%get_nvl()
          bkg_len = bkg_nx * bkg_ny * bkg_nz
          allocate (bkg_vec(tim_len, bkg_len))

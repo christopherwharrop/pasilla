@@ -186,13 +186,13 @@ contains
       call qg_model%init_state(psi=state)
     else if (present(state_vector)) then
 !      call qg_model%init_state(psi=reshape(state_vector,(/qg_model%nsh2, qg_model%nvl/)))
-      allocate(psig3d(qg_model%nlat, qg_model%nlon, qg_model%nvl))
+      allocate(psig3d(qg_model%nlon, qg_model%nlat, qg_model%nvl))
       allocate(psisp(qg_model%nsh2, qg_model%nvl))
-      psig3d = reshape(state_vector,(/qg_model%nlat, qg_model%nlon, qg_model%nvl/))
+      psig3d = reshape(state_vector,(/qg_model%nlon, qg_model%nlat, qg_model%nvl/))
       psig3d(:,:,:) = psig3d(:,:,:) / facsf
-      psisp(:,1) = reshape(qg_model%ggsp%ggtosp(psig3d(:,:,1)), (/qg_model%nsh2/))
-      psisp(:,2) = reshape(qg_model%ggsp%ggtosp(psig3d(:,:,2)), (/qg_model%nsh2/))
-      psisp(:,3) = reshape(qg_model%ggsp%ggtosp(psig3d(:,:,3)), (/qg_model%nsh2/))
+      psisp(:,3) = reshape(qg_model%ggsp%ggtosp(transpose(psig3d(:,:,1))), (/qg_model%nsh2/))
+      psisp(:,2) = reshape(qg_model%ggsp%ggtosp(transpose(psig3d(:,:,2))), (/qg_model%nsh2/))
+      psisp(:,1) = reshape(qg_model%ggsp%ggtosp(transpose(psig3d(:,:,3))), (/qg_model%nsh2/))
       call qg_model%init_state(psi=psisp)
     else
       call qg_model%init_state()
@@ -1212,14 +1212,14 @@ contains
   function get_lat_lon_grid(this) result(grid)
 
     class(qg_model_type), intent( in) :: this
-    real(r8kind), dimension(3) :: grid(this%nlat, this%nlon, this%nvl, 3)
+    real(r8kind), dimension(3) :: grid(this%nlon, this%nlat, this%nvl, 3)
 
     integer      :: i, j, l
-    real(r8kind) :: dlon, lon, lvl
+    real(r8kind) :: dlon, lat, lvl
     real(r8kind) :: levels(this%nvl)      ! Grid level
 
     ! Set the levels
-    levels = (/200.0, 500.0, 800.0/)
+    levels = (/800.0, 500.0, 200.0/)
 
     ! Get longitude increment
     dlon = 360d0 / real(this%nlon)
@@ -1227,10 +1227,10 @@ contains
     ! Calculate the grid locations
     do l = 1, this%nvl
       lvl = levels(l)
-      do j = 1, this%nlon
-        lon = (j - 1) * dlon
-        do i = 1, this%nlat
-          grid(i,j,l,:) = (/this%phi(i), lon, lvl/)
+      do i = 1, this%nlat
+        lat = this%phi(i)
+        do j = 1, this%nlon
+          grid(j,i,l,:) = (/(j - 1) * dlon, lat, lvl/)
         end do
       end do
     enddo
@@ -1244,7 +1244,7 @@ contains
   function get_psig(this) result(psig)
 
     class(qg_model_type), intent( in) :: this
-    real(r8kind), dimension(this%nlat, this%nlon, this%nvl) :: psig ! Grid values of dimensional streamfunction at the three levels
+    real(r8kind), dimension(this%nlon, this%nlat, this%nvl) :: psig ! Grid values of dimensional streamfunction at the three levels
 
     ! Physical constants
     real(r8kind), parameter :: radius = 6.37e+6
@@ -1261,12 +1261,12 @@ contains
     facsf = om * (radius)**2
 
     ! Calculate remaining fields
-    do l = 1, this%nvl
+    do l = this%nvl,1,-1
 
-      psig(:, :, l) = ggsp%sptogg_pp(this%psi(:, l))
+      psig(:, :, l) = transpose(ggsp%sptogg_pp(this%psi(:, l)))
 
-      do j = 1, this%nlon
-        do i = 1, this%nlat
+      do j = 1, this%nlat
+        do i = 1, this%nlon
           psig(i, j, l) = facsf * psig(i, j, l)
         enddo
       enddo
@@ -1569,16 +1569,16 @@ contains
 
     ! Get the level index
     ilvl = 1
-    levels = (/200.0, 500.0, 800.0/)
-    do while (levels(ilvl) < lvl)
+    levels = (/800.0, 500.0, 200.0/)
+    do while (levels(ilvl) > lvl)
       ilvl = ilvl + 1
     end do
 
     ! Compute the indices of the bounding box after it is mapped from 3D array into a 1D vector
-    NW_index = this%nlat * this%nlon * (ilvl - 1) + this%nlat * (ilon_west - 1) + ilat_north
-    NE_index = this%nlat * this%nlon * (ilvl - 1) + this%nlat * (ilon_east - 1) + ilat_north
-    SW_index = this%nlat * this%nlon * (ilvl - 1) + this%nlat * (ilon_west - 1) + ilat_south
-    SE_index = this%nlat * this%nlon * (ilvl - 1) + this%nlat * (ilon_east - 1) + ilat_south
+    NW_index = this%nlat * this%nlon * (ilvl - 1) + this%nlon * (ilat_north - 1) + ilon_west
+    NE_index = this%nlat * this%nlon * (ilvl - 1) + this%nlon * (ilat_north - 1) + ilon_east
+    SW_index = this%nlat * this%nlon * (ilvl - 1) + this%nlon * (ilat_south - 1) + ilon_west
+    SE_index = this%nlat * this%nlon * (ilvl - 1) + this%nlon * (ilat_south - 1) + ilon_east
 
     ! Compute the distances to bounding box vertices
     NW_weight = 1.0 / distance(latx, lonx, lat_north, lon_west)

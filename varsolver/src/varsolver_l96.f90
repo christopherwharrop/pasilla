@@ -14,6 +14,7 @@ program adept
   integer, allocatable         ::      obs_tim(:)
   real(KIND=8), allocatable    ::      obs_pos(:)
   real(KIND=8), allocatable    ::      obs_opr(:,:,:)
+  real(KIND=8), allocatable    ::      bkg_interp(:)
   real(KIND=8), allocatable    ::      obs_cov(:,:,:)
   real(KIND=8), allocatable    ::      bkg_cov(:,:,:)
   real(KIND=8), allocatable    ::      hrh_cov(:,:,:)
@@ -45,6 +46,7 @@ program adept
   ! BJE
   ! KNOWING THE NUMBERS, ALLOCATE VECTORS/MATRICIES (ARRAYS) ACCORTINGLY
   allocate (obs_opr(tim_len,obs_len,bkg_len))
+  allocate (bkg_interp(obs_len))
   allocate (obs_cov(tim_len,obs_len,obs_len))
   allocate (bkg_cov(tim_len,bkg_len,bkg_len))
   allocate (hrh_cov(tim_len,bkg_len,bkg_len))
@@ -56,6 +58,7 @@ program adept
   ! CWH
   ! INITIALIZE THE ALLOCATED VECTORS/MATRICES
   obs_opr(:,:,:) = 0.0
+  bkg_interp(:)  = 0.0
   obs_cov(:,:,:) = 0.0
   bkg_cov(:,:,:) = 0.0
   hrh_cov(:,:,:) = 0.0
@@ -66,11 +69,11 @@ program adept
 
   ! BJE
   ! KNOWING THE LOCATION OF THE OBS, CREATE OBS OPERATOR, H 
-  call get_obs_opr(obs_tim,obs_pos,obs_opr)
+  call get_obs_opr(bkg_vec,obs_tim,obs_pos,obs_opr,bkg_interp)
 
   ! BJE
   ! GET THE INNOVATION VECTOR - (Y-HXb) - OVERWRITE OBS_VEC
-  call get_ino_vec(obs_vec,obs_opr,bkg_vec,obs_tim,obs_pos)
+  call get_ino_vec(obs_vec,obs_opr,bkg_vec,obs_tim,obs_pos,bkg_interp)
 
   ! BJE   
   ! OBTAIN THE COVARIANCE MATRIX R - OBS ERROR

@@ -187,7 +187,7 @@ contains
     allocate(obs_vec(obs_len))
 
     do i=1,obs_len
-      read(fileunit, '(I11,F12.3,F12.1)') obs_tim(i), obs_pos(i), obs_vec(i)
+      read(fileunit, *) obs_tim(i), obs_pos(i), obs_vec(i)
     end do
 
     close(fileunit)
@@ -221,13 +221,14 @@ contains
 
   ! BJE
   ! GET THE OBSERVATION OPERATOR, H, FROM THE INPUTS
-  subroutine get_obs_opr(obs_tim,obs_pos,obs_opr)
-
+  subroutine get_obs_opr(bkg_vec,obs_tim,obs_pos,obs_opr,bkg_interp)
     implicit none
 
+    real(KIND=8), intent( in) :: bkg_vec(:,:)
     integer,      intent( in) :: obs_tim(:)
     real(KIND=8), intent( in) :: obs_pos(:)
     real(KIND=8), intent(out) :: obs_opr(:,:,:)
+    real(KIND=8), intent(out) :: bkg_interp(:)
 
     integer :: i
     integer :: lower_index, upper_index
@@ -244,6 +245,8 @@ contains
        call model%get_interpolation_weights(obs_pos(i), lower_index, upper_index, lower_weight, upper_weight)
        obs_opr(obs_tim(i),i,lower_index)=lower_weight
        obs_opr(obs_tim(i),i,upper_index)=upper_weight
+       bkg_interp(i) = bkg_vec(obs_tim(i),lower_index) * lower_weight + &
+                     & bkg_vec(obs_tim(i),upper_index) * upper_weight
     end do
 
     print *,"GET_OBS_OPR COMPLETE"
@@ -295,16 +298,16 @@ contains
   ! BJE
   ! GENERATE THE INNOVATION VECTOR (Y-HXb)
   ! USE OBS_VEC TO STORE THE OUTPUT
-  subroutine get_ino_vec(obs_vec, obs_opr, bkg_vec, obs_tim, obs_pos)
-
+  subroutine get_ino_vec(obs_vec, obs_opr, bkg_vec, obs_tim, obs_pos, bkg_interp)
     implicit none
 
     real(KIND=8), intent(inout) :: obs_vec(:)
     real(KIND=8), intent(in)    :: obs_opr(:,:,:)
     real(KIND=8), intent(in)    :: bkg_vec(:,:)
+    integer,      intent(in)    :: obs_tim(:)
+    real(KIND=8), intent(in)    :: obs_pos(:)
+    real(KIND=8), intent(in)    :: bkg_interp(:)
 
-    integer      :: obs_tim(:)
-    real(KIND=8) :: obs_pos(:)
     integer      :: i,t
 
     print *,"GET_INO_VEC"
@@ -314,7 +317,7 @@ contains
     end do
 
     do i=1,obs_len
-      write(*,'(A8,3I5,2F10.4)') "INO ",i,obs_tim(i),obs_pos(i),obs_vec(i),bkg_vec(obs_tim(i),obs_pos(i))
+      write(*,'(A8,2I,3F10.4)') "INO ",i,obs_tim(i),obs_pos(i),obs_vec(i),bkg_interp(i)
     end do
 
     print *,"GET_INO_VEC COMPLETE"

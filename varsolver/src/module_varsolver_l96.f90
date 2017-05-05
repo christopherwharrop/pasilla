@@ -308,12 +308,18 @@ contains
     real(KIND=8), intent(in)    :: obs_pos(:)
     real(KIND=8), intent(in)    :: bkg_interp(:)
 
-    integer      :: i,t
+    integer                   :: i,t
+    real(KIND=8), allocatable :: Hxb(:)
 
     print *,"GET_INO_VEC"
 
+    ! Allocate space for Hxb
+    allocate(Hxb(obs_len))
+
+    ! Calculate the innovation vector, overwriting obs_vec with the result
     do t=1,tim_len
-      obs_vec(:)=obs_vec(:) - matmul(obs_opr(t,:,:),bkg_vec(t,:))
+      call dgemv("N", obs_len, bkg_len, 1.d0, obs_opr(t,:,:), obs_len, bkg_vec(t,:), 1, 0.d0, Hxb, 1)
+      obs_vec(:)=obs_vec(:) - Hxb(:)
     end do
 
     do i=1,obs_len

@@ -507,26 +507,24 @@ contains
     real(KIND=8), allocatable   :: tim_htr(:)
     real(KIND=8), allocatable   :: tim_bkc(:,:)
     real(KIND=8), allocatable   :: tim_hrh(:,:)
-    real(KIND=8), allocatable   :: tim_anv(:,:)
     real(KIND=8), allocatable   :: tim_bkv(:)
 
     real(KIND=8), allocatable   :: new_vec(:,:)
     real(KIND=8), allocatable   :: tlm_vec(:,:)
-    real(KIND=8), allocatable   :: mdl_vec(:,:)
+    real(KIND=8), allocatable   :: mdl_vec(:)
     real(KIND=8), allocatable   :: ges_vec(:)
     real(KIND=8), allocatable   :: dif_vec(:)
     real(KIND=8), allocatable   :: dif_tra(:)
 
-    real(KIND=8), allocatable   :: pre_tra(:,:)
-    real(KIND=8), allocatable   :: pre_dif(:,:)
+    real(KIND=8), allocatable   :: pre_tra(:)
+    real(KIND=8), allocatable   :: pre_dif(:)
     real(KIND=8), allocatable   :: tmp_mat(:)
     real(KIND=8), allocatable   :: tmp_vec(:)
-    real(KIND=8), allocatable   :: tmp_vvc(:,:)
 
     real(KIND=8), allocatable   :: grd_jvc(:)
-    real(KIND=8)                :: jvc_one(1,1)
-    real(KIND=8)                :: jvc_two(1,1)
-    real(KIND=8)                :: jvc_the(1,1)
+    real(KIND=8)                :: jvc_one
+    real(KIND=8)                :: jvc_two
+    real(KIND=8)                :: jvc_the
     integer                     :: i,j,t,nitr,mxit
     real(KIND=8)                :: jold,jnew,jthr,B,Q 
     real(KIND=8), allocatable   :: jtim(:) 
@@ -542,20 +540,18 @@ contains
     allocate (tim_bkc(bkg_len,bkg_len))
     allocate (tim_hrh(bkg_len,bkg_len))
     allocate (tim_bkv(bkg_len))
-    allocate (tim_anv(bkg_len,      1))
 
     allocate (new_vec(tim_len,bkg_len))
     allocate (tlm_vec(tim_len,bkg_len))
-    allocate (mdl_vec(bkg_len,      1))
+    allocate (mdl_vec(bkg_len))
     allocate (ges_vec(bkg_len))
     allocate (dif_vec(bkg_len))
     allocate (dif_tra(bkg_len))
 
-    allocate (pre_dif(bkg_len,      1))
-    allocate (pre_tra(      1,bkg_len))
+    allocate (pre_dif(bkg_len))
+    allocate (pre_tra(bkg_len))
     allocate (tmp_mat(bkg_len))
     allocate (tmp_vec(bkg_len))
-    allocate (tmp_vvc(bkg_len,      1))
     allocate (grd_jvc(bkg_len))
 
 
@@ -603,41 +599,41 @@ contains
 	  tim_bkv(:)=bkg_vec(t,:) 
           if(t.eq.1) then
 !            FOR THE FIRST TIME STEP, THERE IS NO PRIOR FIELD TO PROPAGATE
-	     mdl_vec(:,1)=tlm_vec(t,:)
-             if (mthd.eq.4) new_vec(t,:)=mdl_vec(:,1)
+	     mdl_vec(:)=tlm_vec(t,:)
+             if (mthd.eq.4) new_vec(t,:)=mdl_vec(:)
           else
 !            RUN THE FORWARD MODEL FOR ALL STEPS AFTER THE FIRST
-	     mdl_vec(:,1) = tlm_vec(t-1,:)
+	     mdl_vec(:) = tlm_vec(t-1,:)
              print *, "FORWARD MODEL"
-             model = l96_model_type(bkg_config, state=mdl_vec(:,1), step=t)
+             model = l96_model_type(bkg_config, state=mdl_vec(:), step=t)
              call model%adv_nsteps(1)
-             model_TL = l96_tl_type(bkg_config, state=mdl_vec(:,1), trajectory=model%get_state() - mdl_vec(:,1), step = t)
+             model_TL = l96_tl_type(bkg_config, state=mdl_vec(:), trajectory=model%get_state() - mdl_vec(:), step = t)
              call model_TL%adv_nsteps(10)
-             mdl_vec(:,1) = model_TL%get_state()
+             mdl_vec(:) = model_TL%get_state()
              print *, "END FORWARD_MODEL"
 
-             if (mthd.eq.4) new_vec(t,:) = mdl_vec(:,1)
-             if (mthd.ne.4) tlm_vec(t,:) = mdl_vec(:,1)
+             if (mthd.eq.4) new_vec(t,:) = mdl_vec(:)
+             if (mthd.ne.4) tlm_vec(t,:) = mdl_vec(:)
           end if
 
           !   CARRY ON WITH THE MINIMIZATION 
-          tmp_vec(:)=(mdl_vec(:,1)-tim_bkv(:))*B 
-          dif_vec(:)=(mdl_vec(:,1)-tim_bkv(:))*B
+          tmp_vec(:)=(mdl_vec(:)-tim_bkv(:))*B
+          dif_vec(:)=(mdl_vec(:)-tim_bkv(:))*B
           dif_tra(:)=dif_vec(:)
           call pre_con_dif(tim_bkc,tmp_vec)
-          pre_tra(1,:)=tmp_vec(:)
-          pre_dif(:,1)=tmp_vec(:)
+          pre_tra(:)=tmp_vec(:)
+          pre_dif(:)=tmp_vec(:)
  
           !   SOLVE FOR COST FUNCTION J
           !   FIRST TERM
-          jvc_one=matmul(pre_tra,pre_dif)
+          jvc_one=dot_product(pre_tra,pre_dif)
           !   SECOND TERM
           tmp_mat=matmul(dif_tra,tim_hrh)
           jvc_two=dot_product(tmp_mat,dif_vec)
           !   THIRD TERM
           jvc_the=dot_product(dif_tra,tim_htr)
           !   COST FUNCTION
-          jtim(t) = 0.5*(jvc_one(1,1)+jvc_two(1,1)-2.0*jvc_the(1,1)) 
+          jtim(t) = 0.5*(jvc_one+jvc_two-2.0*jvc_the)
        end do
 !$OMP END PARALLEL DO
 
@@ -658,25 +654,25 @@ contains
          
           if(t.eq.tim_len) then 
 !            FOR THE LAST (OR ONLY) TIME STEP - NO ADJOINT TO RUN
-	     mdl_vec(:,1)=tlm_vec(t,:)
-             if(mthd.eq.4) mdl_vec(:,1)=0.5*(tlm_vec(t,:)+anl_vec(t,:))
+	     mdl_vec(:)=tlm_vec(t,:)
+             if(mthd.eq.4) mdl_vec(:)=0.5*(tlm_vec(t,:)+anl_vec(t,:))
           else 			
 !            THIS ONLY RUNS FOR 4DVAR
 !	     FOR ALL OTHER TIME STEPS - ADJOINT NEEDED
-             if (mthd.eq.3) mdl_vec(:,1)=tlm_vec(t+1,:)
-             if (mthd.eq.4) mdl_vec(:,1)=anl_vec(t+1,:)
+             if (mthd.eq.3) mdl_vec(:)=tlm_vec(t+1,:)
+             if (mthd.eq.4) mdl_vec(:)=anl_vec(t+1,:)
              print *, "BACKWARD_MODEL"
-             model = l96_model_type(bkg_config, state=mdl_vec(:,1), step=t)
+             model = l96_model_type(bkg_config, state=mdl_vec(:), step=t)
              call model%adv_nsteps(1)
-             model_ADJ = l96_adj_type(bkg_config, state=mdl_vec(:,1), trajectory=-(model%get_state() - mdl_vec(:,1)), step = t)
+             model_ADJ = l96_adj_type(bkg_config, state=mdl_vec(:), trajectory=-(model%get_state() - mdl_vec(:)), step = t)
              call model_ADJ%adv_nsteps(10)
-             mdl_vec(:,1) = model_ADJ%get_state()
+             mdl_vec(:) = model_ADJ%get_state()
              print *, "END BACKWARD_MODEL"
           end if
 
 !         CHOOSE THE FIRST GUESS FIELD
-          if(mthd.ne.4) ges_vec(:)=mdl_vec(:,1)
-          if(mthd.eq.4) ges_vec(:)=0.5*(tlm_vec(t,:)+mdl_vec(:,1))
+          if(mthd.ne.4) ges_vec(:)=mdl_vec(:)
+          if(mthd.eq.4) ges_vec(:)=0.5*(tlm_vec(t,:)+mdl_vec(:))
 
 !         CALCULATE THE GRADIENT OF THE COST FUNCTION
 !	  FIRST - DIFFERENCE BETWEEN FIRST GUESS AND BACKGROUND
@@ -686,10 +682,10 @@ contains
 !         OBTAIN THE PRE-CONDITIONED DIFFERENCE BETWEEN THE BACKGROUND AND 
 !         THE FIRST GUESS
           call pre_con_dif(tim_bkc,tmp_vec)
-          pre_dif(:,1)=tmp_vec(:)
+          pre_dif(:)=tmp_vec(:)
           tmp_vec=matmul(tim_hrh,dif_vec)
 
-          tmp_vec(:)=pre_dif(:,1)+tmp_vec(:)-tim_htr(:)
+          tmp_vec(:)=pre_dif(:)+tmp_vec(:)-tim_htr(:)
  	  grd_jvc=matmul(tim_bkc,tmp_vec)
           new_vec(t,:)=ges_vec(:)-grd_jvc(:)*alph
 

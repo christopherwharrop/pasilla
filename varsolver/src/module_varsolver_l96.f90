@@ -590,7 +590,7 @@ contains
  
        new_vec(:,:)=0.0
        tlm_vec=anl_vec
-!$OMP PARALLEL DO SHARED (bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,bkg_config) DEFAULT(PRIVATE)
+!$OMP PARALLEL DO SHARED (bkg_len,bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,bkg_config) DEFAULT(PRIVATE)
        do t=1,tim_len
           tid=OMP_GET_THREAD_NUM()
           tim_bkc(:,:)=bkg_cov(t,:,:)
@@ -628,7 +628,9 @@ contains
           !   FIRST TERM
           jvc_one=dot_product(pre_tra,pre_dif)
           !   SECOND TERM
-          tmp_mat=matmul(dif_tra,tim_hrh)
+          call dgemm("N", "N", 1, bkg_len, bkg_len, 1.d0, dif_tra, 1, tim_hrh, bkg_len, 0.d0, tmp_mat, 1)
+          ! The following is equivalent, but may be slower due to the need to transpose the matrix?
+          !  call dgemv("T", bkg_len, bkg_len, 1.d0, tim_hrh, bkg_len, dif_tra, 1, 0.d0, tmp_mat, 1)
           jvc_two=dot_product(tmp_mat,dif_vec)
           !   THIRD TERM
           jvc_the=dot_product(dif_tra,tim_htr)
@@ -644,7 +646,7 @@ contains
        jnew=jnew+jvc_for
        new_vec(:,:)=0.0
 
-!$OMP PARALLEL DO SHARED (bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q,bkg_config) DEFAULT(PRIVATE)
+!$OMP PARALLEL DO SHARED (bkg_len,bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q,bkg_config) DEFAULT(PRIVATE)
        !   CALCULATE GRAD-J IN REVERSE TEMPORAL ORDER 
        do t=tim_len,1,-1
           tim_bkc(:,:)=bkg_cov(t,:,:)
@@ -683,10 +685,10 @@ contains
 !         THE FIRST GUESS
           call pre_con_dif(tim_bkc,tmp_vec)
           pre_dif(:)=tmp_vec(:)
-          tmp_vec=matmul(tim_hrh,dif_vec)
+          call dgemv("N", bkg_len, bkg_len, 1.d0, tim_hrh, bkg_len, dif_vec, 1, 0.d0, tmp_vec, 1)
 
           tmp_vec(:)=pre_dif(:)+tmp_vec(:)-tim_htr(:)
- 	  grd_jvc=matmul(tim_bkc,tmp_vec)
+          call dgemv("N", bkg_len, bkg_len, 1.d0, tim_bkc, bkg_len, tmp_vec, 1, 0.d0, grd_jvc, 1)
           new_vec(t,:)=ges_vec(:)-grd_jvc(:)*alph
 
           if(mthd.ne.4) tlm_vec(t,:)=new_vec(t,:)

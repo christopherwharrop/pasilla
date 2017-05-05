@@ -24,7 +24,7 @@ program adept
   real(KIND=8), allocatable    ::      anl_vec(:,:)
   real(KIND=8), allocatable    ::      htr_ino(:,:,:)
   real(KIND=8), allocatable    ::      bht_ino(:,:,:)
-  real(KIND=8)                 ::      jvc_for(1,1)
+  real(KIND=8)                 ::      jvc_for
   real                         ::      ret 
 
   ! BJE

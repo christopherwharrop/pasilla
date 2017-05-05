@@ -350,63 +350,64 @@ contains
     real(KIND=8), intent( in)   :: obs_opr(:,:,:)
     real(KIND=8), intent(out)   :: htr_ino(:,:,:)
     real(KIND=8), intent(out)   :: bht_ino(:,:,:)
-    real(KIND=8), intent(out)   :: jvc_for(:,:)
+    real(KIND=8), intent(out)   :: jvc_for
 
     integer                     :: t,i
     real(KIND=8), allocatable   :: tmp_mat(:,:)
-    real(KIND=8), allocatable   :: tmp_vec(:,:)
+    real(KIND=8), allocatable   :: tmp_vec(:)
 
     real(KIND=8), allocatable   :: tim_bkc(:,:)
     real(KIND=8), allocatable   :: tim_obc(:,:)
     real(KIND=8), allocatable   :: tmp_obc(:,:)
     real(KIND=8), allocatable   :: tim_hrh(:,:)
     real(KIND=8), allocatable   :: tim_opr(:,:)
-    real(KIND=8), allocatable   :: tim_htr(:,:)
+    real(KIND=8), allocatable   :: tim_htr(:)
 
-    real(KIND=8), allocatable   :: obs_vvc(:,:)
-    real(KIND=8), allocatable   :: tmp_jfo(:,:)
+    real(KIND=8), allocatable   :: obs_vvc(:)
+    real(KIND=8), allocatable   :: tmp_jfo(:)
     real(KIND=8), allocatable   :: obs_opt(:,:)
     real(KIND=8), allocatable   :: tmp_rhh(:,:)
     real(KIND=8), allocatable   :: tmp_hrr(:,:)
+
     print *, "PRE_SOLVER"
 
     allocate (tmp_mat(bkg_len,bkg_len))
-    allocate (tmp_vec(bkg_len,      1))
+    allocate (tmp_vec(bkg_len))
 
     allocate (tim_bkc(bkg_len,bkg_len))
     allocate (tim_obc(obs_len,obs_len))
     allocate (tmp_obc(obs_len,obs_len))
     allocate (tim_hrh(bkg_len,bkg_len))
     allocate (tim_opr(obs_len,bkg_len))
-    allocate (tim_htr(bkg_len,      1))
+    allocate (tim_htr(bkg_len))
 
-    allocate (obs_vvc(obs_len,      1))
-    allocate (tmp_jfo(obs_len,      1))
+    allocate (obs_vvc(obs_len))
+    allocate (tmp_jfo(obs_len))
     allocate (obs_opt(bkg_len,obs_len))
     allocate (tmp_rhh(obs_len,bkg_len))
     allocate (tmp_hrr(bkg_len,obs_len))
 
     tmp_mat(:,:) = 0.0
-    tmp_vec(:,:) = 0.0
+    tmp_vec(:)   = 0.0
     tim_bkc(:,:) = 0.0
     tim_obc(:,:) = 0.0
     tmp_obc(:,:) = 0.0
     tim_hrh(:,:) = 0.0
     tim_opr(:,:) = 0.0
-    tim_htr(:,:) = 0.0
-    obs_vvc(:,:) = 0.0
-    tmp_jfo(:,:) = 0.0
+    tim_htr(:)   = 0.0
+    obs_vvc(:)   = 0.0
+    tmp_jfo(:)   = 0.0
     obs_opt(:,:) = 0.0
     tmp_rhh(:,:) = 0.0
     tmp_hrr(:,:) = 0.0
 
-    jvc_for(1,1)=0.0
+    jvc_for=0.0
     do t=1,tim_len
        ! ASSUME THAT OBS_OPR=H, OBS_COV=R(-1/2), BKG_COV=B(1/2), OBS_VEC=(Y-HXb)
        tim_opr(:,:)=obs_opr(t,:,:)
        tim_obc(:,:)=obs_cov(t,:,:) 
        tim_bkc(:,:)=bkg_cov(t,:,:)
-       obs_vvc(:,1)=obs_vec(:)
+       obs_vvc(:)=obs_vec(:)
 
        ! CREATE THE OBS BASED MATRICES, FOR USE IN CALCULATING THE COST FUNCTION
        ! tim_hrh=H(T)R(-1)H, tim_htr=R(-1)H
@@ -421,7 +422,7 @@ contains
       ! CREATE COST FUNCTION TERM (Y-HXb)R(-1)(Y-HXb), A CONSTANT
        call dgemv("N",obs_len,obs_len,1.d0,tim_obc,obs_len,obs_vvc,1,0.d0,tmp_jfo,1)
        do i=1,obs_len                        ! CREATE (Y-HXb)(T)R(-1)(Y-HXb) 
-          jvc_for(1,1)=jvc_for(1,1)+tmp_jfo(i,1)*tmp_jfo(i,1)
+          jvc_for=jvc_for+tmp_jfo(i)*tmp_jfo(i)
        end do
 
 !      CREATE R(-1) from R(-1/2) 
@@ -432,7 +433,7 @@ contains
 
 !      H(T)R(-1)(Y-HXb)
        call dgemv("N",bkg_len,obs_len,1.d0,tmp_hrr,bkg_len,obs_vvc,1,0.d0,tim_htr,1)
-       htr_ino(t,:,1)=tim_htr(:,1) 
+       htr_ino(t,:,1)=tim_htr(:)
  
        ! CREATE THE UNPRECONDITIONED MATRICES, FOR THE GRADIENT OF J
 !      B(1/2)*H(T)R(-1) 
@@ -440,7 +441,7 @@ contains
 
 !      B(1/2)*H(T)R(-1)H
        call dgemm("N","N",bkg_len,bkg_len,bkg_len,1.d0,tim_bkc,bkg_len,tim_hrh,bkg_len,0.d0,tmp_mat,bkg_len)
-       bht_ino(t,:,1)=tmp_vec(:,1)
+       bht_ino(t,:,1)=tmp_vec(:)
        brh_cov(t,:,:)=tmp_mat(:,:)
     end do
 
@@ -500,7 +501,7 @@ contains
     real(KIND=8), intent(in)    :: brh_cov(:,:,:)
     real(KIND=8), intent(in)    :: bkg_vec(:,:)
     real(KIND=8), intent(inout) :: anl_vec(:,:)
-    real(KIND=8), intent(in)    :: jvc_for(:,:)
+    real(KIND=8), intent(in)    :: jvc_for
 
     real(KIND=8), allocatable   :: tim_htr(:,:)
     real(KIND=8), allocatable   :: tim_bkc(:,:)
@@ -643,7 +644,7 @@ contains
        do t=1,tim_len
           jnew=jnew+jtim(t)
        end do
-       jnew=jnew+jvc_for(1,1)
+       jnew=jnew+jvc_for
        new_vec(:,:)=0.0
 
 !$OMP PARALLEL DO SHARED (bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q,bkg_config) DEFAULT(PRIVATE)

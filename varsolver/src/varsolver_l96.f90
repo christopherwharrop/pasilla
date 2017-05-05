@@ -22,7 +22,7 @@ program adept
   real(KIND=8), allocatable    ::      obs_vec(:)
   real(KIND=8), allocatable    ::      bkg_vec(:,:)
   real(KIND=8), allocatable    ::      anl_vec(:,:)
-  real(KIND=8), allocatable    ::      htr_ino(:,:,:)
+  real(KIND=8), allocatable    ::      htr_ino(:,:)
   real(KIND=8), allocatable    ::      bht_ino(:,:,:)
   real(KIND=8)                 ::      jvc_for
   real                         ::      ret 
@@ -52,7 +52,7 @@ program adept
   allocate (hrh_cov(tim_len,bkg_len,bkg_len))
   allocate (brh_cov(tim_len,bkg_len,bkg_len))
   allocate (anl_vec(tim_len,bkg_len))
-  allocate (htr_ino(tim_len,bkg_len,1))
+  allocate (htr_ino(tim_len,bkg_len))
   allocate (bht_ino(tim_len,bkg_len,1))
 
   ! CWH
@@ -64,7 +64,7 @@ program adept
   hrh_cov(:,:,:) = 0.0
   brh_cov(:,:,:) = 0.0
   anl_vec(:,:)   = 0.0
-  htr_ino(:,:,:) = 0.0
+  htr_ino(:,:)   = 0.0
   bht_ino(:,:,:) = 0.0
 
   ! BJE

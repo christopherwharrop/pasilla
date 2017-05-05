@@ -134,9 +134,9 @@ contains
   subroutine pre_con_dif(bkg_cov,non_vec)
 
     implicit none
-    real(KIND=8), intent(inout) :: non_vec(:,:)
+    real(KIND=8), intent(inout) :: non_vec(:)
     real(KIND=8), intent(in)    :: bkg_cov(:,:)
-    real(KIND=8), allocatable   :: con_vec(:,:)
+    real(KIND=8), allocatable   :: con_vec(:)
     real(KIND=8), allocatable   :: bkg_cpy(:,:)
     integer                     :: info
     integer, allocatable        :: ipiv(:)
@@ -144,13 +144,13 @@ contains
     print *,"PRE_CON_DIF"
 
     allocate (ipiv(bkg_len))
-    allocate (con_vec(bkg_len,1))
+    allocate (con_vec(bkg_len))
     allocate (bkg_cpy(bkg_len,bkg_len))
-    con_vec=non_vec
-    bkg_cpy=bkg_cov
+    con_vec(:)=non_vec(:)
+    bkg_cpy(:,:)=bkg_cov(:,:)
 
     call dgesv(bkg_len,1,bkg_cpy,bkg_len,ipiv,con_vec,bkg_len,info)
-    non_vec=con_vec
+    non_vec(:)=con_vec(:)
 
     print *,"PRE_CON_DIF COMPLETE"
 
@@ -348,7 +348,7 @@ contains
     real(KIND=8), intent(out)   :: brh_cov(:,:,:)
     real(KIND=8), intent( in)   :: obs_vec(:)
     real(KIND=8), intent( in)   :: obs_opr(:,:,:)
-    real(KIND=8), intent(out)   :: htr_ino(:,:,:)
+    real(KIND=8), intent(out)   :: htr_ino(:,:)
     real(KIND=8), intent(out)   :: bht_ino(:,:,:)
     real(KIND=8), intent(out)   :: jvc_for
 
@@ -433,7 +433,7 @@ contains
 
 !      H(T)R(-1)(Y-HXb)
        call dgemv("N",bkg_len,obs_len,1.d0,tmp_hrr,bkg_len,obs_vvc,1,0.d0,tim_htr,1)
-       htr_ino(t,:,1)=tim_htr(:)
+       htr_ino(t,:)=tim_htr(:)
  
        ! CREATE THE UNPRECONDITIONED MATRICES, FOR THE GRADIENT OF J
 !      B(1/2)*H(T)R(-1) 
@@ -494,7 +494,8 @@ contains
   subroutine var_solver(bkg_cov,hrh_cov,brh_cov,htr_ino,bht_ino,jvc_for,bkg_vec,anl_vec)
 
     implicit none
-    real(KIND=8), intent(in)    :: htr_ino(:,:,:)
+
+    real(KIND=8), intent(in)    :: htr_ino(:,:)
     real(KIND=8), intent(in)    :: bht_ino(:,:,:)
     real(KIND=8), intent(in)    :: bkg_cov(:,:,:)
     real(KIND=8), intent(in)    :: hrh_cov(:,:,:)
@@ -503,26 +504,26 @@ contains
     real(KIND=8), intent(inout) :: anl_vec(:,:)
     real(KIND=8), intent(in)    :: jvc_for
 
-    real(KIND=8), allocatable   :: tim_htr(:,:)
+    real(KIND=8), allocatable   :: tim_htr(:)
     real(KIND=8), allocatable   :: tim_bkc(:,:)
     real(KIND=8), allocatable   :: tim_hrh(:,:)
     real(KIND=8), allocatable   :: tim_anv(:,:)
-    real(KIND=8), allocatable   :: tim_bkv(:,:)
+    real(KIND=8), allocatable   :: tim_bkv(:)
 
     real(KIND=8), allocatable   :: new_vec(:,:)
     real(KIND=8), allocatable   :: tlm_vec(:,:)
     real(KIND=8), allocatable   :: mdl_vec(:,:)
-    real(KIND=8), allocatable   :: ges_vec(:,:)
-    real(KIND=8), allocatable   :: dif_vec(:,:)
-    real(KIND=8), allocatable   :: dif_tra(:,:)
+    real(KIND=8), allocatable   :: ges_vec(:)
+    real(KIND=8), allocatable   :: dif_vec(:)
+    real(KIND=8), allocatable   :: dif_tra(:)
 
     real(KIND=8), allocatable   :: pre_tra(:,:)
     real(KIND=8), allocatable   :: pre_dif(:,:)
-    real(KIND=8), allocatable   :: tmp_mat(:,:)
-    real(KIND=8), allocatable   :: tmp_vec(:,:)
+    real(KIND=8), allocatable   :: tmp_mat(:)
+    real(KIND=8), allocatable   :: tmp_vec(:)
     real(KIND=8), allocatable   :: tmp_vvc(:,:)
 
-    real(KIND=8), allocatable   :: grd_jvc(:,:)
+    real(KIND=8), allocatable   :: grd_jvc(:)
     real(KIND=8)                :: jvc_one(1,1)
     real(KIND=8)                :: jvc_two(1,1)
     real(KIND=8)                :: jvc_the(1,1)
@@ -537,25 +538,25 @@ contains
     type(l96_adj_type)          :: model_ADJ
 
     allocate (jtim(tim_len)) 
-    allocate (tim_htr(bkg_len,      1)) 
+    allocate (tim_htr(bkg_len)) 
     allocate (tim_bkc(bkg_len,bkg_len))
     allocate (tim_hrh(bkg_len,bkg_len))
-    allocate (tim_bkv(bkg_len,      1))
+    allocate (tim_bkv(bkg_len))
     allocate (tim_anv(bkg_len,      1))
 
     allocate (new_vec(tim_len,bkg_len))
     allocate (tlm_vec(tim_len,bkg_len))
     allocate (mdl_vec(bkg_len,      1))
-    allocate (ges_vec(bkg_len,      1))
-    allocate (dif_vec(bkg_len,      1))
-    allocate (dif_tra(      1,bkg_len))
+    allocate (ges_vec(bkg_len))
+    allocate (dif_vec(bkg_len))
+    allocate (dif_tra(bkg_len))
 
     allocate (pre_dif(bkg_len,      1))
     allocate (pre_tra(      1,bkg_len))
-    allocate (tmp_mat(      1,bkg_len))
-    allocate (tmp_vec(bkg_len,      1))
+    allocate (tmp_mat(bkg_len))
+    allocate (tmp_vec(bkg_len))
     allocate (tmp_vvc(bkg_len,      1))
-    allocate (grd_jvc(bkg_len,      1))
+    allocate (grd_jvc(bkg_len))
 
 
 !   PARAMETERS FOR VAR - SHOULD BE FROM NAMELIST
@@ -598,8 +599,8 @@ contains
           tid=OMP_GET_THREAD_NUM()
           tim_bkc(:,:)=bkg_cov(t,:,:)
           tim_hrh(:,:)=hrh_cov(t,:,:)
-          tim_htr(:,:)=htr_ino(t,:,:)
-	  tim_bkv(:,1)=bkg_vec(t,:) 
+          tim_htr(:)=htr_ino(t,:)
+	  tim_bkv(:)=bkg_vec(t,:) 
           if(t.eq.1) then
 !            FOR THE FIRST TIME STEP, THERE IS NO PRIOR FIELD TO PROPAGATE
 	     mdl_vec(:,1)=tlm_vec(t,:)
@@ -620,21 +621,21 @@ contains
           end if
 
           !   CARRY ON WITH THE MINIMIZATION 
-          tmp_vec(:,1)=(mdl_vec(:,1)-tim_bkv(:,1))*B 
-          dif_vec(:,1)=(mdl_vec(:,1)-tim_bkv(:,1))*B
-	  dif_tra=transpose(dif_vec)
+          tmp_vec(:)=(mdl_vec(:,1)-tim_bkv(:))*B 
+          dif_vec(:)=(mdl_vec(:,1)-tim_bkv(:))*B
+          dif_tra(:)=dif_vec(:)
           call pre_con_dif(tim_bkc,tmp_vec)
-          pre_tra=transpose(tmp_vec)
-          pre_dif(:,1)=tmp_vec(:,1)
+          pre_tra(1,:)=tmp_vec(:)
+          pre_dif(:,1)=tmp_vec(:)
  
           !   SOLVE FOR COST FUNCTION J
           !   FIRST TERM
           jvc_one=matmul(pre_tra,pre_dif)
           !   SECOND TERM
           tmp_mat=matmul(dif_tra,tim_hrh)
-          jvc_two=matmul(tmp_mat,dif_vec)
+          jvc_two=dot_product(tmp_mat,dif_vec)
           !   THIRD TERM
-          jvc_the=matmul(dif_tra,tim_htr)
+          jvc_the=dot_product(dif_tra,tim_htr)
           !   COST FUNCTION
           jtim(t) = 0.5*(jvc_one(1,1)+jvc_two(1,1)-2.0*jvc_the(1,1)) 
        end do
@@ -652,8 +653,8 @@ contains
        do t=tim_len,1,-1
           tim_bkc(:,:)=bkg_cov(t,:,:)
           tim_hrh(:,:)=brh_cov(t,:,:)
-          tim_htr(:,:)=bht_ino(t,:,:)
-          tim_bkv(:,1)=bkg_vec(t,:)
+          tim_htr(:)=bht_ino(t,:,1)
+          tim_bkv(:)=bkg_vec(t,:)
          
           if(t.eq.tim_len) then 
 !            FOR THE LAST (OR ONLY) TIME STEP - NO ADJOINT TO RUN
@@ -674,23 +675,23 @@ contains
           end if
 
 !         CHOOSE THE FIRST GUESS FIELD
-          if(mthd.ne.4) ges_vec(:,1)=mdl_vec(:,1)
-          if(mthd.eq.4) ges_vec(:,1)=0.5*(tlm_vec(t,:)+mdl_vec(:,1))
+          if(mthd.ne.4) ges_vec(:)=mdl_vec(:,1)
+          if(mthd.eq.4) ges_vec(:)=0.5*(tlm_vec(t,:)+mdl_vec(:,1))
 
 !         CALCULATE THE GRADIENT OF THE COST FUNCTION
 !	  FIRST - DIFFERENCE BETWEEN FIRST GUESS AND BACKGROUND
-	  tmp_vec(:,1)=(ges_vec(:,1)-tim_bkv(:,1))*(B+Q)
-	  dif_vec(:,1)=(ges_vec(:,1)-tim_bkv(:,1))*(B+Q)
+	  tmp_vec(:)=(ges_vec(:)-tim_bkv(:))*(B+Q)
+	  dif_vec(:)=(ges_vec(:)-tim_bkv(:))*(B+Q)
 
 !         OBTAIN THE PRE-CONDITIONED DIFFERENCE BETWEEN THE BACKGROUND AND 
 !         THE FIRST GUESS
           call pre_con_dif(tim_bkc,tmp_vec)
-          pre_dif(:,1)=tmp_vec(:,1)
+          pre_dif(:,1)=tmp_vec(:)
           tmp_vec=matmul(tim_hrh,dif_vec)
 
-          tmp_vec(:,1)=pre_dif(:,1)+tmp_vec(:,1)-tim_htr(:,1)
+          tmp_vec(:)=pre_dif(:,1)+tmp_vec(:)-tim_htr(:)
  	  grd_jvc=matmul(tim_bkc,tmp_vec)
-          new_vec(t,:)=ges_vec(:,1)-grd_jvc(:,1)*alph
+          new_vec(t,:)=ges_vec(:)-grd_jvc(:)*alph
 
           if(mthd.ne.4) tlm_vec(t,:)=new_vec(t,:)
        end do

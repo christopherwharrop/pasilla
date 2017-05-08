@@ -190,9 +190,9 @@ contains
       allocate(psisp(qg_model%nsh2, qg_model%nvl))
       psig3d = reshape(state_vector,(/qg_model%nlon, qg_model%nlat, qg_model%nvl/))
       psig3d(:,:,:) = psig3d(:,:,:) / facsf
-      psisp(:,3) = reshape(qg_model%ggsp%ggtosp(transpose(psig3d(:,:,1))), (/qg_model%nsh2/))
+      psisp(:,1) = reshape(qg_model%ggsp%ggtosp(transpose(psig3d(:,:,1))), (/qg_model%nsh2/))
       psisp(:,2) = reshape(qg_model%ggsp%ggtosp(transpose(psig3d(:,:,2))), (/qg_model%nsh2/))
-      psisp(:,1) = reshape(qg_model%ggsp%ggtosp(transpose(psig3d(:,:,3))), (/qg_model%nsh2/))
+      psisp(:,3) = reshape(qg_model%ggsp%ggtosp(transpose(psig3d(:,:,3))), (/qg_model%nsh2/))
       call qg_model%init_state(psi=psisp)
     else
       call qg_model%init_state()
@@ -1219,7 +1219,7 @@ contains
     real(r8kind) :: levels(this%nvl)      ! Grid level
 
     ! Set the levels
-    levels = (/800.0, 500.0, 200.0/)
+    levels = (/200.0, 500.0, 800.0/)
 
     ! Get longitude increment
     dlon = 360d0 / real(this%nlon)
@@ -1261,10 +1261,8 @@ contains
     facsf = om * (radius)**2
 
     ! Calculate remaining fields
-    do l = this%nvl,1,-1
-
+    do l = 1,this%nvl
       psig(:, :, l) = transpose(ggsp%sptogg_pp(this%psi(:, l)))
-
       do j = 1, this%nlat
         do i = 1, this%nlon
           psig(i, j, l) = facsf * psig(i, j, l)
@@ -1569,8 +1567,8 @@ contains
 
     ! Get the level index
     ilvl = 1
-    levels = (/800.0, 500.0, 200.0/)
-    do while (levels(ilvl) > lvl)
+    levels = (/200.0, 500.0, 800.0/)
+    do while (levels(ilvl) < lvl)
       ilvl = ilvl + 1
     end do
 

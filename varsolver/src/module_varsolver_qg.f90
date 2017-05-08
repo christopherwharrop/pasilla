@@ -151,9 +151,9 @@ contains
   subroutine pre_con_dif(bkg_cov,non_vec)
 
     implicit none
-    real(KIND=8), intent(inout) :: non_vec(:,:)
+    real(KIND=8), intent(inout) :: non_vec(:)
     real(KIND=8), intent(in)    :: bkg_cov(:,:)
-    real(KIND=8), allocatable   :: con_vec(:,:)
+    real(KIND=8), allocatable   :: con_vec(:)
     real(KIND=8), allocatable   :: bkg_cpy(:,:)
     integer                     :: info
     integer, allocatable        :: ipiv(:)
@@ -161,13 +161,13 @@ contains
     print *,"PRE_CON_DIF"
 
     allocate (ipiv(bkg_len))
-    allocate (con_vec(bkg_len,1))
+    allocate (con_vec(bkg_len))
     allocate (bkg_cpy(bkg_len,bkg_len))
-    con_vec=non_vec
-    bkg_cpy=bkg_cov
+    con_vec(:)=non_vec(:)
+    bkg_cpy(:,:)=bkg_cov(:,:)
 
     call dgesv(bkg_len,1,bkg_cpy,bkg_len,ipiv,con_vec,bkg_len,info)
-    non_vec=con_vec
+    non_vec(:)=con_vec(:)
 
     print *,"PRE_CON_DIF COMPLETE"
 
@@ -306,25 +306,24 @@ contains
     implicit none
 
     real(KIND=8), intent(inout) :: obs_vec(:)
-    real(KIND=8), intent(   in) :: obs_opr(:,:,:)
-    real(KIND=8), intent(   in) :: bkg_vec(:,:)
-    integer,      intent(   in) :: obs_tim(:)
-    real(KIND=8), intent(   in) :: obs_pos(:,:)
-    real(KIND=8), intent(   in) :: bkg_interp(:)
+    real(KIND=8), intent(in)    :: obs_opr(:,:,:)
+    real(KIND=8), intent(in)    :: bkg_vec(:,:)
+    integer,      intent(in)    :: obs_tim(:)
+    real(KIND=8), intent(in)    :: obs_pos(:,:)
+    real(KIND=8), intent(in)    :: bkg_interp(:)
 
+    integer                   :: i,t
     real(KIND=8), allocatable :: Hxb(:)
-    integer      :: i,t
-    integer :: NW_index, NE_index, SW_index, SE_index
-    real(KIND=8) :: NW_weight, NE_weight, SW_weight, SE_weight
 
     print *,"GET_INO_VEC"
 
+    ! Allocate space for Hxb
     allocate(Hxb(obs_len))
+
+    ! Calculate the innovation vector, overwriting obs_vec with the result
     do t=1,tim_len
       call dgemv("N", obs_len, bkg_len, 1.d0, obs_opr(t,:,:), obs_len, bkg_vec(t,:), 1, 0.d0, Hxb, 1)
-
       obs_vec(:)=obs_vec(:) - Hxb(:)
-!      obs_vec(:)=obs_vec(:) - matmul(obs_opr(t,:,:),bkg_vec(t,:))
     end do
 
     do i=1,obs_len
@@ -353,23 +352,23 @@ contains
     real(KIND=8), intent(out)   :: brh_cov(:,:,:)
     real(KIND=8), intent( in)   :: obs_vec(:)
     real(KIND=8), intent( in)   :: obs_opr(:,:,:)
-    real(KIND=8), intent(out)   :: htr_ino(:,:,:)
+    real(KIND=8), intent(out)   :: htr_ino(:,:)
     real(KIND=8), intent(out)   :: bht_ino(:,:,:)
-    real(KIND=8), intent(out)   :: jvc_for(:,:)
+    real(KIND=8), intent(out)   :: jvc_for
 
     integer                     :: t,i
     real(KIND=8), allocatable   :: tmp_mat(:,:)
-    real(KIND=8), allocatable   :: tmp_vec(:,:)
+    real(KIND=8), allocatable   :: tmp_vec(:)
 
     real(KIND=8), allocatable   :: tim_bkc(:,:)
     real(KIND=8), allocatable   :: tim_obc(:,:)
     real(KIND=8), allocatable   :: tmp_obc(:,:)
     real(KIND=8), allocatable   :: tim_hrh(:,:)
     real(KIND=8), allocatable   :: tim_opr(:,:)
-    real(KIND=8), allocatable   :: tim_htr(:,:)
+    real(KIND=8), allocatable   :: tim_htr(:)
 
-    real(KIND=8), allocatable   :: obs_vvc(:,:)
-    real(KIND=8), allocatable   :: tmp_jfo(:,:)
+    real(KIND=8), allocatable   :: obs_vvc(:)
+    real(KIND=8), allocatable   :: tmp_jfo(:)
     real(KIND=8), allocatable   :: obs_opt(:,:)
     real(KIND=8), allocatable   :: tmp_rhh(:,:)
     real(KIND=8), allocatable   :: tmp_hrr(:,:)
@@ -377,42 +376,42 @@ contains
     print *, "PRE_SOLVER"
 
     allocate (tmp_mat(bkg_len,bkg_len))
-    allocate (tmp_vec(bkg_len,      1))
+    allocate (tmp_vec(bkg_len))
 
     allocate (tim_bkc(bkg_len,bkg_len))
     allocate (tim_obc(obs_len,obs_len))
     allocate (tmp_obc(obs_len,obs_len))
     allocate (tim_hrh(bkg_len,bkg_len))
     allocate (tim_opr(obs_len,bkg_len))
-    allocate (tim_htr(bkg_len,      1))
+    allocate (tim_htr(bkg_len))
 
-    allocate (obs_vvc(obs_len,      1))
-    allocate (tmp_jfo(obs_len,      1))
+    allocate (obs_vvc(obs_len))
+    allocate (tmp_jfo(obs_len))
     allocate (obs_opt(bkg_len,obs_len))
     allocate (tmp_rhh(obs_len,bkg_len))
     allocate (tmp_hrr(bkg_len,obs_len))
 
     tmp_mat(:,:) = 0.0
-    tmp_vec(:,:) = 0.0
+    tmp_vec(:)   = 0.0
     tim_bkc(:,:) = 0.0
     tim_obc(:,:) = 0.0
     tmp_obc(:,:) = 0.0
     tim_hrh(:,:) = 0.0
     tim_opr(:,:) = 0.0
-    tim_htr(:,:) = 0.0
-    obs_vvc(:,:) = 0.0
-    tmp_jfo(:,:) = 0.0
+    tim_htr(:)   = 0.0
+    obs_vvc(:)   = 0.0
+    tmp_jfo(:)   = 0.0
     obs_opt(:,:) = 0.0
     tmp_rhh(:,:) = 0.0
     tmp_hrr(:,:) = 0.0
 
-    jvc_for(1,1)=0.0
+    jvc_for=0.0
     do t=1,tim_len
        ! ASSUME THAT OBS_OPR=H, OBS_COV=R(-1/2), BKG_COV=B(1/2), OBS_VEC=(Y-HXb)
        tim_opr(:,:)=obs_opr(t,:,:)
        tim_obc(:,:)=obs_cov(t,:,:) 
        tim_bkc(:,:)=bkg_cov(t,:,:)
-       obs_vvc(:,1)=obs_vec(:)
+       obs_vvc(:)=obs_vec(:)
 
        ! CREATE THE OBS BASED MATRICES, FOR USE IN CALCULATING THE COST FUNCTION
        ! tim_hrh=H(T)R(-1)H, tim_htr=R(-1)H
@@ -427,7 +426,7 @@ contains
       ! CREATE COST FUNCTION TERM (Y-HXb)R(-1)(Y-HXb), A CONSTANT
        call dgemv("N",obs_len,obs_len,1.d0,tim_obc,obs_len,obs_vvc,1,0.d0,tmp_jfo,1)
        do i=1,obs_len                        ! CREATE (Y-HXb)(T)R(-1)(Y-HXb) 
-          jvc_for(1,1)=jvc_for(1,1)+tmp_jfo(i,1)*tmp_jfo(i,1)
+          jvc_for=jvc_for+tmp_jfo(i)*tmp_jfo(i)
        end do
 
 !      CREATE R(-1) from R(-1/2) 
@@ -438,7 +437,7 @@ contains
 
 !      H(T)R(-1)(Y-HXb)
        call dgemv("N",bkg_len,obs_len,1.d0,tmp_hrr,bkg_len,obs_vvc,1,0.d0,tim_htr,1)
-       htr_ino(t,:,1)=tim_htr(:,1) 
+       htr_ino(t,:)=tim_htr(:)
  
        ! CREATE THE UNPRECONDITIONED MATRICES, FOR THE GRADIENT OF J
 !      B(1/2)*H(T)R(-1) 
@@ -446,7 +445,7 @@ contains
 
 !      B(1/2)*H(T)R(-1)H
        call dgemm("N","N",bkg_len,bkg_len,bkg_len,1.d0,tim_bkc,bkg_len,tim_hrh,bkg_len,0.d0,tmp_mat,bkg_len)
-       bht_ino(t,:,1)=tmp_vec(:,1)
+       bht_ino(t,:,1)=tmp_vec(:)
        brh_cov(t,:,:)=tmp_mat(:,:)
     end do
 
@@ -500,40 +499,36 @@ contains
 
     implicit none
 
-    include 'mkl_blas.fi'
-
-    real(KIND=8), intent(in)    :: htr_ino(:,:,:)
+    real(KIND=8), intent(in)    :: htr_ino(:,:)
     real(KIND=8), intent(in)    :: bht_ino(:,:,:)
     real(KIND=8), intent(in)    :: bkg_cov(:,:,:)
     real(KIND=8), intent(in)    :: hrh_cov(:,:,:)
     real(KIND=8), intent(in)    :: brh_cov(:,:,:)
     real(KIND=8), intent(in)    :: bkg_vec(:,:)
     real(KIND=8), intent(inout) :: anl_vec(:,:)
-    real(KIND=8), intent(in)    :: jvc_for(:,:)
+    real(KIND=8), intent(in)    :: jvc_for
 
-    real(KIND=8), allocatable   :: tim_htr(:,:)
+    real(KIND=8), allocatable   :: tim_htr(:)
     real(KIND=8), allocatable   :: tim_bkc(:,:)
     real(KIND=8), allocatable   :: tim_hrh(:,:)
-    real(KIND=8), allocatable   :: tim_anv(:,:)
-    real(KIND=8), allocatable   :: tim_bkv(:,:)
+    real(KIND=8), allocatable   :: tim_bkv(:)
 
     real(KIND=8), allocatable   :: new_vec(:,:)
     real(KIND=8), allocatable   :: tlm_vec(:,:)
-    real(KIND=8), allocatable   :: mdl_vec(:,:)
-    real(KIND=8), allocatable   :: ges_vec(:,:)
-    real(KIND=8), allocatable   :: dif_vec(:,:)
-    real(KIND=8), allocatable   :: dif_tra(:,:)
+    real(KIND=8), allocatable   :: mdl_vec(:)
+    real(KIND=8), allocatable   :: ges_vec(:)
+    real(KIND=8), allocatable   :: dif_vec(:)
+    real(KIND=8), allocatable   :: dif_tra(:)
 
-    real(KIND=8), allocatable   :: pre_tra(:,:)
-    real(KIND=8), allocatable   :: pre_dif(:,:)
-    real(KIND=8), allocatable   :: tmp_mat(:,:)
-    real(KIND=8), allocatable   :: tmp_vec(:,:)
-    real(KIND=8), allocatable   :: tmp_vvc(:,:)
+    real(KIND=8), allocatable   :: pre_tra(:)
+    real(KIND=8), allocatable   :: pre_dif(:)
+    real(KIND=8), allocatable   :: tmp_mat(:)
+    real(KIND=8), allocatable   :: tmp_vec(:)
 
-    real(KIND=8), allocatable   :: grd_jvc(:,:)
-    real(KIND=8)                :: jvc_one(1,1)
-    real(KIND=8)                :: jvc_two(1,1)
-    real(KIND=8)                :: jvc_the(1,1)
+    real(KIND=8), allocatable   :: grd_jvc(:)
+    real(KIND=8)                :: jvc_one
+    real(KIND=8)                :: jvc_two
+    real(KIND=8)                :: jvc_the
     integer                     :: i,j,t,nitr,mxit
     real(KIND=8)                :: jold,jnew,jthr,B,Q 
     real(KIND=8), allocatable   :: jtim(:) 
@@ -545,25 +540,23 @@ contains
 !    type(qg_adj_type)          :: model_ADJ
 
     allocate (jtim(tim_len)) 
-    allocate (tim_htr(bkg_len,      1)) 
+    allocate (tim_htr(bkg_len))
     allocate (tim_bkc(bkg_len,bkg_len))
     allocate (tim_hrh(bkg_len,bkg_len))
-    allocate (tim_bkv(bkg_len,      1))
-    allocate (tim_anv(bkg_len,      1))
+    allocate (tim_bkv(bkg_len))
 
     allocate (new_vec(tim_len,bkg_len))
     allocate (tlm_vec(tim_len,bkg_len))
-    allocate (mdl_vec(bkg_len,      1))
-    allocate (ges_vec(bkg_len,      1))
-    allocate (dif_vec(bkg_len,      1))
-    allocate (dif_tra(      1,bkg_len))
+    allocate (mdl_vec(bkg_len))
+    allocate (ges_vec(bkg_len))
+    allocate (dif_vec(bkg_len))
+    allocate (dif_tra(bkg_len))
 
-    allocate (pre_dif(bkg_len,      1))
-    allocate (pre_tra(      1,bkg_len))
-    allocate (tmp_mat(      1,bkg_len))
-    allocate (tmp_vec(bkg_len,      1))
-    allocate (tmp_vvc(bkg_len,      1))
-    allocate (grd_jvc(bkg_len,      1))
+    allocate (pre_dif(bkg_len))
+    allocate (pre_tra(bkg_len))
+    allocate (tmp_mat(bkg_len))
+    allocate (tmp_vec(bkg_len))
+    allocate (grd_jvc(bkg_len))
 
 
 !   PARAMETERS FOR VAR - SHOULD BE FROM NAMELIST
@@ -586,12 +579,6 @@ contains
 ! FIRST GUESS IS THE BACKGROUND
     anl_vec=bkg_vec
 
-! INITIALIZE A REAL MODEL FOR USE IN CALCULATING TRAJECTORIES
-!    do t=1,tim_len
-!      model(t) = lorenz96_type(t,'NETCDF')
-!      model(t) = qg_model_type(bkg_config,step=t)
-!    end do
-
 ! ITERATE TO SOLVE THE COST FUNCTION
     do while ( abs(jold-jnew) > jthr)
        if (nitr.gt.mxit) exit
@@ -601,117 +588,110 @@ contains
  
        new_vec(:,:)=0.0
        tlm_vec=anl_vec
-!!$OMP PARALLEL DO SHARED (bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,bkg_config) DEFAULT(PRIVATE)
+!$OMP PARALLEL DO SHARED (bkg_len,bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,bkg_config) DEFAULT(PRIVATE)
        do t=1,tim_len
           tid=OMP_GET_THREAD_NUM()
           tim_bkc(:,:)=bkg_cov(t,:,:)
           tim_hrh(:,:)=hrh_cov(t,:,:)
-          tim_htr(:,:)=htr_ino(t,:,:)
-	  tim_bkv(:,1)=bkg_vec(t,:) 
+          tim_htr(:)=htr_ino(t,:)
+          tim_bkv(:)=bkg_vec(t,:)
           if(t.eq.1) then
 !            FOR THE FIRST TIME STEP, THERE IS NO PRIOR FIELD TO PROPAGATE
-	     mdl_vec(:,1)=tlm_vec(t,:)
-             if (mthd.eq.4) new_vec(t,:)=mdl_vec(:,1)
+             mdl_vec(:)=tlm_vec(t,:)
+             if (mthd.eq.4) new_vec(t,:)=mdl_vec(:)
           else
 !            RUN THE FORWARD MODEL FOR ALL STEPS AFTER THE FIRST
-	     mdl_vec(:,1) = tlm_vec(t-1,:)
+             mdl_vec(:) = tlm_vec(t-1,:)
              print *, "FORWARD MODEL"
-             model = qg_model_type(bkg_config, state_vector=mdl_vec(:,1), step=t)
+             model = qg_model_type(bkg_config, state_vector=mdl_vec(:), step=t)
              call model%adv_nsteps(1)
-!             model_TL = qg_tl_type(bkg_config, state=mdl_vec(:,1), trajectory=model%get_state() - mdl_vec(:,1), step = t)
+!             model_TL = qg_tl_type(bkg_config, state_vector=mdl_vec(:), trajectory=model%get_state() - mdl_vec(:), step = t)
 !             call model_TL%adv_nsteps(10)
-!             mdl_vec(:,1) = model_TL%get_state()
+!             mdl_vec(:) = model_TL%get_state()
              print *, "END FORWARD_MODEL"
 
-             if (mthd.eq.4) new_vec(t,:) = mdl_vec(:,1)
-             if (mthd.ne.4) tlm_vec(t,:) = mdl_vec(:,1)
+             if (mthd.eq.4) new_vec(t,:) = mdl_vec(:)
+             if (mthd.ne.4) tlm_vec(t,:) = mdl_vec(:)
           end if
 
           !   CARRY ON WITH THE MINIMIZATION 
-          tmp_vec(:,1)=(mdl_vec(:,1)-tim_bkv(:,1))*B 
-          dif_vec(:,1)=(mdl_vec(:,1)-tim_bkv(:,1))*B
-	  dif_tra=transpose(dif_vec)
+          tmp_vec(:)=(mdl_vec(:)-tim_bkv(:))*B
+          dif_vec(:)=(mdl_vec(:)-tim_bkv(:))*B
+          dif_tra(:)=dif_vec(:)
           call pre_con_dif(tim_bkc,tmp_vec)
-          pre_tra=transpose(tmp_vec)
-          pre_dif(:,1)=tmp_vec(:,1)
+          pre_tra(:)=tmp_vec(:)
+          pre_dif(:)=tmp_vec(:)
  
           !   SOLVE FOR COST FUNCTION J
           !   FIRST TERM
-          jvc_one(1,1)=ddot(bkg_len, pre_tra(1,:), 1, pre_dif(:,1), 1)
-!          jvc_one=matmul(pre_tra,pre_dif)
-
+          jvc_one=dot_product(pre_tra,pre_dif)
           !   SECOND TERM
           call dgemm("N", "N", 1, bkg_len, bkg_len, 1.d0, dif_tra, 1, tim_hrh, bkg_len, 0.d0, tmp_mat, 1)
-!          tmp_mat=matmul(dif_tra,tim_hrh)
-
-          jvc_two=ddot(bkg_len, tmp_mat(1,:), 1, dif_vec(:,1), 1)
-!          jvc_two=matmul(tmp_mat,dif_vec)
-
+          ! The following is equivalent, but may be slower due to the need to transpose the matrix?
+          !  call dgemv("T", bkg_len, bkg_len, 1.d0, tim_hrh, bkg_len, dif_tra, 1, 0.d0, tmp_mat, 1)
+          jvc_two=dot_product(tmp_mat,dif_vec)
           !   THIRD TERM
-          jvc_the=ddot(bkg_len, dif_tra(1,:), 1, tim_htr(:,1), 1)
-!          jvc_the=matmul(dif_tra,tim_htr)
+          jvc_the=dot_product(dif_tra,tim_htr)
           !   COST FUNCTION
-          jtim(t) = 0.5*(jvc_one(1,1)+jvc_two(1,1)-2.0*jvc_the(1,1)) 
+          jtim(t) = 0.5*(jvc_one+jvc_two-2.0*jvc_the)
        end do
-!!$OMP END PARALLEL DO
+!$OMP END PARALLEL DO
 
        if(mthd.eq.4) tlm_vec=new_vec 
        do t=1,tim_len
           jnew=jnew+jtim(t)
        end do
-       jnew=jnew+jvc_for(1,1)
+       jnew=jnew+jvc_for
        new_vec(:,:)=0.0
 
-!!$OMP PARALLEL DO SHARED (bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q,bkg_config) DEFAULT(PRIVATE)
+!$OMP PARALLEL DO SHARED (bkg_len,bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q,bkg_config) DEFAULT(PRIVATE)
        !   CALCULATE GRAD-J IN REVERSE TEMPORAL ORDER 
        do t=tim_len,1,-1
           tim_bkc(:,:)=bkg_cov(t,:,:)
           tim_hrh(:,:)=brh_cov(t,:,:)
-          tim_htr(:,:)=bht_ino(t,:,:)
-          tim_bkv(:,1)=bkg_vec(t,:)
+          tim_htr(:)=bht_ino(t,:,1)
+          tim_bkv(:)=bkg_vec(t,:)
          
           if(t.eq.tim_len) then 
 !            FOR THE LAST (OR ONLY) TIME STEP - NO ADJOINT TO RUN
-	     mdl_vec(:,1)=tlm_vec(t,:)
-             if(mthd.eq.4) mdl_vec(:,1)=0.5*(tlm_vec(t,:)+anl_vec(t,:))
-          else 			
+             mdl_vec(:)=tlm_vec(t,:)
+             if(mthd.eq.4) mdl_vec(:)=0.5*(tlm_vec(t,:)+anl_vec(t,:))
+          else
 !            THIS ONLY RUNS FOR 4DVAR
-!	     FOR ALL OTHER TIME STEPS - ADJOINT NEEDED
-             if (mthd.eq.3) mdl_vec(:,1)=tlm_vec(t+1,:)
-             if (mthd.eq.4) mdl_vec(:,1)=anl_vec(t+1,:)
+             !     FOR ALL OTHER TIME STEPS - ADJOINT NEEDED
+             if (mthd.eq.3) mdl_vec(:)=tlm_vec(t+1,:)
+             if (mthd.eq.4) mdl_vec(:)=anl_vec(t+1,:)
              print *, "BACKWARD_MODEL"
-             model = qg_model_type(bkg_config, state_vector=mdl_vec(:,1), step=t)
+             model = qg_model_type(bkg_config, state_vector=mdl_vec(:), step=t)
              call model%adv_nsteps(1)
-!             model_ADJ = qg_adj_type(bkg_config, state=mdl_vec(:,1), trajectory=-(model%get_state() - mdl_vec(:,1)), step = t)
+!             model_ADJ = qg_adj_type(bkg_config, state_vector=mdl_vec(:), trajectory=-(model%get_state() - mdl_vec(:)), step = t)
 !             call model_ADJ%adv_nsteps(10)
-!             mdl_vec(:,1) = model_ADJ%get_state()
+!             mdl_vec(:) = model_ADJ%get_state()
              print *, "END BACKWARD_MODEL"
           end if
 
 !         CHOOSE THE FIRST GUESS FIELD
-          if(mthd.ne.4) ges_vec(:,1)=mdl_vec(:,1)
-          if(mthd.eq.4) ges_vec(:,1)=0.5*(tlm_vec(t,:)+mdl_vec(:,1))
+          if(mthd.ne.4) ges_vec(:)=mdl_vec(:)
+          if(mthd.eq.4) ges_vec(:)=0.5*(tlm_vec(t,:)+mdl_vec(:))
 
 !         CALCULATE THE GRADIENT OF THE COST FUNCTION
-!	  FIRST - DIFFERENCE BETWEEN FIRST GUESS AND BACKGROUND
-	  tmp_vec(:,1)=(ges_vec(:,1)-tim_bkv(:,1))*(B+Q)
-	  dif_vec(:,1)=(ges_vec(:,1)-tim_bkv(:,1))*(B+Q)
+!         FIRST - DIFFERENCE BETWEEN FIRST GUESS AND BACKGROUND
+          tmp_vec(:)=(ges_vec(:)-tim_bkv(:))*(B+Q)
+          dif_vec(:)=(ges_vec(:)-tim_bkv(:))*(B+Q)
 
 !         OBTAIN THE PRE-CONDITIONED DIFFERENCE BETWEEN THE BACKGROUND AND 
 !         THE FIRST GUESS
           call pre_con_dif(tim_bkc,tmp_vec)
-          pre_dif(:,1)=tmp_vec(:,1)
-          call dgemv("N", bkg_len, bkg_len, 1.d0, tim_hrh, bkg_len, dif_vec(:,1), 1, 0.d0, tmp_vec(:,1), 1)
-!          tmp_vec=matmul(tim_hrh,dif_vec)
+          pre_dif(:)=tmp_vec(:)
+          call dgemv("N", bkg_len, bkg_len, 1.d0, tim_hrh, bkg_len, dif_vec, 1, 0.d0, tmp_vec, 1)
 
-          tmp_vec(:,1)=pre_dif(:,1)+tmp_vec(:,1)-tim_htr(:,1)
- 	  call dgemv("N", bkg_len, bkg_len, 1.d0, tim_bkc, bkg_len, tmp_vec(:,1), 1, 0.d0, grd_jvc(:,1), 1)
-! 	  grd_jvc=matmul(tim_bkc,tmp_vec)
-          new_vec(t,:)=ges_vec(:,1)-grd_jvc(:,1)*alph
+          tmp_vec(:)=pre_dif(:)+tmp_vec(:)-tim_htr(:)
+          call dgemv("N", bkg_len, bkg_len, 1.d0, tim_bkc, bkg_len, tmp_vec, 1, 0.d0, grd_jvc, 1)
+          new_vec(t,:)=ges_vec(:)-grd_jvc(:)*alph
 
           if(mthd.ne.4) tlm_vec(t,:)=new_vec(t,:)
        end do
-!!$OMP END PARALLEL DO
+!$OMP END PARALLEL DO
        
        if(mthd.eq.4) tlm_vec=new_vec
        anl_vec=tlm_vec
@@ -736,13 +716,13 @@ contains
     integer, intent(in)         :: bkg_tim(:)
     integer                     :: i,t,ierr
     character(len=128)          :: filename
-    type(qg_model_type)        :: model
-    type(qg_writer_type)       :: writer
+    type(qg_model_type)         :: model
+    type(qg_writer_type)        :: writer
 
 
     print *,"PUT_ANL_VEC"
 
-    ! Create a Lorenz96 writer
+    ! Create a QG writer
     writer = qg_writer_type('NETCDF')
 
     ! Write new analysis to model output file

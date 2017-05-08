@@ -11,7 +11,10 @@ PARSE_PATH=/home/Christopher.W.Harrop/bin
 
 resol="21"
 
-export OMP_STACKSIZE=10G
+ulimit -s 2048000
+export OMP_NUM_THREADS=1
+export OMP_STACKSIZE=1G
+#ulimit -a
 
 # Link to the input for QG model instantiation
 ln -sf /scratch4/BMC/gsd-hpcs/QG/inputdata/sf7910T106.shfs

@@ -299,6 +299,7 @@ contains
   ! GENERATE THE INNOVATION VECTOR (Y-HXb)
   ! USE OBS_VEC TO STORE THE OUTPUT
   subroutine get_ino_vec(obs_vec, obs_opr, bkg_vec, obs_tim, obs_pos, bkg_interp)
+
     implicit none
 
     real(KIND=8), intent(inout) :: obs_vec(:)
@@ -574,12 +575,6 @@ contains
 
 ! FIRST GUESS IS THE BACKGROUND
     anl_vec=bkg_vec
-
-! INITIALIZE A REAL MODEL FOR USE IN CALCULATING TRAJECTORIES
-!    do t=1,tim_len
-!      model(t) = lorenz96_type(t,'NETCDF')
-!      model(t) = l96_model_type(bkg_config,step=t)
-!    end do
 
 ! ITERATE TO SOLVE THE COST FUNCTION
     do while ( abs(jold-jnew) > jthr)

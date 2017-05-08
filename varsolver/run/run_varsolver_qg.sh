@@ -13,6 +13,7 @@ resol="21"
 
 ulimit -s 2048000
 export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=24
 export OMP_STACKSIZE=1G
 #ulimit -a
 

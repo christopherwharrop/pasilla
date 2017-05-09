@@ -336,7 +336,7 @@ contains
                   dimids=(/NvlDimID/), varid=LvlVarID))
     call nc_check(nf90_put_att(ncFileID, LvlVarID, "long_name", "pressure_level"))
     call nc_check(nf90_put_att(ncFileID, LvlVarID, "units", "millibar"))
-    call nc_check(nf90_put_att(ncFileID, LvlVarID, "valid_range", (/ 800, 500, 200 /)))
+    call nc_check(nf90_put_att(ncFileID, LvlVarID, "valid_range", (/ 200, 500, 800 /)))
 
     ! Define the geopg variable
     call nc_check(nf90_def_var(ncid=ncFileID, name="Zg", xtype=nf90_double, &

@@ -638,7 +638,7 @@ contains
           jvc_the=dot_product(dif_tra,tim_htr)
           !   COST FUNCTION
           jtim(t) = 0.5*(jvc_one+jvc_two-2.0*jvc_the)
-          WRITE (*,'(A10,3F12.4)') "COST: ",jvc_one,jvc_two,-2.0*jvc_the
+          WRITE (*,'(A10,3F16.4)') "COST: ",jvc_one,jvc_two,-2.0*jvc_the
        end do
 !$OMP END PARALLEL DO
 
@@ -703,7 +703,7 @@ contains
        if (nitr.gt.0 .and. jnew.gt.jold) jnew=jold
        if (nitr.eq.0) write(*,'(A,E25.12)') 'initial cost = ', jnew
        nitr = nitr + 1 
-       write(*,'(A,I,F12.4)') "Cost at ", nitr, jnew
+       write(*,'(A,I3,F16.4)') "Cost at ", nitr, jnew
     end do
 
     write(*,'(A,E25.12,A,I,A)') 'final cost = ', jnew, ' after ', nitr, ' iterations'

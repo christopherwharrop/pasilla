@@ -4,7 +4,7 @@
 /
 
 &method1
- alph = 0.005,
+ alph = 0.010,
  sigma = 1.40,
 /
 

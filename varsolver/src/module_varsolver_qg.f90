@@ -91,7 +91,7 @@ contains
 
     ! IN THIS CASE, R=I, THE IDENTITY MATRIX
     do i=1,obs_len
-       obs_cov(obs_tim(i),i,i)=1.0/100000.0
+       obs_cov(obs_tim(i),i,i)=1.0/400000.0
     end do
 
     print *,"GET_OBS_COV_MAT COMPLETE"
@@ -132,8 +132,6 @@ contains
 
     ! Close the NetCDF file
     call nc_check(nf90_close(ncFileID))
-
-    bkg_cov(1,:,:) = sqrt(abs(bkg_cov(1,:,:)))
 
     ! Use same B for each time (only needed for moving nests)
     do t = 2, tim_len
@@ -326,7 +324,7 @@ contains
       obs_vec(:)=obs_vec(:) - Hxb(:)
     end do
 
-    do i=1,obs_len
+    do i=1,min(12,obs_len)
       write(*,'(A8,2I5,5F20.4)') "INO ",i,obs_tim(i),obs_pos(i,1),obs_pos(i,2),obs_pos(i,3),obs_vec(i),bkg_interp(i)
     end do
 
@@ -405,7 +403,6 @@ contains
     tmp_rhh(:,:) = 0.0
     tmp_hrr(:,:) = 0.0
 
-    jvc_for=0.0
     do t=1,tim_len
        ! ASSUME THAT OBS_OPR=H, OBS_COV=R(-1/2), BKG_COV=B(1/2), OBS_VEC=(Y-HXb)
        tim_opr(:,:)=obs_opr(t,:,:)
@@ -423,14 +420,17 @@ contains
        call dgemm("N","N",bkg_len,bkg_len,obs_len,1.d0,obs_opt,bkg_len,tmp_rhh,obs_len,0.d0,tim_hrh,bkg_len)
        hrh_cov(t,:,:)=tim_hrh(:,:)
 
-      ! CREATE COST FUNCTION TERM (Y-HXb)R(-1)(Y-HXb), A CONSTANT
+!      CREATE COST FUNCTION TERM (Y-HXb)R(-1)(Y-HXb), A CONSTANT
        call dgemv("N",obs_len,obs_len,1.d0,tim_obc,obs_len,obs_vvc,1,0.d0,tmp_jfo,1)
-       do i=1,obs_len                        ! CREATE (Y-HXb)(T)R(-1)(Y-HXb) 
-          jvc_for=jvc_for+tmp_jfo(i)*tmp_jfo(i)
-       end do
+
+!      CREATE (Y-HXb)(T)R(-1)(Y-HXb) 
+       jvc_for=dot_product(tmp_jfo,tmp_jfo)
 
 !      CREATE R(-1) from R(-1/2) 
        call dgemm("N","N",obs_len,obs_len,obs_len,1.d0,tim_obc,obs_len,tim_obc,obs_len,0.d0,tmp_obc,obs_len)
+
+!      REDEFINE H
+       obs_opt=transpose(tim_opr)
 
 !      H(T)R(-1) 
        call dgemm("N","N",bkg_len,obs_len,obs_len,1.d0,obs_opt,bkg_len,tmp_obc,obs_len,0.d0,tmp_hrr,bkg_len)
@@ -491,9 +491,13 @@ contains
   !       +              HTR*(X-Xb)   
   !       + CONSTANT TERM 
   !
-  ! GRADJ = D(1/2)* [   V
+  ! GRADJ = D(-1/2)*[   V
   !                  + BRH*(X-Xb) 
   !                  - BHT        ] 
+  !
+  ! X2 = X1 - alpha  *  D      *  GRADJ
+  !    = X1 - alpha  *{ D(1/2) * [V + BRH*(X-Xb) - BHT ] }  
+  !
 !  subroutine var_solver(bkg_cov,hrh_cov,brh_cov,htr_ino,bht_ino,jvc_for,bkg_vec,anl_vec,fwmod_vec,bwmod_vec)
   subroutine var_solver(bkg_cov,hrh_cov,brh_cov,htr_ino,bht_ino,jvc_for,bkg_vec,anl_vec)
 
@@ -634,6 +638,7 @@ contains
           jvc_the=dot_product(dif_tra,tim_htr)
           !   COST FUNCTION
           jtim(t) = 0.5*(jvc_one+jvc_two-2.0*jvc_the)
+          WRITE (*,'(A10,3F12.4)') "COST: ",jvc_one,jvc_two,-2.0*jvc_the
        end do
 !$OMP END PARALLEL DO
 
@@ -698,7 +703,7 @@ contains
        if (nitr.gt.0 .and. jnew.gt.jold) jnew=jold
        if (nitr.eq.0) write(*,'(A,E25.12)') 'initial cost = ', jnew
        nitr = nitr + 1 
-       write(*,'(A,I,E25.12)') "Cost at ", nitr, jnew
+       write(*,'(A,I,F12.4)') "Cost at ", nitr, jnew
     end do
 
     write(*,'(A,E25.12,A,I,A)') 'final cost = ', jnew, ' after ', nitr, ' iterations'
@@ -738,7 +743,7 @@ contains
 
 40  FORMAT(A8,2I5,2E15.4)
     do t=1,tim_len
-       do i=1,bkg_len
+       do i=1,min(12,bkg_len)
 !         FOR 3DVAR
           if(mthd.le.2) then
 	     write(*,40) "FIN",2,i,anl_vec(t,i),bkg_vec(t,i)

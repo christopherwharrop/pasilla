@@ -121,8 +121,10 @@ while [ $f -le $end_fcst ]; do
     mkdir -p $BASE_DIR/$workdir
     cd $BASE_DIR/$workdir
 
-    # If this is the first forecast get analysis from nature
+    # Set name of analysis file
     anlfile=`printf "qgout_%07d.nc" $f`      
+
+    # If this is the first forecast get analysis from nature
     if [ $f -eq $start_fcst  ]; then
 
       # These are needed for boostrapping model state without a restart file
@@ -167,9 +169,7 @@ while [ $f -le $end_fcst ]; do
       ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/qgforcingT${resolution}.nc
 
     else  # Get analysis from non-assimilated forecast
-      bkgdir="../../../$prev_f7/$method_dir/qgprd_assim_on"
-      anlfile=`printf "qgout_%07d.nc" $f`      
-      cp $bkgdir/$anlfile .
+      cp ../varsolverprd/bkgin_0000002.nc $anlfile
     fi
   
     # Copy the namelist and set it up

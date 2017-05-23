@@ -4,6 +4,15 @@
 module load intel/16.1.150
 module load netcdf
 
+# Check usage
+if [ $# -ne 2 ]; then
+  echo "USAGE: run_qg_forecasts.sh START_FCST END_FCST"
+  exit 1
+else
+  start_fcst=$1                    # Starting forecast step
+  end_fcst=$2                      # Perform forecasts for 120 days
+fi
+
 # Set OMP environment
 export OMP_STACKSIZE=1G
 
@@ -31,10 +40,9 @@ time_step=1200
 one_hour=3                       # There are 3 steps in one "hour"
 (( fcst_length=120*$one_hour ))  # Forecast lead time = 78 "hours"
 (( fcst_interval=6*$one_hour ))  # Make a forecast every 6 "hours"
-start_fcst=0                     # Starting forecast step
-(( end_fcst=$start_fcst+120*24*$one_hour ))  # Perform forecasts for 120 days
-#(( end_fcst=$start_fcst+12*$one_hour ))  # Perform forecasts for 12 hours
+start_epoch=0                    # First forecast in the series (cold start cycle)
 (( assimilation_window=12*$one_hour ))       # Assimilate observations every 12 "hours"
+
 # Loop over forecasts to perform
 f=$start_fcst
 while [ $f -le $end_fcst ]; do
@@ -58,7 +66,7 @@ while [ $f -le $end_fcst ]; do
 
     # Set OMP options for this method
     method_dir=$method
-    export OMP_NUM_THREADS=1
+    export OMP_NUM_THREADS=4
     if [ $method -eq 4 ]; then
       method_dir=4_1
     fi
@@ -69,7 +77,7 @@ while [ $f -le $end_fcst ]; do
     fi
 
     # If this is not the first forecast, do the DA
-    if [ $f -gt $start_fcst ]; then
+    if [ $f -gt $start_epoch ]; then
 
       # Create a work directory for the DA and cd into it
       workdir=`printf "%07d/$method_dir/varsolverprd" $f`
@@ -87,7 +95,6 @@ while [ $f -le $end_fcst ]; do
       done
 
       # Bring in the obs file
-#      obsfile="qgobs_${f7}_${method}.txt"
       obsfile="qgobs_${f7}.txt"
       ln -s $OBS_DIR/$obsfile qgobs_${method}.txt
 
@@ -112,7 +119,7 @@ while [ $f -le $end_fcst ]; do
       ${GPTL_PATH}/hex2name.pl ./varsolver_qg.exe ./timing.0 > ./timing.varsolver_qg.txt
       ${PARSE_PATH}/parsetiming.rb -t 1 -d 6 timing.varsolver_qg.txt > timing.varsolver_qg.parse.txt
 
-    fi  # if f >= start_fcst
+    fi  # if f >= start_epoch
 
     # Run the QG model forecast with assimilation
 
@@ -125,7 +132,7 @@ while [ $f -le $end_fcst ]; do
     anlfile=`printf "qgout_%07d.nc" $f`      
 
     # If this is the first forecast get analysis from nature
-    if [ $f -eq $start_fcst  ]; then
+    if [ $f -eq $start_epoch ]; then
 
       # These are needed for boostrapping model state without a restart file
       ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/qginitT${resolution}.nc
@@ -162,7 +169,7 @@ while [ $f -le $end_fcst ]; do
     cd $BASE_DIR/$workdir
 
     # If this is the first forecast get analysis from nature
-    if [ $f -eq $start_fcst  ]; then
+    if [ $f -eq $start_epoch  ]; then
 
       # These are needed for boostrapping model state without a restart file
       ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/qginitT${resolution}.nc

@@ -111,7 +111,7 @@ c-----------------------------------------------------------------------
 
       character*4 expid
       character*32 obsfile
-      character*64 rootdir
+      character*256 rootdir
       integer nstepsperday,nstepsbetweenoutput,ndayskip,nday,rootdirl
       real*8  pi,fzero,dp,om,rgas,grav,radius
       real*8  phi(nlat),cosfi(nlat),sinfi(nlat)

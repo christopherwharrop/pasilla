@@ -13,14 +13,16 @@
 # expid identifies the directory where the output of the run will be stored
 # obsfile is the datafile with observations used to calculate the forcing from
 
-resol="106"
+#resol="106"
+resol="21"
 GPTL_PATH=/contrib/gptl/gptl-v5.5_nompi_noomp/bin
 PARSE_PATH=/home/Christopher.W.Harrop/bin
 compiler=ifort
 GPTLFLAGS='-I/contrib/gptl/gptl-v5.5_nompi_noomp/include -L/contrib/gptl/gptl-v5.5_nompi_noomp/lib -lgptl'
 fflags='-extend_source 132 -g -traceback -O2 -mcmodel medium -shared-intel -convert big_endian -finstrument-functions'
 ## fflags='-extend_source 132 -O0 -g -traceback -check all -fpe0 -mcmodel medium -shared-intel -convert big_endian -finstrument-functions'
-qgdir="/scratch3/BMC/gsd-hpcs/Brian.Etherton/superQG-TLAD/"
+#qgdir="/scratch3/BMC/gsd-hpcs/Brian.Etherton/superQG-TLAD/"
+qgdir="/scratch4/BMC/gsd-hpcs/Christopher.W.Harrop/pasilla.debug/models/QG/tlad"
 outdir="${qgdir}/outputdata"
 expid='0000'
 rundir="${qgdir}/rundir/run${expid}"

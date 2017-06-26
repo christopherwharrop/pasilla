@@ -1,8 +1,9 @@
-module QG_Writer
+module QGTL_Writer
 
   use kind,           only : r8kind
   use Abstract_Model, only : abstract_model_type
   use QG_Model,       only : qg_model_type
+  use QG_Model_TL,    only : qg_tl_type
   use QG_Config,      only : qg_config_type
   use gptl
 !  use NetCDF_Writer, only : netcdf_writer_type
@@ -11,9 +12,9 @@ module QG_Writer
 
   private
 
-  public :: qg_writer_type
+  public :: qgtl_writer_type
 
-  type :: qg_writer_type
+  type :: qgtl_writer_type
       private
       character(len=7)  :: io_format
       character(len=16) :: format_extension
@@ -24,9 +25,9 @@ module QG_Writer
 !      procedure :: generic_write
       procedure, private :: ascii_write
       procedure, private :: netcdf_write
-  end type qg_writer_type
+  end type qgtl_writer_type
 
-  interface qg_writer_type
+  interface qgtl_writer_type
     procedure constructor
   end interface
 
@@ -35,9 +36,9 @@ contains
   !------------------------------------------------------------------
   ! constructor
   !
-  ! Returns an initialized qg_writer_type object
+  ! Returns an initialized qgtl_writer_type object
   !------------------------------------------------------------------
-  type(qg_writer_type) function constructor(io_format)
+  type(qgtl_writer_type) function constructor(io_format)
 
     character(len=*), intent(in) :: io_format
 
@@ -60,13 +61,13 @@ contains
   !------------------------------------------------------------------
   ! destructor
   !
-  ! Deallocates pointers used by a qg_writer_type object (none currently)
+  ! Deallocates pointers used by a qgtl_writer_type object (none currently)
   !------------------------------------------------------------------
   elemental subroutine destructor(this)
 
-    type(qg_writer_type), intent(inout) :: this
+    type(qgtl_writer_type), intent(inout) :: this
 
-    ! No pointers in qg_writer_type object so we do nothing
+    ! No pointers in qgtl_writer_type object so we do nothing
 
   end subroutine
 
@@ -76,14 +77,14 @@ contains
   !------------------------------------------------------------------
   subroutine write(this, model, filename)
 
-    class(qg_writer_type), intent(inout) :: this
-!    class(qg_model_type),  intent(   in) :: model
-    class(abstract_model_type),  intent(   in) :: model
+    class(qgtl_writer_type), intent(inout) :: this
+    class(qg_tl_type),  intent(   in) :: model
+!    class(abstract_model_type),  intent(   in) :: model
     character(len=*),      intent(   in) :: filename
 
-    select type(model)
+!    select type(model)
 
-      class is(qg_model_type)
+!      class is(qg_tl_type)
 
         select case (this%io_format)
           case('NETCDF')
@@ -95,7 +96,7 @@ contains
             stop
         end select
 
-    end select
+!    end select
 
   end subroutine write
 
@@ -105,7 +106,7 @@ contains
   !------------------------------------------------------------------
 !  subroutine generic_write(this, model)
 !
-!    class(qg_writer_type), intent(inout) :: this
+!    class(qgtl_writer_type), intent(inout) :: this
 !    class(qg_model_type),  intent(   in) :: model
 !
 !    type(QG_config_type)  :: config      ! model configuration
@@ -149,8 +150,8 @@ contains
   !------------------------------------------------------------------
   subroutine ascii_write(this, model, filename)
 
-    class(qg_writer_type), intent(in) :: this
-    class(qg_model_type),  intent(in) :: model
+    class(qgtl_writer_type), intent(in) :: this
+    class(qg_tl_type),  intent(in) :: model
     character(len=*),      intent(in) :: filename
 
     integer :: ierr ! return value of function
@@ -231,8 +232,8 @@ contains
 
     use netcdf
 
-    class(qg_writer_type), intent(in) :: this
-    class(qg_model_type),  intent(in) :: model
+    class(qgtl_writer_type), intent(in) :: this
+    class(qg_tl_type),  intent(in) :: model
     character(len=*),      intent(in) :: filename
 
     type(QG_config_type) :: config
@@ -462,4 +463,4 @@ contains
   end subroutine nc_check
 
 
-end module QG_Writer
+end module QGTL_Writer

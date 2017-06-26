@@ -153,19 +153,33 @@ contains
     real(KIND=8), intent(in)    :: bkg_cov(:,:)
     real(KIND=8), allocatable   :: con_vec(:)
     real(KIND=8), allocatable   :: bkg_cpy(:,:)
-    integer                     :: info
-    integer, allocatable        :: ipiv(:)
+    integer,      allocatable   :: ipiv(:)
+    integer                     :: info,i,j,ii 
+    integer                     :: bkg_bnd, bkg_off
 
     print *,"PRE_CON_DIF"
 
-    allocate (ipiv(bkg_len))
+    allocate (ipiv(bkg_len)) 
     allocate (con_vec(bkg_len))
-    allocate (bkg_cpy(bkg_len,bkg_len))
     con_vec(:)=non_vec(:)
-    bkg_cpy(:,:)=bkg_cov(:,:)
 
-    call dgesv(bkg_len,1,bkg_cpy,bkg_len,ipiv,con_vec,bkg_len,info)
+    bkg_off=323
+    bkg_bnd=2*bkg_off+bkg_off+1
+    allocate (bkg_cpy(bkg_bnd,bkg_len))
+    bkg_cpy(:,:)=0.0
+
+    DO 11 i=1,bkg_bnd
+    DO 11 j=1,bkg_len
+    ii=i+j-bkg_off-bkg_off-1 
+    if((ii.gt.0).and.(ii.le.bkg_len)) bkg_cpy(i,j)=bkg_cov(ii,j)
+11  CONTINUE
+
+    call dgbsv(bkg_len,bkg_off,bkg_off,1,bkg_cpy,bkg_bnd,ipiv,con_vec,bkg_len,info)
     non_vec(:)=con_vec(:)
+
+    deallocate(bkg_cpy)
+    deallocate(con_vec)
+    deallocate(ipiv)
 
     print *,"PRE_CON_DIF COMPLETE"
 

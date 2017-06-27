@@ -1191,7 +1191,6 @@ contains
 
     integer :: step
     real(r8kind) :: x1(this%nsh2, 3), x2(this%nsh2, 3)
-
     ! Advance the model forward in time n steps                                                                                                                                                                                                                              
     do step = 1, nsteps
 
@@ -1201,11 +1200,11 @@ contains
 !      this%trajectory = this%trajectory + x2 + x1
 !      this%state = this%state + this%trajectory
 
-      this%dtt = -this%dtt
+!     this%dtt = -this%dtt
       x2 = this%tang(this%trajectory, 0)
-      x1 = this%adj(x2, 0)
-      this%dtt = -this%dtt
-      this%trajectory = this%trajectory + x2 + x1      
+      x1 = this%adj((this%trajectory-x2), 0)  
+
+      this%trajectory = x2 + x1  
       this%psi = this%psi + this%trajectory
       call this%psitoq(this%psi, this%psit, this%qprime)
 

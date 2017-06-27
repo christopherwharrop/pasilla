@@ -29,7 +29,7 @@ program QG
   type(qg_config_type) :: config
   type(qg_model_type)  :: model
   type(qg_tl_type)     :: model_tl
-  type(qg_adj_type)     :: model_adj
+  type(qg_adj_type)    :: model_adj
   type(qg_reader_type) :: reader
   type(qg_writer_type) :: writer
   type(qgtl_writer_type) :: writer_tl
@@ -122,7 +122,6 @@ program QG
     ! Advance the tangent linear model trajectory forward one step
     call model_tl%adv_nsteps(1)
 
-    ! Instantiate an adjoint model with the new state
     model_adj = qg_adj_type(config, state = new_state, trajectory = -(new_state - old_state), step = step)
 
     ! Advance adjoint trajectory one step
@@ -141,12 +140,11 @@ program QG
     ! Upate previous state
     old_state = new_state
 
-    ! Advance the forward model one step
+!   ! Advance the forward model one step
     call model%adv_nsteps(1)
 
     ! Save new forward model state
     new_state = model%get_psi()
-
   enddo
 
   ret = gptlstop ('QG') 

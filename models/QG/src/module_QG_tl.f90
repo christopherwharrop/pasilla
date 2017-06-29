@@ -1175,16 +1175,15 @@ contains
 
     class(qg_tl_type) :: this
     integer           :: nsteps
-
+    real(r8kind)      :: x1(this%nsh2, 3)
     integer :: step
 
     ! Advance the model forward in time n steps
     do step = 1, nsteps
-
-
+      x1 = this%tang(this%trajectory, 0)
       this%psi = this%psi + this%trajectory
+      this%trajectory = x1
       call this%psitoq(this%psi, this%psit, this%qprime)
-      this%trajectory = this%tang(this%trajectory, 0)
    
       ! Increment time step
       this%clock = this%clock + this%config%get_time_step()

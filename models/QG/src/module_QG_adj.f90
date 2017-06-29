@@ -1199,12 +1199,9 @@ contains
 !      x1 = -this%config%get_time_step() * matmul(transpose(mprime), x2)
 !      this%trajectory = this%trajectory + x2 + x1
 !      this%state = this%state + this%trajectory
-
-!     this%dtt = -this%dtt
       x2 = this%tang(this%trajectory, 0)
       x1 = this%adj((this%trajectory-x2), 0)  
-
-      this%trajectory = x2 + x1  
+      this%trajectory = this%trajectory + x1
       this%psi = this%psi + this%trajectory
       call this%psitoq(this%psi, this%psit, this%qprime)
 
@@ -1214,7 +1211,7 @@ contains
 
     end do
 
-    ! Make stream function consistent with potential vorticity                                                                                                                                                                                                               
+    ! Make stream function consistent with potential vorticity                                                                                                                                                                                           
     call this%qtopsi(this%qprime, this%psi, this%psit)
 
   end subroutine adv_nsteps

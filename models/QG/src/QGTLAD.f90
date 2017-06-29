@@ -105,46 +105,56 @@ program QG
     call writer%write(model, filename)
   end if
 
-  ! Run the model
-  write(*,*) 'Integrating forward model trajectory steps: ', run_steps
+  ! Advance the forward model 1 step to t=t+1 so we can compute tl trajectory
   old_state = model%get_psi()
-
-  ! Advance the forward model one step
   call model%adv_nsteps(1)
-
   new_state = model%get_psi()
 
-  do step = 1, run_steps
+  ! Run the model
+  write(*,*) 'Integrating forward model trajectory steps: ', run_steps
 
-    ! Instantiate a tangent linear model with the new state
+  do step = 1, run_steps * 3, 3
+
+    ! Instantiate a tangent linear model with the forward model's state at t=t
     model_tl = qg_tl_type(config, state = old_state, trajectory = new_state - old_state, step = step - 1)
 
-    ! Advance the tangent linear model trajectory forward one step
-    call model_tl%adv_nsteps(1)
+    ! Advance the tangent linear model trajectory forward three steps to t=t+3
+    call model_tl%adv_nsteps(3)
 
-    model_adj = qg_adj_type(config, state = new_state, trajectory = -(new_state - old_state), step = step)
+    ! Advance the forward model 2 steps to t=t+3 so we can output in increments of 3 steps
+    call model%adv_nsteps(2)
+    old_state = model%get_psi()
 
-    ! Advance adjoint trajectory one step
-    call model_adj%adv_nsteps(1)
-
-    ! Output fields derived from current model state
+    ! Output forward model state at t=t+3
     write(filename,'(A,I0.7)') 'qg_model_out_', model%get_step()
     call writer%write(model, filename)
 
+    ! Advance the forward model 1 step to t=t+4 so we can compute trajectory for adj
+    call model%adv_nsteps(1)
+    new_state = model%get_psi()
+
+    ! Instantiate an adjoint with the new state at t=t+3
+    model_adj = qg_adj_type(config, state = old_state, trajectory = -(new_state - old_state), step = step + 2)
+
+    ! Advance adjoint trajectory (backward) three steps to t=t
+    call model_adj%adv_nsteps(3)
+
+    ! Output tangent linear state at t=t+3
     write(filename,'(A,I0.7)') 'qg_tl_out_', model_tl%get_step()
     call writer_tl%write(model_tl, filename)
 
+    ! Output adjoint state at t=t
     write(filename,'(A,I0.7)') 'qg_adj_out_', model_adj%get_step()
     call writer_adj%write(model_adj, filename)
 
     ! Upate previous state
-    old_state = new_state
+!    old_state = new_state
 
 !   ! Advance the forward model one step
-    call model%adv_nsteps(1)
+!    call model%adv_nsteps(1)
 
     ! Save new forward model state
-    new_state = model%get_psi()
+!    new_state = model%get_psi()
   enddo
 
   ret = gptlstop ('QG') 

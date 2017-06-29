@@ -18,6 +18,7 @@ program QG
 
   implicit none
 
+  integer, parameter :: increment=1
   integer :: start_step = 0
   integer :: spinup_steps = 720
   integer :: run_steps = 1440
@@ -113,33 +114,33 @@ program QG
   ! Run the model
   write(*,*) 'Integrating forward model trajectory steps: ', run_steps
 
-  do step = 1, run_steps * 3, 3
+  do step = 1, run_steps * increment, increment
 
     ! Instantiate a tangent linear model with the forward model's state at t=t
     model_tl = qg_tl_type(config, state = old_state, trajectory = new_state - old_state, step = step - 1)
 
-    ! Advance the tangent linear model trajectory forward three steps to t=t+3
-    call model_tl%adv_nsteps(3)
+    ! Advance the tangent linear model trajectory forward three steps to t=t+increment
+    call model_tl%adv_nsteps(increment)
 
-    ! Advance the forward model 2 steps to t=t+3 so we can output in increments of 3 steps
-    call model%adv_nsteps(2)
+    ! Advance the forward model increment-1 steps to t=t+increment so we can output in increments of increment steps
+    call model%adv_nsteps(increment - 1)
     old_state = model%get_psi()
 
-    ! Output forward model state at t=t+3
+    ! Output forward model state at t=t+increment
     write(filename,'(A,I0.7)') 'qg_model_out_', model%get_step()
     call writer%write(model, filename)
 
-    ! Advance the forward model 1 step to t=t+4 so we can compute trajectory for adj
+    ! Advance the forward model 1 step to t=t+increment+1 so we can compute trajectory for adj
     call model%adv_nsteps(1)
     new_state = model%get_psi()
 
-    ! Instantiate an adjoint with the new state at t=t+3
-    model_adj = qg_adj_type(config, state = old_state, trajectory = -(new_state - old_state), step = step + 2)
+    ! Instantiate an adjoint with the new state at t=t+increment
+    model_adj = qg_adj_type(config, state = old_state, trajectory = -(new_state - old_state), step = step + increment - 1)
 
-    ! Advance adjoint trajectory (backward) three steps to t=t
-    call model_adj%adv_nsteps(3)
+    ! Advance adjoint trajectory (backward) increment steps to t=t
+    call model_adj%adv_nsteps(increment)
 
-    ! Output tangent linear state at t=t+3
+    ! Output tangent linear state at t=t+increment
     write(filename,'(A,I0.7)') 'qg_tl_out_', model_tl%get_step()
     call writer_tl%write(model_tl, filename)
 
@@ -147,14 +148,6 @@ program QG
     write(filename,'(A,I0.7)') 'qg_adj_out_', model_adj%get_step()
     call writer_adj%write(model_adj, filename)
 
-    ! Upate previous state
-!    old_state = new_state
-
-!   ! Advance the forward model one step
-!    call model%adv_nsteps(1)
-
-    ! Save new forward model state
-!    new_state = model%get_psi()
   enddo
 
   ret = gptlstop ('QG') 

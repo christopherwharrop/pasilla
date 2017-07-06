@@ -18,7 +18,7 @@ program QG
 
   implicit none
 
-  integer, parameter :: increment=1
+  integer, parameter :: increment=1  ! Controls the number of steps to move the models each iteration
   integer :: start_step = 0
   integer :: spinup_steps = 720
   integer :: run_steps = 1440
@@ -135,7 +135,7 @@ program QG
     new_state = model%get_psi()
 
     ! Instantiate an adjoint with the new state at t=t+increment
-    model_adj = qg_adj_type(config, state = old_state, trajectory = -(new_state - old_state), step = step + increment - 1)
+    model_adj = qg_adj_type(config, state = old_state, trajectory = -(new_state - old_state), step = step - 1 + increment)
 
     ! Advance adjoint trajectory (backward) increment steps to t=t
     call model_adj%adv_nsteps(increment)

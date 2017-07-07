@@ -13,7 +13,6 @@ module QG_Model_ADJ
   public :: qg_adj_type
 
   type, extends(abstract_model_type) :: qg_adj_type
-!  type, extends(qg_model_type) :: qg_adj_type
     private
     ! Model configuration
     type(qg_config_type) :: config
@@ -83,7 +82,7 @@ module QG_Model_ADJ
     real(r8kind), allocatable  :: ddisdy(:,:) ! Landsea-mask/orography dependent friction
 
   contains
-    final :: destructor_qg_model
+    final :: destructor_qg_adj
     procedure :: adv_nsteps
     procedure :: adj
     procedure :: gridfields
@@ -131,7 +130,7 @@ module QG_Model_ADJ
   end type qg_adj_type
 
   interface qg_adj_type
-    procedure :: constructor_qg_model
+    procedure :: constructor_qg_adj
   end interface
 
   ! Mathematical and physical constants
@@ -142,9 +141,9 @@ contains
 
 
   !-------------------------------------------------------------------------------
-  ! constructor_qg_model
+  ! constructor_qg_adj
   !-------------------------------------------------------------------------------
-  function constructor_qg_model(config, state, state_vector, trajectory, trajectory_vector, for, step) result (qg_model)
+  function constructor_qg_adj(config, state, state_vector, trajectory, trajectory_vector, for, step) result (qg_adj)
 
     type(qg_config_type),   intent(in) :: config
     real(r8kind), optional, intent(in) :: state(:,:)
@@ -154,7 +153,7 @@ contains
     real(r8kind), optional, intent(in) :: for(:,:)
     integer,      optional, intent(in) :: step
 
-    type(qg_adj_type)                :: qg_model
+    type(qg_adj_type)                :: qg_adj
     real(r8kind), allocatable          :: psig3d(:,:,:), psisp(:,:)
     real(r8kind), allocatable          :: trajg3d(:,:,:)
 
@@ -166,89 +165,89 @@ contains
     real(r8kind), parameter :: facsf = om * (radius)**2
 
     ! Set the model config
-    qg_model%config = config
+    qg_adj%config = config
 
     ! Initialize model step and clock
     if (present(step)) then
-      qg_model%step = step
+      qg_adj%step = step
     else
-      qg_model%step = 0
+      qg_adj%step = 0
     end if
-    qg_model%clock = qg_model%step * config%get_time_step()
+    qg_adj%clock = qg_adj%step * config%get_time_step()
 
     ! Initialize time step of the model:
     nsteps_per_day = 24.0d0 * 3600.0d0 / real(config%get_time_step())
-    qg_model%dtt = (1d0 / nsteps_per_day) * pi * 4d0
+    qg_adj%dtt = (1d0 / nsteps_per_day) * pi * 4d0
 
     ! Set model resolution dependent parameters and allocate model state variables
-    call qg_model%allocate_comqg(config%get_resolution())
+    call qg_adj%allocate_comqg(config%get_resolution())
 
     ! Read model input from qgcoefT*
-    call qg_model%init_spectral_coeff()
+    call qg_adj%init_spectral_coeff()
 
     ! Instantiate a ggsp grid conversion object
-    qg_model%ggsp = qg_ggsp_type(qg_model%nm, qg_model%nlat, qg_model%nlon, qg_model%nshm, qg_model%pp, qg_model%pd, qg_model%pw)
+    qg_adj%ggsp = qg_ggsp_type(qg_adj%nm, qg_adj%nlat, qg_adj%nlon, qg_adj%nshm, qg_adj%pp, qg_adj%pd, qg_adj%pw)
 
     ! Initialize laplace and helmholtz operators
-    call qg_model%init_laplace_helmholtz(config%get_rrdef1(), config%get_rrdef2(), config%get_trel(), config%get_tdis(), config%get_tdif(), config%get_idif())
+    call qg_adj%init_laplace_helmholtz(config%get_rrdef1(), config%get_rrdef2(), config%get_trel(), config%get_tdis(), config%get_tdif(), config%get_idif())
 
     ! Initialize orography
-    call qg_model%init_orography(config%get_h0(), config%get_addisl(), config%get_addish())
+    call qg_adj%init_orography(config%get_h0(), config%get_addisl(), config%get_addish())
 
     ! Initialize model forcing
     if (present(for)) then
-      call qg_model%init_forcing(config%get_obsf(), for=for)
+      call qg_adj%init_forcing(config%get_obsf(), for=for)
     else
-      call qg_model%init_forcing(config%get_obsf())
+      call qg_adj%init_forcing(config%get_obsf())
     end if
 
     ! Initialize streamfunction
     if (present(state)) then
-      call qg_model%init_state(psi=state)
+      call qg_adj%init_state(psi=state)
     else if (present(state_vector)) then
-      allocate(psig3d(qg_model%nlon, qg_model%nlat, qg_model%nvl))
-      allocate(psisp(qg_model%nsh2, qg_model%nvl))
-      psig3d = reshape(state_vector,(/qg_model%nlon, qg_model%nlat, qg_model%nvl/))
+      allocate(psig3d(qg_adj%nlon, qg_adj%nlat, qg_adj%nvl))
+      allocate(psisp(qg_adj%nsh2, qg_adj%nvl))
+      psig3d = reshape(state_vector,(/qg_adj%nlon, qg_adj%nlat, qg_adj%nvl/))
       psig3d(:,:,:) = psig3d(:,:,:) / facsf
-      psisp(:,1) = reshape(qg_model%ggsp%ggtosp(transpose(psig3d(:,:,1))), (/qg_model%nsh2/))
-      psisp(:,2) = reshape(qg_model%ggsp%ggtosp(transpose(psig3d(:,:,2))), (/qg_model%nsh2/))
-      psisp(:,3) = reshape(qg_model%ggsp%ggtosp(transpose(psig3d(:,:,3))), (/qg_model%nsh2/))
-      call qg_model%init_state(psi=psisp)
+      psisp(:,1) = reshape(qg_adj%ggsp%ggtosp(transpose(psig3d(:,:,1))), (/qg_adj%nsh2/))
+      psisp(:,2) = reshape(qg_adj%ggsp%ggtosp(transpose(psig3d(:,:,2))), (/qg_adj%nsh2/))
+      psisp(:,3) = reshape(qg_adj%ggsp%ggtosp(transpose(psig3d(:,:,3))), (/qg_adj%nsh2/))
+      call qg_adj%init_state(psi=psisp)
     else
-      call qg_model%init_state()
+      call qg_adj%init_state()
     end if
 
     ! Initialize trajectory
     if (present(trajectory)) then
-      allocate(qg_model%trajectory, source = trajectory)
+      allocate(qg_adj%trajectory, source = trajectory)
     else if (present(trajectory_vector)) then
-      allocate(trajg3d(qg_model%nlon, qg_model%nlat, qg_model%nvl))
-      allocate(qg_model%trajectory(qg_model%nsh2,qg_model%nvl))
-      trajg3d = reshape(trajectory_vector,(/qg_model%nlon, qg_model%nlat, qg_model%nvl/))
+      allocate(trajg3d(qg_adj%nlon, qg_adj%nlat, qg_adj%nvl))
+      allocate(qg_adj%trajectory(qg_adj%nsh2,qg_adj%nvl))
+      trajg3d = reshape(trajectory_vector,(/qg_adj%nlon, qg_adj%nlat, qg_adj%nvl/))
       trajg3d(:,:,:) = trajg3d(:,:,:) / facsf
-      qg_model%trajectory(:,1) = reshape(qg_model%ggsp%ggtosp(transpose(trajg3d(:,:,1))), (/qg_model%nsh2/))
-      qg_model%trajectory(:,2) = reshape(qg_model%ggsp%ggtosp(transpose(trajg3d(:,:,2))), (/qg_model%nsh2/))
-      qg_model%trajectory(:,3) = reshape(qg_model%ggsp%ggtosp(transpose(trajg3d(:,:,3))), (/qg_model%nsh2/))
+      qg_adj%trajectory(:,1) = reshape(qg_adj%ggsp%ggtosp(transpose(trajg3d(:,:,1))), (/qg_adj%nsh2/))
+      qg_adj%trajectory(:,2) = reshape(qg_adj%ggsp%ggtosp(transpose(trajg3d(:,:,2))), (/qg_adj%nsh2/))
+      qg_adj%trajectory(:,3) = reshape(qg_adj%ggsp%ggtosp(transpose(trajg3d(:,:,3))), (/qg_adj%nsh2/))
     else
-      allocate(qg_model%trajectory, source = qg_model%psi)
+      allocate(qg_adj%trajectory, source = qg_adj%psi)
     end if
 
-  end function constructor_qg_model
+  end function constructor_qg_adj
 
 
   !------------------------------------------------------------------
-  ! destructor_qg_model
+  ! destructor_qg_adj
   !
   ! Deallocates pointers used by a qg_adj_type object (none currently)
   !------------------------------------------------------------------
-  elemental subroutine destructor_qg_model(this)
+  elemental subroutine destructor_qg_adj(this)
 
 
     type(qg_adj_type), intent(inout) :: this
 
     ! No pointers in qg_adj_type object so we do nothing
 
-  end subroutine destructor_qg_model
+  end subroutine destructor_qg_adj
 
 
   !-------------------------------------------------------------------------------

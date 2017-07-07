@@ -6,12 +6,12 @@ module module_varsolver_qg
   use gptl
   use module_constants
   use Abstract_Model, only : abstract_model_type
-  use QG_Config,     only : qg_config_type
-  use QG_Model,      only : qg_model_type
-!  use QG_TL,         only : qg_tl_type
-!  use QG_ADJ,        only : qg_adj_type
-  use QG_Reader,     only : qg_reader_type
-  use QG_Writer,     only : qg_writer_type
+  use QG_Config,      only : qg_config_type
+  use QG_Model,       only : qg_model_type
+  use QG_Model_TL,    only : qg_tl_type
+  use QG_Model_ADJ,   only : qg_adj_type
+  use QG_Reader,      only : qg_reader_type
+  use QG_Writer,      only : qg_writer_type
 
   ! Get unit numbers for stdin, stdout, stderr in a portable way
   use, intrinsic :: iso_fortran_env, only : stdin=>input_unit, &
@@ -554,8 +554,8 @@ contains
     integer                     :: OMP_GET_NUM_THREADS, OMP_GET_THREAD_NUM
 
     type(qg_model_type)        :: model
-!    type(qg_tl_type)           :: model_TL
-!    type(qg_adj_type)          :: model_ADJ
+    type(qg_tl_type)           :: model_TL
+    type(qg_adj_type)          :: model_ADJ
 
     allocate (jtim(tim_len)) 
     allocate (tim_htr(bkg_len))
@@ -623,9 +623,9 @@ contains
              print *, "FORWARD MODEL"
              model = qg_model_type(bkg_config, state_vector=mdl_vec(:), step=t)
              call model%adv_nsteps(1)
-!             model_TL = qg_tl_type(bkg_config, state_vector=mdl_vec(:), trajectory=model%get_state() - mdl_vec(:), step = t)
-!             call model_TL%adv_nsteps(10)
-!             mdl_vec(:) = model_TL%get_state()
+             model_TL = qg_tl_type(bkg_config, state_vector=mdl_vec(:), trajectory_vector=model%get_state_vector() - mdl_vec(:), step = t)
+             call model_TL%adv_nsteps(10)
+             mdl_vec(:) = model_TL%get_state_vector()
              print *, "END FORWARD_MODEL"
 
              if (mthd.eq.4) new_vec(t,:) = mdl_vec(:)
@@ -683,9 +683,9 @@ contains
              print *, "BACKWARD_MODEL"
              model = qg_model_type(bkg_config, state_vector=mdl_vec(:), step=t)
              call model%adv_nsteps(1)
-!             model_ADJ = qg_adj_type(bkg_config, state_vector=mdl_vec(:), trajectory=-(model%get_state() - mdl_vec(:)), step = t)
-!             call model_ADJ%adv_nsteps(10)
-!             mdl_vec(:) = model_ADJ%get_state()
+             model_ADJ = qg_adj_type(bkg_config, state_vector=mdl_vec(:), trajectory_vector=-(model%get_state_vector() - mdl_vec(:)), step = t)
+             call model_ADJ%adv_nsteps(10)
+             mdl_vec(:) = model_ADJ%get_state_vector()
              print *, "END BACKWARD_MODEL"
           end if
 

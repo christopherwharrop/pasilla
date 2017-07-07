@@ -18,7 +18,16 @@ GPTL_PATH=/contrib/gptl/gptl-v5.5_nompi_noomp/bin
 # Set the resolution of the run
 resol="21"
 
-# Set the experiment id
+# Set the spinupt steps for the run
+spinup_steps=0
+
+# Set the run steps for the run
+run_steps=1440
+
+# Set the output interval for the run
+output_interval_steps=3
+
+# Set the experiment output directory name
 expid='harrop'
 
 # Set the path to the QG model install - DO NOT CHANGE THIS LINE
@@ -57,6 +66,15 @@ cp ${parmdir}/QG.namelist QG.namelist
 
 # Set the resolution in the namelist
 sed -i "s/resolution = [[:digit:]]*/resolution = ${resol}/" QG.namelist
+
+# Set the spinup steps in the namelist
+sed -i "s/spinup_steps = [[:digit:]]*/spinup_steps = ${spinup_steps}/" QG.namelist
+
+# Set the run steps in the namelist
+sed -i "s/run_steps = [[:digit:]]*/run_steps = ${run_steps}/" QG.namelist
+
+# Set the output interval in the namelist
+sed -i "s/output_interval_steps = [[:digit:]]*/output_interval_steps = ${output_interval_steps}/" QG.namelist
 
 # Set the obs file in the namelist
 sed -i "s/obsfile = '.*'/obsfile = \'${obsfile}\'/" QG.namelist

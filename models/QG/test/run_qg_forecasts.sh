@@ -62,11 +62,11 @@ while [ $f -le $end_fcst ]; do
 
   # Loop over methods
 # for method in 1 2 3 4 5; do
-  for method in 1; do
+  for method in 1 3 4 5; do
 
     # Set OMP options for this method
     method_dir=$method
-    export OMP_NUM_THREADS=4
+    export OMP_NUM_THREADS=1
     if [ $method -eq 4 ]; then
       method_dir=4_1
     fi
@@ -110,6 +110,7 @@ while [ $f -le $end_fcst ]; do
       ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/qgcoefT${resolution}.dat
       ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/qgbergT${resolution}.dat
       ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/bT${resolution}.nc b.nc
+      ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/mu_operator.dat
 
       # Run the assimilation
       cp $VARSOLVER_DIR/exe/varsolver_qg.exe .
@@ -139,7 +140,11 @@ while [ $f -le $end_fcst ]; do
       ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/qgforcingT${resolution}.nc
 
     else  # Get analysis from DA
-      cp ../varsolverprd/bkgout_0000001.nc $anlfile
+      if [ $method -lt 3 ]; then
+        cp ../varsolverprd/bkgout_0000001.nc $anlfile
+      else
+        cp ../varsolverprd/bkgout_0000002.nc $anlfile
+      fi
     fi
   
     # Copy the namelist and set it up

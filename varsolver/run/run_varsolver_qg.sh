@@ -24,6 +24,9 @@ ln -sf /scratch4/BMC/gsd-hpcs/QG/inputdata/qgcoefT${resol}.dat
 ln -sf /scratch4/BMC/gsd-hpcs/QG/inputdata/qgforcingT${resol}.nc
 ln -sf /scratch4/BMC/gsd-hpcs/QG/inputdata/qginitT${resol}.nc
 
+# Link to the input for the QG adjoint model
+ln -sf /scratch4/BMC/gsd-hpcs/QG/inputdata/mu_operator.dat
+
 # Link to B matrix
 ln -sf /scratch4/BMC/gsd-hpcs/QG/inputdata/bT${resol}.nc b.nc
 

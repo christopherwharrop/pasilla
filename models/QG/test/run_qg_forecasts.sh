@@ -18,7 +18,6 @@ export OMP_STACKSIZE=1G
 
 # Set locations of data, namelists, and executables
 PASILLA_DIR=$(dirname $(dirname $(dirname $(dirname $(readlink -m $0)))))  # DO NOT CHANGE THIS
-OBS_DIR=${PASILLA_DIR}/models/QG/obs
 NATURE_DIR=${PASILLA_DIR}/models/QG/nature  # Needed for initial analysis file
 VARSOLVER_DIR=${PASILLA_DIR}/varsolver
 QG_DIR=${PASILLA_DIR}/models/QG
@@ -30,18 +29,18 @@ PARSE_PATH=${HOME}/bin
 BASE_DIR=${QG_DIR}/test
 
 # Set model parameters
+one_hour=3                       # There are 3 steps in one "hour"
 start_step=0
 spinup_steps=0
-run_steps=360
-output_interval_steps=18
+(( run_steps=120*$one_hour ))
+output_interval_steps=$one_hour
 resolution=21
 time_step=1200
 
-one_hour=3                       # There are 3 steps in one "hour"
 (( fcst_length=120*$one_hour ))  # Forecast lead time = 78 "hours"
-(( fcst_interval=6*$one_hour ))  # Make a forecast every 6 "hours"
+(( fcst_interval=1*$one_hour ))  # Make a forecast every 1 "hours"
 start_epoch=0                    # First forecast in the series (cold start cycle)
-(( assimilation_window=12*$one_hour ))       # Assimilate observations every 12 "hours"
+(( assimilation_window=12*$one_hour ))       # Assimilate observations every 1 "hours"
 
 # Loop over forecasts to perform
 f=$start_fcst
@@ -50,8 +49,8 @@ while [ $f -le $end_fcst ]; do
   echo "Running forecast for step: $f"
 
   # Calculate the times 1 hour ahead and 1 hour back
-  (( fplus1=$f+$assimilation_window ))
-  (( fminus1=$f-$assimilation_window ))
+  (( fplus1=$f+$one_hour ))
+  (( fminus1=$f-$one_hour ))
 
   # Calculate the previous forecast analysis time
   (( prev_f=$f - $assimilation_window ))
@@ -63,6 +62,8 @@ while [ $f -le $end_fcst ]; do
   # Loop over methods
 # for method in 1 2 3 4 5; do
   for method in 1 3 4 5; do
+
+    OBS_DIR=${PASILLA_DIR}/models/QG/obs_$method
 
     # Set OMP options for this method
     method_dir=$method

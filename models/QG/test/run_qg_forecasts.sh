@@ -33,7 +33,7 @@ BASE_DIR=${QG_DIR}/test
 start_step=0
 spinup_steps=0
 run_steps=360
-output_interval_steps=36
+output_interval_steps=18
 resolution=21
 time_step=1200
 
@@ -66,14 +66,9 @@ while [ $f -le $end_fcst ]; do
 
     # Set OMP options for this method
     method_dir=$method
-    export OMP_NUM_THREADS=1
-    if [ $method -eq 4 ]; then
-      method_dir=4_1
-    fi
+    export OMP_NUM_THREADS=4
     if [ $method -eq 5 ]; then
-      method=4
-      method_dir=4_3
-      export OMP_NUM_THREADS=3
+      export OMP_NUM_THREADS=12
     fi
 
     # If this is not the first forecast, do the DA
@@ -94,7 +89,7 @@ while [ $f -le $end_fcst ]; do
         (( tidx=$tidx+1 ))
       done
 
-      # Bring in the obs file
+      # Bring in the obs file BUG!! NEED DIFFERENT OBS FILES FOR EACH METHOD
       obsfile="qgobs_${f7}.txt"
       ln -s $OBS_DIR/$obsfile qgobs_${method}.txt
 

@@ -43,7 +43,8 @@ contains
   ! 1 = 3DVAR, BKG AND OBS TIME MISMATCH
   ! 2 = 3DVAR, BKG AND OBS TIME MATCHED
   ! 3 = 4DVAR, NOT TIME-PARALLEL
-  ! 4 = 4DVAR, TIME-PARALLEL
+  ! 4 = 4DVAR, TIME-PARALLEL, RUN SEQUENTIALLY
+  ! 5 = 4DVAR, TIME-PARALLEL, RUN IN PARALLEL
   subroutine get_method
 
     print *,"GET_METHOD"
@@ -59,6 +60,8 @@ contains
       case(3)
         read(stdin,nml=method3)
       case(4)
+        read(stdin,nml=method4)
+      case(5)
         read(stdin,nml=method4)
       case DEFAULT
         write(*,'(A,A,A)') 'ERROR: method "',mthd,'" is not supported!'
@@ -606,7 +609,7 @@ contains
  
        new_vec(:,:)=0.0
        tlm_vec=anl_vec
-!$OMP PARALLEL DO SHARED (bkg_len,bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,bkg_config) DEFAULT(PRIVATE)
+!$OMP PARALLEL DO SHARED (bkg_len,bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,bkg_config), DEFAULT(PRIVATE), IF (mthd .eq. 5)
        do t=1,tim_len
           tid=OMP_GET_THREAD_NUM()
           tim_bkc(:,:)=bkg_cov(t,:,:)
@@ -616,7 +619,7 @@ contains
           if(t.eq.1) then
 !            FOR THE FIRST TIME STEP, THERE IS NO PRIOR FIELD TO PROPAGATE
              mdl_vec(:)=tlm_vec(t,:)
-             if (mthd.eq.4) new_vec(t,:)=mdl_vec(:)
+             if (mthd > 3) new_vec(t,:)=mdl_vec(:)
           else
 !            RUN THE FORWARD MODEL FOR ALL STEPS AFTER THE FIRST
              mdl_vec(:) = tlm_vec(t-1,:)
@@ -624,12 +627,12 @@ contains
              model = qg_model_type(bkg_config, state_vector=mdl_vec(:), step=t)
              call model%adv_nsteps(1)
              model_TL = qg_tl_type(bkg_config, state_vector=mdl_vec(:), trajectory_vector=model%get_state_vector() - mdl_vec(:), step = t)
-             call model_TL%adv_nsteps(10)
+             call model_TL%adv_nsteps(3)
              mdl_vec(:) = model_TL%get_state_vector()
              print *, "END FORWARD_MODEL"
 
-             if (mthd.eq.4) new_vec(t,:) = mdl_vec(:)
-             if (mthd.ne.4) tlm_vec(t,:) = mdl_vec(:)
+             if (mthd > 3) new_vec(t,:) = mdl_vec(:)
+             if (mthd < 4) tlm_vec(t,:) = mdl_vec(:)
           end if
 
           !   CARRY ON WITH THE MINIMIZATION 
@@ -656,14 +659,14 @@ contains
        end do
 !$OMP END PARALLEL DO
 
-       if(mthd.eq.4) tlm_vec=new_vec 
+       if(mthd > 3) tlm_vec=new_vec
        do t=1,tim_len
           jnew=jnew+jtim(t)
        end do
        jnew=jnew+jvc_for
        new_vec(:,:)=0.0
 
-!$OMP PARALLEL DO SHARED (bkg_len,bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q,bkg_config) DEFAULT(PRIVATE)
+!$OMP PARALLEL DO SHARED (bkg_len,bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q,bkg_config), DEFAULT(PRIVATE), IF (mthd .eq. 5)
        !   CALCULATE GRAD-J IN REVERSE TEMPORAL ORDER 
        do t=tim_len,1,-1
           tim_bkc(:,:)=bkg_cov(t,:,:)
@@ -674,24 +677,24 @@ contains
           if(t.eq.tim_len) then 
 !            FOR THE LAST (OR ONLY) TIME STEP - NO ADJOINT TO RUN
              mdl_vec(:)=tlm_vec(t,:)
-             if(mthd.eq.4) mdl_vec(:)=0.5*(tlm_vec(t,:)+anl_vec(t,:))
+             if(mthd > 3) mdl_vec(:)=0.5*(tlm_vec(t,:)+anl_vec(t,:))
           else
 !            THIS ONLY RUNS FOR 4DVAR
              !     FOR ALL OTHER TIME STEPS - ADJOINT NEEDED
              if (mthd.eq.3) mdl_vec(:)=tlm_vec(t+1,:)
-             if (mthd.eq.4) mdl_vec(:)=anl_vec(t+1,:)
+             if (mthd > 3) mdl_vec(:)=anl_vec(t+1,:)
              print *, "BACKWARD_MODEL"
              model = qg_model_type(bkg_config, state_vector=mdl_vec(:), step=t)
              call model%adv_nsteps(1)
              model_ADJ = qg_adj_type(bkg_config, state_vector=mdl_vec(:), trajectory_vector=-(model%get_state_vector() - mdl_vec(:)), step = t)
-             call model_ADJ%adv_nsteps(10)
+             call model_ADJ%adv_nsteps(3)
              mdl_vec(:) = model_ADJ%get_state_vector()
              print *, "END BACKWARD_MODEL"
           end if
 
 !         CHOOSE THE FIRST GUESS FIELD
-          if(mthd.ne.4) ges_vec(:)=mdl_vec(:)
-          if(mthd.eq.4) ges_vec(:)=0.5*(tlm_vec(t,:)+mdl_vec(:))
+          if(mthd < 4) ges_vec(:)=mdl_vec(:)
+          if(mthd > 3) ges_vec(:)=0.5*(tlm_vec(t,:)+mdl_vec(:))
 
 !         CALCULATE THE GRADIENT OF THE COST FUNCTION
 !         FIRST - DIFFERENCE BETWEEN FIRST GUESS AND BACKGROUND
@@ -708,11 +711,11 @@ contains
           call dgemv("N", bkg_len, bkg_len, 1.d0, tim_bkc, bkg_len, tmp_vec, 1, 0.d0, grd_jvc, 1)
           new_vec(t,:)=ges_vec(:)-grd_jvc(:)*alph
 
-          if(mthd.ne.4) tlm_vec(t,:)=new_vec(t,:)
+          if(mthd < 4) tlm_vec(t,:)=new_vec(t,:)
        end do
 !$OMP END PARALLEL DO
        
-       if(mthd.eq.4) tlm_vec=new_vec
+       if(mthd > 3) tlm_vec=new_vec
        anl_vec=tlm_vec
        if (nitr.gt.0 .and. jnew.gt.jold) jnew=jold
        if (nitr.eq.0) write(*,'(A,E25.12)') 'initial cost = ', jnew

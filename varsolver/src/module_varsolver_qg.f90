@@ -419,6 +419,7 @@ contains
     obs_opt(:,:) = 0.0
     tmp_rhh(:,:) = 0.0
     tmp_hrr(:,:) = 0.0
+    jvc_for      = 0.0
 
     do t=1,tim_len
        ! ASSUME THAT OBS_OPR=H, OBS_COV=R(-1/2), BKG_COV=B(1/2), OBS_VEC=(Y-HXb)
@@ -441,7 +442,7 @@ contains
        call dgemv("N",obs_len,obs_len,1.d0,tim_obc,obs_len,obs_vvc,1,0.d0,tmp_jfo,1)
 
 !      CREATE (Y-HXb)(T)R(-1)(Y-HXb) 
-       jvc_for=dot_product(tmp_jfo,tmp_jfo)
+       jvc_for=jvc_for+dot_product(tmp_jfo,tmp_jfo)
 
 !      CREATE R(-1) from R(-1/2) 
        call dgemm("N","N",obs_len,obs_len,obs_len,1.d0,tim_obc,obs_len,tim_obc,obs_len,0.d0,tmp_obc,obs_len)

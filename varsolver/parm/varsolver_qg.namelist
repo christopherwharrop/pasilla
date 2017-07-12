@@ -14,11 +14,11 @@
 /
 
 &method3
- alph = 0.007,
+ alph = 0.010,
  sigma = 1.30,
 /
 
 &method4
- alph = 0.024,
+ alph = 0.006,
  sigma = 1.20,
 /

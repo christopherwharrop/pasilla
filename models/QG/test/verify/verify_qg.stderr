@@ -1,0 +1,22 @@
+GPTL error:GPTLstart_instr self=0x40a270: GPTLinitialize has not been called
+forrtl: error (69): process interrupted (SIGINT)
+Image              PC                Routine            Line        Source             
+verify_qg.exe      000000000054A4B5  Unknown               Unknown  Unknown
+verify_qg.exe      0000000000548277  Unknown               Unknown  Unknown
+verify_qg.exe      00000000004F61E4  Unknown               Unknown  Unknown
+verify_qg.exe      00000000004F5FF6  Unknown               Unknown  Unknown
+verify_qg.exe      000000000048C3F9  Unknown               Unknown  Unknown
+verify_qg.exe      000000000049150E  Unknown               Unknown  Unknown
+libpthread.so.0    00007F33C9FA67E0  Unknown               Unknown  Unknown
+verify_qg.exe      00000000004CD7DC  Unknown               Unknown  Unknown
+verify_qg.exe      00000000004957DA  Unknown               Unknown  Unknown
+verify_qg.exe      00000000004B7AA9  Unknown               Unknown  Unknown
+verify_qg.exe      000000000044BB5D  qg_model_mp_init_         293  module_QG_model.f90
+verify_qg.exe      00000000004215D8  qg_model_mp_const         166  module_QG_model.f90
+verify_qg.exe      000000000044EFEB  qg_reader_mp_netc         289  module_QG_reader.f90
+verify_qg.exe      000000000044D2A4  qg_reader_mp_read          80  module_QG_reader.f90
+verify_qg.exe      0000000000412E0D  module_verify_qg_         135  module_verify_qg.f90
+verify_qg.exe      000000000040A337  MAIN__                     31  verify_qg.f90
+verify_qg.exe      000000000040A25E  Unknown               Unknown  Unknown
+libc.so.6          00007F33C9A1DD1D  Unknown               Unknown  Unknown
+verify_qg.exe      000000000040A169  Unknown               Unknown  Unknown

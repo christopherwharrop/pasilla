@@ -19,7 +19,7 @@ LIBS=-L$(GPTL)/lib -lgptl                   \
 FFLAGS+=$(OPENMP)
 FFLAGS+=$(GPTLFLAGS)
 
-all: varsolver_sine.exe varsolver_l96.exe varsolver_qg.exe
+all: varsolver_sine.exe varsolver_l96.exe varsolver_qg.exe verify_qg.exe
 
 varsolver_sine.exe: varsolver_sine.f90 module_varsolver_sine.o
 	$(FC) -o varsolver_sine.exe varsolver_sine.f90 module_varsolver_sine.o $(FFLAGS) $(LAPACK) $(INCLUDES) $(LIBS)
@@ -38,6 +38,12 @@ varsolver_qg.exe: varsolver_qg.f90 module_varsolver_qg.o
 
 module_varsolver_qg.o: module_varsolver_qg.f90 ../../models/QG/lib/libqg.a
 	$(FC) -c module_varsolver_qg.f90 $(FFLAGS) $(INCLUDES) $(LAPACK) $(NETCDF_INCLUDES)
+
+verify_qg.exe: verify_qg.f90 module_verify_qg.o
+	$(FC) -o verify_qg.exe verify_qg.f90 module_verify_qg.o $(FFLAGS) $(LAPACK) $(INCLUDES) $(LIBS)
+
+module_verify_qg.o: module_verify_qg.f90 ../../models/QG/lib/libqg.a
+	$(FC) -c module_verify_qg.f90 $(FFLAGS) $(INCLUDES) $(LAPACK) $(NETCDF_INCLUDES)
 
 clean:
 	rm -f *.exe *.o *.mod

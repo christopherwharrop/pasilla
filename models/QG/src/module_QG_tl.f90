@@ -231,6 +231,9 @@ contains
     else
       allocate(qg_tl%trajectory, source = qg_tl%psi)
     end if
+    allocate(qg_tl%psitd(qg_tl%nsh2,qg_tl%ntl))
+    allocate(qg_tl%qprimed(qg_tl%nsh2,qg_tl%nvl))
+    call qg_tl%psitoq(qg_tl%trajectory, qg_tl%psitd, qg_tl%qprimed)
 
   end function constructor_qg_tl
 
@@ -655,15 +658,12 @@ contains
 
     ! Allocate streamfunction and layer thickness arrays
     allocate(this%psit(this%nsh2,this%ntl))
-    allocate(this%psitd(this%nsh2,this%ntl))
 
     ! Allocate potential vorticity array
     allocate(this%qprime(this%nsh2,this%nvl))
-    allocate(this%qprimed(this%nsh2,this%nvl))
 
     ! Initialize potential vorticity from streamfunction
     call this%psitoq(this%psi, this%psit, this%qprime)
-    call this%psitoq(this%trajectory, this%psitd, this%qprimed)
 
   end subroutine init_state
 

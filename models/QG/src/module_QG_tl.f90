@@ -759,8 +759,8 @@ contains
     real(r8kind) :: qprimed(this%nsh2,this%nvl) ! qprime
     real(r8kind) :: psi(this%nsh2,this%nvl)    ! psi
     real(r8kind) :: psid(this%nsh2,this%nvl)    ! psi
-    real(r8kind) :: psit(this%nsh2,this%nvl)   ! psit
-    real(r8kind) :: psitd(this%nsh2,this%nvl)   ! psit
+    real(r8kind) :: psit(this%nsh2,this%ntl)   ! psit
+    real(r8kind) :: psitd(this%nsh2,this%ntl)   ! psit
     real(r8kind) :: dqprdt(this%nsh2, this%nvl)  ! time derivative of qprime
     real(r8kind) :: dqprdtd(this%nsh2, this%nvl) ! time derivative of qprime
 

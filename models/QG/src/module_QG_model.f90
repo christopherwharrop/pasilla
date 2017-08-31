@@ -1089,7 +1089,7 @@ contains
 
     real(r8kind) :: qprime(this%nsh2,this%nvl) ! qprime
     real(r8kind) :: psi(this%nsh2,this%nvl)    ! psi
-    real(r8kind) :: psit(this%nsh2,this%nvl)   ! psit
+    real(r8kind) :: psit(this%nsh2,this%ntl)   ! psit
     real(r8kind) :: dqprdt(this%nsh2,this%nvl) ! time derivative of qprime
 
     qprime = this%fstofm(y, this%nm)

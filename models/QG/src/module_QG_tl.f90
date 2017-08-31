@@ -730,7 +730,8 @@ contains
           END DO
         END DO
         this%qprimed = this%fstofm(yd, this%nm)
-        this%qprime = this%fstofm(y, this%nm)
+!        this%qprime = this%fstofm(y, this%nm)
+        this%qprime = this%qprime + this%qprimed
 
         ! Inrement the step count
         this%step = this%step + 1
@@ -749,22 +750,28 @@ contains
   SUBROUTINE DQDT_D(this, y, yd, dydt, dydtd)
 
     class(qg_tl_type) :: this
-    REAL*8, INTENT( IN) :: y(:, :)
-    REAL*8, INTENT( IN) :: yd(:, :)
-    REAL*8, INTENT(OUT) :: dydt(:, :)
-    REAL*8, INTENT(OUT) :: dydtd(:, :)
+    real(r8kind), INTENT( IN) :: y(:, :)
+    real(r8kind), INTENT( IN) :: yd(:, :)
+    real(r8kind), INTENT(OUT) :: dydt(:, :)
+    real(r8kind), INTENT(OUT) :: dydtd(:, :)
 
-    REAL*8 :: dqprdt(this%nsh2, this%nvl)  ! time derivative of qprime
-    REAL*8 :: dqprdtd(this%nsh2, this%nvl) ! time derivative of qprime
+    real(r8kind) :: qprime(this%nsh2,this%nvl) ! qprime
+    real(r8kind) :: qprimed(this%nsh2,this%nvl) ! qprime
+    real(r8kind) :: psi(this%nsh2,this%nvl)    ! psi
+    real(r8kind) :: psid(this%nsh2,this%nvl)    ! psi
+    real(r8kind) :: psit(this%nsh2,this%nvl)   ! psit
+    real(r8kind) :: psitd(this%nsh2,this%nvl)   ! psit
+    real(r8kind) :: dqprdt(this%nsh2, this%nvl)  ! time derivative of qprime
+    real(r8kind) :: dqprdtd(this%nsh2, this%nvl) ! time derivative of qprime
 
-    this%qprimed = this%fstofm(yd, this%nm)
-    this%qprime = this%fstofm(y, this%nm)
+    qprimed = this%fstofm(yd, this%nm)
+    qprime = this%fstofm(y, this%nm)
 
-    call this%qtopsi(this%qprimed, this%trajectory, this%psitd) ! qprime --> psi and psit
-    call this%qtopsi(this%qprime, this%psi, this%psit)          ! qprime --> psi and psit
+    call this%qtopsi(qprimed, psid, psitd) ! qprime --> psi and psit
+    call this%qtopsi(qprime, psi, psit)          ! qprime --> psi and psit
 
     ! psi, psit, qprime, for, diss --> dqprdt
-    call this%DDT_D(this%psi, this%trajectory, this%psit, this%psitd, this%qprime, this%qprimed, this%for, dqprdt, dqprdtd)
+    call this%DDT_D(psi, psid, psit, psitd, qprime, qprimed, this%for, dqprdt, dqprdtd)
 
     dydtd = this%fmtofs(dqprdtd)
     dydt = this%fmtofs(dqprdt)
@@ -784,11 +791,14 @@ contains
     real(r8kind),         intent(   in) :: y(:,:)
     real(r8kind),         intent(  out) :: dydt(:,:)
 
+    real(r8kind) :: qprime(this%nsh2,this%nvl) ! qprime
+    real(r8kind) :: psi(this%nsh2,this%nvl)    ! psi
+    real(r8kind) :: psit(this%nsh2,this%nvl)   ! psit
     real(r8kind) :: dqprdt(this%nsh2,this%nvl) ! time derivative of qprime
 
-    this%qprime = this%fstofm(y, this%nm)
-    call this%qtopsi(this%qprime, this%psi, this%psit)            ! qprime --> psi and psit
-    dqprdt = this%ddt(this%psi, this%psit, this%qprime, this%for) ! psi, psit, qprime, for, diss --> dqprdt
+    qprime = this%fstofm(y, this%nm)
+    call this%qtopsi(qprime, psi, psit)
+    dqprdt = this%ddt(psi, psit, qprime, this%for) ! psi, psit, qprime, for, diss --> dqprdt
     dydt = this%fmtofs(dqprdt)
 
     return
@@ -817,9 +827,9 @@ contains
     real(r8kind),      intent(out) :: dqprdt(this%nsh2, this%nvl)
     real(r8kind),      intent(out) :: dqprdtd(this%nsh2, this%nvl)
 
-    INTEGER :: k, l, i, j
-    REAL*8 :: dum1, dum2
-    REAL*8 :: dum1d, dum2d
+    integer      :: k, l, i, j
+    real(r8kind) :: dum1, dum2
+    real(r8kind) :: dum1d, dum2d
 
     dqprdtd = 0.0_8
 

@@ -1087,14 +1087,11 @@ contains
     real(r8kind),         intent(   in) :: y(:,:)
     real(r8kind),         intent(  out) :: dydt(:,:)
 
-   real(r8kind) :: qprime(this%nsh2,this%nvl) ! time derivative of qprime
-   real(r8kind) :: psi(this%nsh2,this%nvl) ! time derivative of qprime
-   real(r8kind) :: psit(this%nsh2,this%nvl) ! time derivative of qprime
-   real(r8kind) :: dqprdt(this%nsh2,this%nvl) ! time derivative of qprime
+    real(r8kind) :: qprime(this%nsh2,this%nvl) ! qprime
+    real(r8kind) :: psi(this%nsh2,this%nvl)    ! psi
+    real(r8kind) :: psit(this%nsh2,this%nvl)   ! psit
+    real(r8kind) :: dqprdt(this%nsh2,this%nvl) ! time derivative of qprime
 
-!    this%qprime = this%fstofm(y, this%nm)
-!    call this%qtopsi(this%qprime, this%psi, this%psit)            ! qprime --> psi and psit
-!    dqprdt = this%ddt(this%psi, this%psit, this%qprime, this%for) ! psi, psit, qprime, for, diss --> dqprdt
     qprime = this%fstofm(y, this%nm)
     call this%qtopsi(qprime, psi, psit) 
     dqprdt = this%ddt(psi, psit, qprime, this%for) ! psi, psit, qprime, for, diss --> dqprdt

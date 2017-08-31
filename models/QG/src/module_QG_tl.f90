@@ -40,6 +40,8 @@ module QG_Model_TL
     real(r8kind), allocatable :: trajectory(:,:) ! Tangent Linear trajectory
     real(r8kind), allocatable :: psit(:,:)       ! Thickness at the ntl levels
     real(r8kind), allocatable :: qprime(:,:)     ! Potential vorticity
+    real(r8kind), allocatable :: psitd(:,:)       ! Thickness at the ntl levels
+    real(r8kind), allocatable :: qprimed(:,:)     ! Potential vorticity
     
     ! Model Forcing
     real(r8kind), allocatable :: for(:,:)    ! Constant potential vorticity forcing at the nvl levels
@@ -107,11 +109,15 @@ module QG_Model_TL
     procedure, private :: init_state
     procedure, private :: artiforc
     procedure, private :: dqdt
+    procedure, private :: dqdt_d
     procedure, private :: ddt
+    procedure, private :: ddt_d
     procedure, private :: ddtl
     procedure, private :: timinp
     procedure, private :: jacob
+    procedure, private :: jacob_d
     procedure, private :: jacobd
+    procedure, private :: jacobd_d
     procedure, private :: jacobp
     procedure, private :: psitoq
     procedure, private :: psiq
@@ -649,14 +655,206 @@ contains
 
     ! Allocate streamfunction and layer thickness arrays
     allocate(this%psit(this%nsh2,this%ntl))
+    allocate(this%psitd(this%nsh2,this%ntl))
 
     ! Allocate potential vorticity array
     allocate(this%qprime(this%nsh2,this%nvl))
+    allocate(this%qprimed(this%nsh2,this%nvl))
 
     ! Initialize potential vorticity from streamfunction
     call this%psitoq(this%psi, this%psit, this%qprime)
+    call this%psitoq(this%trajectory, this%psitd, this%qprimed)
 
   end subroutine init_state
+
+
+  !-----------------------------------------------------------------------
+  ! performs a fourth order runge kutta time step at truncation nm
+  ! with time step dt
+  ! dqdt calculates the time derivative
+  ! input  qprime at current time
+  ! output qprime at current time plus dt
+  !-----------------------------------------------------------------------
+  subroutine adv_nsteps(this, nsteps)
+
+    class(qg_tl_type) :: this
+    integer           :: nsteps
+
+    integer :: step, k, l, nvar
+    real(r8kind) :: dt2, dt6
+    real(r8kind) :: y(this%nsh2, this%nvl), dydt(this%nsh2, this%nvl), yt(this%nsh2, this%nvl)
+    real(r8kind) :: dyt(this%nsh2, this%nvl), dym(this%nsh2, this%nvl)
+    real(r8kind) :: yd(this%nsh2, this%nvl), dydtd(this%nsh2, this%nvl), ytd(this%nsh2, this%nvl)
+    real(r8kind) :: dytd(this%nsh2, this%nvl), dymd(this%nsh2, this%nvl)
+
+    if (nsteps > 0) then
+
+      nvar = (this%nm + 2) * this%nm
+      dt2 = this%dtt * 0.5d0
+      dt6 = this%dtt / 6d0
+
+      ! Advance the model forward in time n steps
+      do step = 1, nsteps
+
+        yd = this%fmtofs(this%qprimed)
+        y = this%fmtofs(this%qprime)
+        CALL this%DQDT_D(y, yd, dydt, dydtd)
+        ytd = 0.0_8
+        DO l = 1, this%nvl
+          DO k = 1, nvar
+            ytd(k, l) = yd(k, l) + dt2 * dydtd(k, l)
+            yt(k, l) = y(k, l) + dt2 * dydt(k, l)
+          END DO
+        END DO
+        CALL this%DQDT_D(yt, ytd, dyt, dytd)
+        DO l = 1, this%nvl
+          DO k = 1, nvar
+            ytd(k, l) = yd(k, l) + dt2 * dytd(k, l)
+            yt(k, l) = y(k, l) + dt2 * dyt(k, l)
+          END DO
+        END DO
+        CALL this%DQDT_D(yt, ytd, dym, dymd)
+        DO l = 1, this%nvl
+          DO k = 1, nvar
+            ytd(k, l) = yd(k, l) + this%dtt * dymd(k, l)
+             yt(k, l) = y(k, l) + this%dtt * dym(k, l)
+            dymd(k, l) = dytd(k, l) + dymd(k, l)
+             dym(k, l) = dyt(k, l) + dym(k, l)
+          END DO
+        END DO
+        CALL this%DQDT_D(yt, ytd, dyt, dytd)
+        DO l = 1, this%nvl
+          DO k = 1, nvar
+            yd(k, l) = yd(k, l) + dt6 * (dydtd(k, l) + dytd(k, l) + 2. * dymd(k, l))
+            y(k, l)  = y(k, l) + dt6 * ( dydt(k, l) + dyt(k, l) + 2. * dym(k, l))
+          END DO
+        END DO
+        this%qprimed = this%fstofm(yd, this%nm)
+        this%qprime = this%fstofm(y, this%nm)
+
+        ! Inrement the step count
+        this%step = this%step + 1
+
+      end do
+
+      ! Make stream function consistent with potential vorticity
+      call this%qtopsi(this%qprimed, this%trajectory, this%psitd)
+      call this%qtopsi(this%qprime, this%psi, this%psit)
+
+    end if
+
+  end subroutine adv_nsteps
+
+
+  SUBROUTINE DQDT_D(this, y, yd, dydt, dydtd)
+
+    class(qg_tl_type) :: this
+    REAL*8, INTENT( IN) :: y(:, :)
+    REAL*8, INTENT( IN) :: yd(:, :)
+    REAL*8, INTENT(OUT) :: dydt(:, :)
+    REAL*8, INTENT(OUT) :: dydtd(:, :)
+
+    REAL*8 :: dqprdt(this%nsh2, this%nvl)  ! time derivative of qprime
+    REAL*8 :: dqprdtd(this%nsh2, this%nvl) ! time derivative of qprime
+
+    this%qprimed = this%fstofm(yd, this%nm)
+    this%qprime = this%fstofm(y, this%nm)
+
+    call this%qtopsi(this%qprimed, this%trajectory, this%psitd) ! qprime --> psi and psit
+    call this%qtopsi(this%qprime, this%psi, this%psit)          ! qprime --> psi and psit
+
+    ! psi, psit, qprime, for, diss --> dqprdt
+    call this%DDT_D(this%psi, this%trajectory, this%psit, this%psitd, this%qprime, this%qprimed, this%for, dqprdt, dqprdtd)
+
+    dydtd = this%fmtofs(dqprdtd)
+    dydt = this%fmtofs(dqprdt)
+
+
+  END SUBROUTINE DQDT_D
+
+  !-----------------------------------------------------------------------
+  ! computation of time derivative of the potential vorticity field
+  ! input  y potential vorticity in french format
+  ! output dydt time derivative of y in french format
+  ! values of qprime,  psi and psit are changed
+  !-----------------------------------------------------------------------
+  subroutine dqdt(this, y, dydt)
+
+    class(qg_tl_type), intent(inout) :: this
+    real(r8kind),         intent(   in) :: y(:,:)
+    real(r8kind),         intent(  out) :: dydt(:,:)
+
+    real(r8kind) :: dqprdt(this%nsh2,this%nvl) ! time derivative of qprime
+
+    this%qprime = this%fstofm(y, this%nm)
+    call this%qtopsi(this%qprime, this%psi, this%psit)            ! qprime --> psi and psit
+    dqprdt = this%ddt(this%psi, this%psit, this%qprime, this%for) ! psi, psit, qprime, for, diss --> dqprdt
+    dydt = this%fmtofs(dqprdt)
+
+    return
+
+  end subroutine dqdt
+
+
+  !----------------------------------------------------------------------
+  ! ddt
+  !
+  ! computation of time derivative of the potential vorticity fields
+  !
+  ! input qprime,  psi,  psit
+  ! output dqprdt
+  !----------------------------------------------------------------------
+  subroutine DDT_D(this, psi, psid, psit, psitd, qprime, qprimed, for, dqprdt, dqprdtd)
+
+    class(qg_tl_type), intent( in) :: this
+    real(r8kind),      intent( in) :: psi(this%nsh2, this%nvl)    ! stream function at the nvl levels
+    real(r8kind),      intent( in) :: psid(this%nsh2, this%nvl)    ! stream function at the nvl levels
+    real(r8kind),      intent( in) :: psit(this%nsh2, this%ntl)   ! thickness at the ntl levels
+    real(r8kind),      intent( in) :: psitd(this%nsh2, this%ntl)   ! thickness at the ntl levels
+    real(r8kind),      intent( in) :: qprime(this%nsh2, this%nvl) ! potential vorticity
+    real(r8kind),      intent( in) :: qprimed(this%nsh2, this%nvl) ! potential vorticity
+    real(r8kind),      intent( in) :: for(this%nsh2, this%nvl)    ! constant potential vorticity forcing at the nvl levels
+    real(r8kind),      intent(out) :: dqprdt(this%nsh2, this%nvl)
+    real(r8kind),      intent(out) :: dqprdtd(this%nsh2, this%nvl)
+
+    INTEGER :: k, l, i, j
+    REAL*8 :: dum1, dum2
+    REAL*8 :: dum1d, dum2d
+
+    dqprdtd = 0.0_8
+
+    ! advection of potential vorticity at upper level
+    call this%JACOB_D(psi(:, 1), psid(:, 1), qprime(:, 1), qprimed(:, 1), dqprdt(:, 1), dqprdtd(:, 1))
+
+    ! advection of potential vorticity at middle level
+    call this%JACOB_D(psi(:, 2), psid(:, 2), qprime(:, 2), qprimed(:, 2), dqprdt(:, 2), dqprdtd(:, 2))
+
+    ! advection of potential vorticity and dissipation at lower level
+    call this%JACOBD_D(psi(:, 3), psid(:, 3), qprime(:, 3), qprimed(:, 3), dqprdt(:, 3), dqprdtd(:, 3))
+
+    ! relaxation of temperature and forcing
+    DO k = 1, this%nsh2
+      dum1d = this%relt1 * psitd(k, 1)
+      dum1 = this%relt1 * psit(k, 1)
+      dum2d = this%relt2 * psitd(k, 2)
+      dum2 = this%relt2 * psit(k, 2)
+      dqprdtd(k, 1) = dqprdtd(k, 1) + dum1d
+      dqprdt(k, 1) = dqprdt(k, 1) + dum1 + for(k, 1)
+      dqprdtd(k, 2) = dqprdtd(k, 2) - dum1d + dum2d
+      dqprdt(k, 2) = dqprdt(k, 2) - dum1 + dum2 + for(k, 2)
+      dqprdtd(k, 3) = dqprdtd(k, 3) - dum2d
+      dqprdt(k, 3) = dqprdt(k, 3) - dum2 + for(k, 3)
+    END DO
+
+    ! explicit horizontal diffusion
+    DO l = 1, this%nvl
+      DO k = 1, this%nsh2
+        dqprdtd(k, l) = dqprdtd(k, l) + this%diss(k, 1) * qprimed(k, l)
+        dqprdt(k, l) = dqprdt(k, l) + this%diss(k, 1) * qprime(k, l)
+      END DO
+    END DO
+
+  END subroutine DDT_D
 
 
   !----------------------------------------------------------------------
@@ -670,11 +868,11 @@ contains
   function ddt(this, psi, psit, qprime, for) result(dqprdt)
 
     class(qg_tl_type), intent(in) :: this
-    real(r8kind),         intent(in) :: psi(this%nsh2,this%nvl)    ! stream function at the nvl levels
-    real(r8kind),         intent(in) :: psit(this%nsh2,this%ntl)   ! thickness at the ntl levels
-    real(r8kind),         intent(in) :: qprime(this%nsh2,this%nvl) ! potential vorticity
-    real(r8kind),         intent(in) :: for(this%nsh2,this%nvl)    ! constant potential vorticity forcing at the nvl levels
-    real(r8kind)                     :: dqprdt(this%nsh2,this%nvl)
+    real(r8kind),      intent(in) :: psi(this%nsh2,this%nvl)    ! stream function at the nvl levels
+    real(r8kind),      intent(in) :: psit(this%nsh2,this%ntl)   ! thickness at the ntl levels
+    real(r8kind),      intent(in) :: qprime(this%nsh2,this%nvl) ! potential vorticity
+    real(r8kind),      intent(in) :: for(this%nsh2,this%nvl)    ! constant potential vorticity forcing at the nvl levels
+    real(r8kind)                  :: dqprdt(this%nsh2,this%nvl)
 
     integer :: k, l, i, j
     real(r8kind) :: dum1, dum2
@@ -707,6 +905,70 @@ contains
     return
 
   end function ddt
+
+
+  !----------------------------------------------------------------------
+  ! advection of potential vorticity
+  ! input psiloc,  pvor
+  ! output sjacob
+  !----------------------------------------------------------------------
+  subroutine JACOB_D(this, psiloc, psilocd, pvor, pvord, sjacob, sjacobd)
+
+    class(qg_tl_type), intent(in) :: this
+    real(r8kind), intent( in) :: psiloc(this%nsh2)
+    real(r8kind), intent( in) :: psilocd(this%nsh2)
+    real(r8kind), intent( in) :: pvor(this%nsh2)
+    real(r8kind), intent( in) :: pvord(this%nsh2)
+    real(r8kind), intent(out) :: sjacob(this%nsh2)
+    real(r8kind), intent(out) :: sjacobd(this%nsh2)
+
+    integer      :: i, j, k
+    real(r8kind) :: vv(this%nsh2)
+    real(r8kind) :: vvd(this%nsh2)
+    real(r8kind) :: dpsidl(this%nlat, this%nlon),  dpsidm(this%nlat, this%nlon),  dvordl(this%nlat, this%nlon)
+    real(r8kind) :: dpsidld(this%nlat, this%nlon),  dpsidmd(this%nlat, this%nlon),  dvordld(this%nlat, this%nlon)
+    real(r8kind) :: dvordm(this%nlat, this%nlon),  gjacob(this%nlat, this%nlon),  dpsidls(this%nsh2)
+    real(r8kind) :: dvordmd(this%nlat, this%nlon),  gjacobd(this%nlat, this%nlon),  dpsidlsd(this%nsh2)
+    type(qg_ggsp_type) :: ggsp
+
+    ! Get grid conversion object
+    ggsp = this%ggsp
+
+    ! space derivatives of potential vorticity
+    vvd = reshape(ggsp%DDL(pvord), (/this%nsh2/))
+    vv = reshape(ggsp%DDL(pvor), (/this%nsh2/))
+    dvordld = ggsp%SPTOGG_PP(vvd)
+    dvordl = ggsp%SPTOGG_PP(vv)
+    dvordmd = ggsp%SPTOGG_PD(pvord)
+    dvordm = ggsp%SPTOGG_PD(pvor)
+
+    ! space derivatives of streamfunction
+    dpsidlsd = reshape(ggsp%DDL(psilocd), (/this%nsh2/))
+    dpsidls = reshape(ggsp%DDL(psiloc), (/this%nsh2/))
+    dpsidld = ggsp%SPTOGG_PP(dpsidlsd)
+    dpsidl = ggsp%SPTOGG_PP(dpsidls)
+    dpsidmd = ggsp%SPTOGG_PD(psilocd)
+    dpsidm = ggsp%SPTOGG_PD(psiloc)
+
+    gjacobd = 0.0_8
+
+    ! jacobian term
+    DO j = 1, this%nlon
+      DO i = 1, this%nlat
+        gjacobd(i, j) = dpsidmd(i, j) * dvordl(i, j) + dpsidm(i, j) * dvordld(i, j) - dpsidld(i, j) * dvordm(i, j) - dpsidl(i, j) * dvordmd(i, j)
+        gjacob(i, j) = dpsidm(i, j) * dvordl(i, j) - dpsidl(i, j) * dvordm(i, j)
+      END DO
+    END DO
+    sjacobd = reshape(ggsp%GGTOSP(gjacobd), (/this%nsh2/))
+    sjacob = reshape(ggsp%GGTOSP(gjacob), (/this%nsh2/))
+
+    ! planetary vorticity advection
+    DO k = 1, this%nsh2
+      sjacobd(k) = sjacobd(k) - dpsidlsd(k)
+      sjacob(k) = sjacob(k) - dpsidls(k)
+    END DO
+
+  END subroutine JACOB_D
 
 
   !----------------------------------------------------------------------
@@ -759,6 +1021,104 @@ contains
     return
 
   end function jacob
+
+
+  !----------------------------------------------------------------------
+  ! advection of potential vorticity and dissipation on gaussian grid
+  ! input psiloc,  pvor
+  ! output sjacob
+  !----------------------------------------------------------------------
+  subroutine JACOBD_D(this, psiloc, psilocd, pvor, pvord, sjacob, sjacobd)
+
+    class(qg_tl_type), intent( in) :: this
+    real(r8kind),      intent( in) :: psiloc(this%nsh2)
+    real(r8kind),      intent( in) :: psilocd(this%nsh2)
+    real(r8kind),      intent( in) :: pvor(this%nsh2)
+    real(r8kind),      intent( in) :: pvord(this%nsh2)
+    real(r8kind),      intent(out) :: sjacob(this%nsh2)
+    real(r8kind),      intent(out) :: sjacobd(this%nsh2)
+
+    integer      :: i, j, k
+    real(r8kind) :: dpsidl(this%nlat, this%nlon),  dpsidm(this%nlat, this%nlon),  dvordl(this%nlat, this%nlon)
+    real(r8kind) :: dpsidld(this%nlat, this%nlon),  dpsidmd(this%nlat, this%nlon),  dvordld(this%nlat, this%nlon)
+    real(r8kind) :: dvordm(this%nlat, this%nlon),  gjacob(this%nlat, this%nlon),  vv(this%nsh2)
+    real(r8kind) :: dvordmd(this%nlat, this%nlon),  gjacobd(this%nlat, this%nlon),  vvd(this%nsh2)
+    real(r8kind) :: azeta(this%nlat, this%nlon), dpsidls(this%nsh2)
+    real(r8kind) :: azetad(this%nlat, this%nlon), dpsidlsd(this%nsh2)
+    type(qg_ggsp_type) :: ggsp
+
+    ! Get grid conversion object
+    ggsp = this%ggsp
+
+    ! space derivatives of potential vorticity
+    vvd = reshape(ggsp%DDL(pvord), (/this%nsh2/))
+    vv = reshape(ggsp%DDL(pvor), (/this%nsh2/))
+    dvordld = ggsp%SPTOGG_PP(vvd)
+    dvordl = ggsp%SPTOGG_PP(vv)
+    dvordmd = ggsp%SPTOGG_PD(pvord)
+    dvordm = ggsp%SPTOGG_PD(pvor)
+
+    ! space derivatives of streamfunction
+    dpsidlsd = reshape(ggsp%DDL(psilocd), (/this%nsh2/))
+    dpsidls = reshape(ggsp%DDL(psiloc), (/this%nsh2/))
+    dpsidld = ggsp%SPTOGG_PP(dpsidlsd)
+    dpsidl = ggsp%SPTOGG_PP(dpsidls)
+    dpsidmd = ggsp%SPTOGG_PD(psilocd)
+    dpsidm = ggsp%SPTOGG_PD(psiloc)
+
+    gjacobd = 0.0_8
+
+    ! jacobian term + orographic forcing
+    DO j = 1, this%nlon
+      DO i = 1, this%nlat
+        gjacobd(i, j) = dpsidmd(i, j) * (dvordl(i, j) + this%sinfi(i) * this%dorodl(i, j)) + dpsidm(i, j) * dvordld(i, j) - &
+                     &  dpsidld(i, j) * (dvordm(i, j) + this%sinfi(i) * this%dorodm(i, j)) - dpsidl(i, j) * dvordmd(i, j)
+        gjacob(i, j) = dpsidm(i, j) * (dvordl(i, j) + this%sinfi(i) * this%dorodl(i, j)) - dpsidl(i, j) * (dvordm(i, j) + &
+                     & this%sinfi(i) * this%dorodm(i, j))
+      END DO
+    END DO
+
+    ! dissipation 
+    IF (this%lgdiss) THEN
+
+      !   spatially varying dissipation 
+      DO k = 1, this%nsh2
+        vvd(k) = this%diss(k, 2) * psilocd(k)
+        vv(k) = this%diss(k, 2) * psiloc(k)
+      END DO
+
+      azetad = ggsp%SPTOGG_PP(vvd)
+      azeta = ggsp%SPTOGG_PP(vv)
+
+      DO j = 1, this%nlon
+        DO i = 1, this%nlat
+          gjacobd(i, j) = gjacobd(i, j) - this%ddisdy(i, j) * dpsidmd(i, j) - this%ddisdx(i, j) * dpsidld(i, j) + this%rdiss(i, j) * azetad(i, j)
+          gjacob(i, j) = gjacob(i, j) - dpsidm(i, j) * this%ddisdy(i, j) - dpsidl(i, j) * this%ddisdx(i, j) + this%rdiss(i, j) * azeta(i, j)
+        END DO
+      END DO
+
+      sjacobd = reshape(ggsp%GGTOSP(gjacobd), (/this%nsh2/))
+      sjacob = reshape(ggsp%GGTOSP(gjacob), (/this%nsh2/))
+
+    ELSE
+
+      !   uniform dissipation
+      sjacobd = reshape(ggsp%GGTOSP(gjacobd), (/this%nsh2/))
+      sjacob = reshape(ggsp%GGTOSP(gjacob), (/this%nsh2/))
+      DO k = 1, this%nsh2
+        sjacobd(k) = sjacobd(k) + this%diss(k, 2) * psilocd(k)
+        sjacob(k) = sjacob(k) + this%diss(k, 2) * psiloc(k)
+      END DO
+
+    END IF
+
+    ! planetary vorticity advection
+    DO k = 1, this%nsh2
+      sjacobd(k) = sjacobd(k) - dpsidlsd(k)
+      sjacob(k) = sjacob(k) - dpsidls(k)
+    END DO
+
+  END subroutine JACOBD_D
 
 
   !----------------------------------------------------------------------
@@ -1162,63 +1522,6 @@ contains
     return
 
   end function fstofm
-
-
-  !-----------------------------------------------------------------------
-  ! performs a fourth order runge kutta time step at truncation nm
-  ! with time step dt
-  ! dqdt calculates the time derivative
-  ! input  qprime at current time
-  ! output qprime at current time plus dt
-  !-----------------------------------------------------------------------
-  subroutine adv_nsteps(this, nsteps)
-
-    class(qg_tl_type) :: this
-    integer           :: nsteps
-    real(r8kind)      :: x1(this%nsh2, 3)
-    integer :: step
-
-    ! Advance the model forward in time n steps
-    do step = 1, nsteps
-      x1 = this%tang(this%trajectory, 0)
-      this%psi = this%psi + this%trajectory
-      this%trajectory = x1
-      call this%psitoq(this%psi, this%psit, this%qprime)
-   
-      ! Increment time step
-      this%clock = this%clock + this%config%get_time_step()
-      this%step = this%step + 1
-
-    end do
-
-    ! Make stream function consistent with potential vorticity
-    call this%qtopsi(this%qprime, this%psi, this%psit)
-
-  end subroutine adv_nsteps
-
-
-  !-----------------------------------------------------------------------
-  ! computation of time derivative of the potential vorticity field
-  ! input  y potential vorticity in french format
-  ! output dydt time derivative of y in french format
-  ! values of qprime,  psi and psit are changed
-  !-----------------------------------------------------------------------
-  subroutine dqdt(this, y, dydt)
-
-    class(qg_tl_type), intent(inout) :: this
-    real(r8kind),         intent(   in) :: y(:,:)
-    real(r8kind),         intent(  out) :: dydt(:,:)
-
-    real(r8kind) :: dqprdt(this%nsh2,this%nvl) ! time derivative of qprime
-
-    this%qprime = this%fstofm(y, this%nm)
-    call this%qtopsi(this%qprime, this%psi, this%psit)            ! qprime --> psi and psit
-    dqprdt = this%ddt(this%psi, this%psit, this%qprime, this%for) ! psi, psit, qprime, for, diss --> dqprdt
-    dydt = this%fmtofs(dqprdt)
-
-    return
-
-  end subroutine dqdt
 
 
   !-----------------------------------------------------------------------

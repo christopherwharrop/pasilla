@@ -671,6 +671,70 @@ contains
   end subroutine init_state
 
 
+  !-----------------------------------------------------------------------
+  ! performs a fourth order runge kutta time step at truncation nm
+  ! with time step dt
+  ! dqdt calculates the time derivative
+  ! input  qprime at current time
+  ! output qprime at current time plus dt
+  !-----------------------------------------------------------------------
+  subroutine adv_nsteps(this, nsteps)
+
+    class(qg_adj_type) :: this
+    integer           :: nsteps
+
+    integer :: step
+    real(r8kind) :: x1(this%nsh2, 3), x2(this%nsh2, 3)
+    ! Advance the model forward in time n steps
+    do step = 1, nsteps
+
+!      call buildMprime(this%state, mprime)
+!      x2 = -this%config%get_time_step() * matmul(mprime,this%trajectory)
+!      x1 = -this%config%get_time_step() * matmul(transpose(mprime), x2)
+!      this%trajectory = this%trajectory + x2 + x1
+!      this%state = this%state + this%trajectory
+      x2 = this%tang(this%trajectory, 0)
+      x1 = this%adj((this%trajectory-x2), 0)
+      this%trajectory = this%trajectory + x1
+      this%psi = this%psi + this%trajectory
+      call this%psitoq(this%psi, this%psit, this%qprime)
+
+      ! Increment time step
+      this%clock = this%clock - this%config%get_time_step()
+      this%step = this%step - 1
+
+    end do
+
+    ! Make stream function consistent with potential vorticity
+    call this%qtopsi(this%qprime, this%psi, this%psit)
+
+  end subroutine adv_nsteps
+
+
+  !-----------------------------------------------------------------------
+  ! computation of time derivative of the potential vorticity field
+  ! input  y potential vorticity in french format
+  ! output dydt time derivative of y in french format
+  ! values of qprime,  psi and psit are changed
+  !-----------------------------------------------------------------------
+  subroutine dqdt(this, y, dydt)
+
+    class(qg_adj_type), intent(inout) :: this
+    real(r8kind),         intent(   in) :: y(:,:)
+    real(r8kind),         intent(  out) :: dydt(:,:)
+
+    real(r8kind) :: dqprdt(this%nsh2,this%nvl) ! time derivative of qprime
+
+    this%qprime = this%fstofm(y, this%nm)
+    call this%qtopsi(this%qprime, this%psi, this%psit)            ! qprime --> psi and psit
+    dqprdt = this%ddt(this%psi, this%psit, this%qprime, this%for) ! psi, psit, qprime, for, diss --> dqprdt
+    dydt = this%fmtofs(dqprdt)
+
+    return
+
+  end subroutine dqdt
+
+
   !----------------------------------------------------------------------
   ! ddt
   !
@@ -1174,70 +1238,6 @@ contains
     return
 
   end function fstofm
-
-
-  !-----------------------------------------------------------------------
-  ! performs a fourth order runge kutta time step at truncation nm
-  ! with time step dt
-  ! dqdt calculates the time derivative
-  ! input  qprime at current time
-  ! output qprime at current time plus dt
-  !-----------------------------------------------------------------------
-  subroutine adv_nsteps(this, nsteps)
-
-    class(qg_adj_type) :: this
-    integer           :: nsteps
-
-    integer :: step
-    real(r8kind) :: x1(this%nsh2, 3), x2(this%nsh2, 3)
-    ! Advance the model forward in time n steps                                                                                                                                                                                                                              
-    do step = 1, nsteps
-
-!      call buildMprime(this%state, mprime)
-!      x2 = -this%config%get_time_step() * matmul(mprime,this%trajectory)
-!      x1 = -this%config%get_time_step() * matmul(transpose(mprime), x2)
-!      this%trajectory = this%trajectory + x2 + x1
-!      this%state = this%state + this%trajectory
-      x2 = this%tang(this%trajectory, 0)
-      x1 = this%adj((this%trajectory-x2), 0)  
-      this%trajectory = this%trajectory + x1
-      this%psi = this%psi + this%trajectory
-      call this%psitoq(this%psi, this%psit, this%qprime)
-
-      ! Increment time step
-      this%clock = this%clock - this%config%get_time_step()
-      this%step = this%step - 1
-
-    end do
-
-    ! Make stream function consistent with potential vorticity                                                                                                                                                                                           
-    call this%qtopsi(this%qprime, this%psi, this%psit)
-
-  end subroutine adv_nsteps
-
-
-  !-----------------------------------------------------------------------
-  ! computation of time derivative of the potential vorticity field
-  ! input  y potential vorticity in french format
-  ! output dydt time derivative of y in french format
-  ! values of qprime,  psi and psit are changed
-  !-----------------------------------------------------------------------
-  subroutine dqdt(this, y, dydt)
-
-    class(qg_adj_type), intent(inout) :: this
-    real(r8kind),         intent(   in) :: y(:,:)
-    real(r8kind),         intent(  out) :: dydt(:,:)
-
-    real(r8kind) :: dqprdt(this%nsh2,this%nvl) ! time derivative of qprime
-
-    this%qprime = this%fstofm(y, this%nm)
-    call this%qtopsi(this%qprime, this%psi, this%psit)            ! qprime --> psi and psit
-    dqprdt = this%ddt(this%psi, this%psit, this%qprime, this%for) ! psi, psit, qprime, for, diss --> dqprdt
-    dydt = this%fmtofs(dqprdt)
-
-    return
-
-  end subroutine dqdt
 
 
   !-----------------------------------------------------------------------

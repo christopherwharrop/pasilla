@@ -803,7 +803,7 @@ contains
         this%qprimeb = this%fstofm(yb, this%nm)
 
         ! Inrement the step count
-        this%step = this%step + 1
+        this%step = this%step - 1
 
       end do
 

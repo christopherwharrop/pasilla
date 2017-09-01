@@ -1,9 +1,15 @@
 # $Id: Makefile 3922 2011-05-19 08:54:39Z llh $
 
-FC=gfortran -g
-CC=gcc -g
+!FC=gfortran -g
+!CC=gcc -g
+FC=ifort -g
+CC=icc -g
 
-all : testMemSize adStack.o adBuffer.o profile.o dpStack.o dpTest.o ddTest.o validityTest.o
+#all : testMemSize adStack.o adBuffer.o profile.o dpStack.o dpTest.o ddTest.o validityTest.o
+all : testMemSize adStack.o adBuffer.o profile.o validityTest.o libstack.a
+
+libstack.a: adStack.o adBuffer.o profile.o validityTest.o
+	ar rcs libstack.a *.o
 
 profile.o: profile.c
 	$(CC) -c profile.c
@@ -23,8 +29,8 @@ adBuffer.o : adBuffer.f
 adStack.o : adStack.c
 	$(CC) -c adStack.c
 
-dpStack.o : dpStack.c
-	$(CC) -c dpStack.c
+#dpStack.o : dpStack.c
+#	$(CC) -c dpStack.c
 
 dpTest.o : dpTest.f
 	$(FC) -c dpTest.f
@@ -49,4 +55,4 @@ adBufferCtest : adStack.c adBuffer.c adBufferCtest.c
 	$(FC) $^ -o $@
 
 clean :
-	-rm -f .*~ *.o testMemSize adBufferFtest treeverseCtest treeverseFtest
+	-rm -f .*~ *.o *.a testMemSize adBufferFtest treeverseCtest treeverseFtest

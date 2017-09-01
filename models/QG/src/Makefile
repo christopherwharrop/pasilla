@@ -3,7 +3,7 @@ include ../../../macros.mk
 UTILITIES=../../../utilities
 
 INCLUDES=-I$(GPTL)/include -I$(UTILITIES)/include $(NETCDF_INCLUDES) -I../../abstract/include -I.
-LIBS=-L$(GPTL)/lib -lgptl -L$(UTILITIES)/lib -lpasilla_util $(NETCDF_LIBS)
+LIBS=-L$(GPTL)/lib -lgptl -L$(UTILITIES)/lib -lpasilla_util $(NETCDF_LIBS) -L tapenade/ADFirstAidKit -lstack
 
 FFLAGS+=$(GPTLFLAGS)
 FFLAGS+=$(ENDIAN_FLAG)

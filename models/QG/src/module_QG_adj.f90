@@ -713,88 +713,88 @@ contains
       do step = 1, nsteps
 
         y = this%FMTOFS(this%qprime)
-!       CALL PUSHREAL8ARRAY(tmp, nlat*nlon)
-        CALL this%DQDT(y, dydt)
-        DO l = 1, this%nvl
-          DO k = 1, nvar
+!       call PUSHREAL8ARRAY(tmp, nlat*nlon)
+        call this%DQDT(y, dydt)
+        do l = 1, this%nvl
+          do k = 1, nvar
             yt(k, l) = y(k, l) + dt2 * dydt(k, l)
-          END DO
-        END DO
-!       CALL PUSHREAL8ARRAY(tmp, nlat*nlon)
-        CALL this%DQDT(yt, dyt)
-        DO l = 1, this%nvl
-          DO k = 1, nvar
-            CALL PUSHREAL8(yt(k, l))
+          end do
+        end do
+!       call PUSHREAL8ARRAY(tmp, nlat*nlon)
+        call this%DQDT(yt, dyt)
+        do l = 1, this%nvl
+          do k = 1, nvar
+            call PUSHREAL8(yt(k, l))
             yt(k, l) = y(k, l) + dt2 * dyt(k, l)
-          END DO
-        END DO
-!       CALL PUSHREAL8ARRAY(tmp, nlat*nlon)
-        CALL this%DQDT(yt, dym)
-        DO l = 1, this%nvl
-          DO k = 1, nvar
-            CALL PUSHREAL8(yt(k, l))
+          end do
+        end do
+!       call PUSHREAL8ARRAY(tmp, nlat*nlon)
+        call this%DQDT(yt, dym)
+        do l = 1, this%nvl
+          do k = 1, nvar
+            call PUSHREAL8(yt(k, l))
             yt(k, l) = y(k, l) + this%dtt * dym(k, l)
             dym(k, l) = dyt(k, l) + dym(k, l)
-          END DO
-        END DO
-!       CALL PUSHREAL8ARRAY(tmp, nlat*nlon)
-        CALL this%DQDT(yt, dyt)
-        DO l = 1, this%nvl
-          DO k = 1, nvar
-            CALL PUSHREAL8(y(k, l))
+          end do
+        end do
+!       call PUSHREAL8ARRAY(tmp, nlat*nlon)
+        call this%DQDT(yt, dyt)
+        do l = 1, this%nvl
+          do k = 1, nvar
+            call PUSHREAL8(y(k, l))
             y(k, l) = y(k, l) + dt6 * (dydt(k, l) + dyt(k, l) + 2. * dym(k, l))
-          END DO
-        END DO
+          end do
+        end do
         yb = 0.0_8
-        CALL this%FSTOFM_B(y, yb, this%nm, this%qprimeb)
+        call this%FSTOFM_B(y, yb, this%nm, this%qprimeb)
         dymb = 0.0_8
         dytb = 0.0_8
         dydtb = 0.0_8
-        DO l = this%nvl, 1, -1
-          DO k = nvar, 1, -1
-            CALL POPREAL8(y(k, l))
+        do l = this%nvl, 1, -1
+          do k = nvar, 1, -1
+            call POPREAL8(y(k, l))
             tempb = dt6 * yb(k, l)
             dydtb(k, l) = dydtb(k, l) + tempb
             dytb(k, l) = dytb(k, l) + tempb
             dymb(k, l) = dymb(k, l) + 2. * tempb
-          END DO
-        END DO
-!       CALL POPREAL8ARRAY(tmp, nlat*nlon)
+          end do
+        end do
+!       call POPREAL8ARRAY(tmp, nlat*nlon)
         ytb = 0.0_8
 !        tmpb = 0.0_8
-        CALL this%DQDT_B(yt, ytb, dyt, dytb)
+        call this%DQDT_B(yt, ytb, dyt, dytb)
         dytb = 0.0_8
-        DO l = this%nvl, 1, -1
-          DO k = nvar, 1, -1
+        do l = this%nvl, 1, -1
+          do k = nvar, 1, -1
             dytb(k, l) = dytb(k, l) + dymb(k, l)
-            CALL POPREAL8(yt(k, l))
+            call POPREAL8(yt(k, l))
             yb(k, l) = yb(k, l) + ytb(k, l)
             dymb(k, l) = dymb(k, l) + this%dtt * ytb(k, l)
             ytb(k, l) = 0.0_8
-          END DO
-        END DO
-!       CALL POPREAL8ARRAY(tmp, nlat*nlon)
-        CALL this%DQDT_B(yt, ytb, dym, dymb)
-        DO l = this%nvl, 1, -1
-          DO k = nvar, 1, -1
-            CALL POPREAL8(yt(k, l))
+          end do
+        end do
+!       call POPREAL8ARRAY(tmp, nlat*nlon)
+        call this%DQDT_B(yt, ytb, dym, dymb)
+        do l = this%nvl, 1, -1
+          do k = nvar, 1, -1
+            call POPREAL8(yt(k, l))
             yb(k, l) = yb(k, l) + ytb(k, l)
             dytb(k, l) = dytb(k, l) + dt2 * ytb(k, l)
             ytb(k, l) = 0.0_8
-          END DO
-        END DO
-!       CALL POPREAL8ARRAY(tmp, nlat*nlon)
-        CALL this%DQDT_B(yt, ytb, dyt, dytb)
-        DO l = this%nvl, 1, -1
-          DO k = nvar, 1, -1
+          end do
+        end do
+!       call POPREAL8ARRAY(tmp, nlat*nlon)
+        call this%DQDT_B(yt, ytb, dyt, dytb)
+        do l = this%nvl, 1, -1
+          do k = nvar, 1, -1
             yb(k, l) = yb(k, l) + ytb(k, l)
             dydtb(k, l) = dydtb(k, l) + dt2 * ytb(k, l)
             ytb(k, l) = 0.0_8
-          END DO
-        END DO
-!       CALL POPREAL8ARRAY(tmp, nlat*nlon)
-        CALL this%DQDT_B(y, yb, dydt, dydtb)
-        CALL this%FMTOFS_B(this%qprime, this%qprimeb, yb)
+          end do
+        end do
+!       call POPREAL8ARRAY(tmp, nlat*nlon)
+        call this%DQDT_B(y, yb, dydt, dydtb)
+        call this%FMTOFS_B(this%qprime, this%qprimeb, yb)
 
         ! Update model state with original trajectory
         this%qprime = this%qprime + this%qprimeb
@@ -890,7 +890,7 @@ contains
   ! output dydt time derivative of y in french format
   ! values of qprime,  psi and psit are changed
   !-----------------------------------------------------------------------
-  SUBROUTINE DQDT_B(this, y, yb, dydt, dydtb)
+  subroutine DQDT_B(this, y, yb, dydt, dydtb)
 
     class(qg_adj_type), intent(in) :: this
     real(r8kind), INTENT(IN) :: y(:, :)
@@ -911,21 +911,21 @@ contains
     real(r8kind) :: dqprdtb(this%nsh2, this%nvl)
 
     local_qprime = this%FSTOFM(y, this%nm)
-    CALL PUSHREAL8ARRAY(local_psit, this%nsh2*this%ntl)
-    CALL PUSHREAL8ARRAY(local_psi, this%nsh2*this%nvl)
-    CALL this%QTOPSI(local_qprime, local_psi, local_psit)
+    call PUSHREAL8ARRAY(local_psit, this%nsh2*this%ntl)
+    call PUSHREAL8ARRAY(local_psi, this%nsh2*this%nvl)
+    call this%QTOPSI(local_qprime, local_psi, local_psit)
 ! psi, psit, qprime, for, diss --> dqprdt
-!    CALL PUSHREAL8ARRAY(tmp, nlat*nlon)
+!    call PUSHREAL8ARRAY(tmp, nlat*nlon)
     dqprdt = this%DDT(local_psi, local_psit, local_qprime, this%for)
-    CALL this%FMTOFS_B(dqprdt, dqprdtb, dydtb)
-!    CALL POPREAL8ARRAY(tmp, nlat*nlon)
-    CALL this%DDT_B(local_psi, local_psib, local_psit, local_psitb, local_qprime, local_qprimeb, this%for, dqprdtb)
-    CALL POPREAL8ARRAY(local_psi, this%nsh2*this%nvl)
-    CALL POPREAL8ARRAY(local_psit, this%nsh2*this%ntl)
-    CALL this%QTOPSI_B(local_qprime, local_qprimeb, local_psi, local_psib, local_psit, local_psitb)
-    CALL this%FSTOFM_B(y, yb, this%nm, local_qprimeb)
+    call this%FMTOFS_B(dqprdt, dqprdtb, dydtb)
+!    call POPREAL8ARRAY(tmp, nlat*nlon)
+    call this%DDT_B(local_psi, local_psib, local_psit, local_psitb, local_qprime, local_qprimeb, this%for, dqprdtb)
+    call POPREAL8ARRAY(local_psi, this%nsh2*this%nvl)
+    call POPREAL8ARRAY(local_psit, this%nsh2*this%ntl)
+    call this%QTOPSI_B(local_qprime, local_qprimeb, local_psi, local_psib, local_psit, local_psitb)
+    call this%FSTOFM_B(y, yb, this%nm, local_qprimeb)
 
-  END SUBROUTINE DQDT_B
+  end subroutine DQDT_B
 
   !----------------------------------------------------------------------
   ! ddt
@@ -989,7 +989,7 @@ contains
   ! input qprime,  psi,  psit
   ! output dqprdt
   !----------------------------------------------------------------------
-  SUBROUTINE DDT_B(this, psi, psib, psit, psitb, qprime, qprimeb, for, dqprdtb)
+  subroutine DDT_B(this, psi, psib, psit, psitb, qprime, qprimeb, for, dqprdtb)
 
     class(qg_adj_type), intent(in) :: this
 ! stream function at the nvl levels
@@ -1013,35 +1013,35 @@ contains
     real(r8kind), DIMENSION(this%nsh2) :: res0
     real(r8kind), DIMENSION(this%nsh2) :: resb0
 ! advection of potential vorticity at upper level
-!    CALL PUSHREAL8ARRAY(tmp, nlat*nlon)
+!    call PUSHREAL8ARRAY(tmp, nlat*nlon)
     res = this%JACOB(psi(:, 1), qprime(:, 1))
 ! advection of potential vorticity at middle level
-!    CALL PUSHREAL8ARRAY(tmp, nlat*nlon)
+!    call PUSHREAL8ARRAY(tmp, nlat*nlon)
     res0 = this%JACOB(psi(:, 2), qprime(:, 2))
 ! advection of potential vorticity and dissipation at lower level
     qprimeb = 0.0_8
-    DO l=3,1,-1
-      DO k=this%nsh2,1,-1
+    do l=3,1,-1
+      do k=this%nsh2,1,-1
         qprimeb(k, l) = qprimeb(k, l) + this%diss(k, 1) * dqprdtb(k, l)
-      END DO
-    END DO
+      end do
+    end do
     psitb = 0.0_8
-    DO k=this%nsh2,1,-1
+    do k=this%nsh2,1,-1
       dum2b = dqprdtb(k, 2) - dqprdtb(k, 3)
       dum1b = dqprdtb(k, 1) - dqprdtb(k, 2)
       psitb(k, 2) = psitb(k, 2) + this%relt2 * dum2b
       psitb(k, 1) = psitb(k, 1) + this%relt1 * dum1b
-    END DO
-    CALL this%JACOBD_B(psi(:, 3), psib(:, 3), qprime(:, 3), qprimeb(:, 3), dqprdtb(:, 3))
+    end do
+    call this%JACOBD_B(psi(:, 3), psib(:, 3), qprime(:, 3), qprimeb(:, 3), dqprdtb(:, 3))
     dqprdtb(:, 3) = 0.0_8
     resb0 = dqprdtb(:, 2)
     dqprdtb(:, 2) = 0.0_8
-!    CALL POPREAL8ARRAY(tmp, nlat*nlon)
-    CALL this%JACOB_B(psi(:, 2), psib(:, 2), qprime(:, 2), qprimeb(:, 2), resb0)
+!    call POPREAL8ARRAY(tmp, nlat*nlon)
+    call this%JACOB_B(psi(:, 2), psib(:, 2), qprime(:, 2), qprimeb(:, 2), resb0)
     resb = dqprdtb(:, 1)
-!    CALL POPREAL8ARRAY(tmp, nlat*nlon)
-    CALL this%JACOB_B(psi(:, 1), psib(:, 1), qprime(:, 1), qprimeb(:, 1), resb)
-  END SUBROUTINE DDT_B
+!    call POPREAL8ARRAY(tmp, nlat*nlon)
+    call this%JACOB_B(psi(:, 1), psib(:, 1), qprime(:, 1), qprimeb(:, 1), resb)
+  end subroutine DDT_B
 
 
   !----------------------------------------------------------------------
@@ -1105,21 +1105,20 @@ contains
   ! input psiloc,  pvor
   ! output sjacob
   !----------------------------------------------------------------------
-  SUBROUTINE JACOB_B(this, psiloc, psilocb, pvor, pvorb, sjacobb)
+  subroutine jacob_b(this, psiloc, psilocb, pvor, pvorb, sjacobb)
 
     class(qg_adj_type), intent(in) :: this
-    real(r8kind), INTENT(IN) :: psiloc(this%nsh2)
-    real(r8kind) :: psilocb(this%nsh2)
-    real(r8kind), INTENT(IN) :: pvor(this%nsh2)
-    real(r8kind) :: pvorb(this%nsh2)
-    real(r8kind) :: sjacob(this%nsh2)
-    real(r8kind) :: sjacobb(this%nsh2)
+    real(r8kind),       intent(in) :: psiloc(this%nsh2)
+    real(r8kind)                   :: psilocb(this%nsh2)
+    real(r8kind),       intent(in) :: pvor(this%nsh2)
+    real(r8kind)                   :: pvorb(this%nsh2)
+    real(r8kind)                   :: sjacobb(this%nsh2)
+
     integer :: i, j, k
     real(r8kind) :: vv(this%nsh2)
     real(r8kind) :: vvb(this%nsh2)
     real(r8kind) :: dpsidl(this%nlat, this%nlon), dpsidm(this%nlat, this%nlon), dvordl(this%nlat, this%nlon)
-    real(r8kind) :: dpsidlb(this%nlat, this%nlon), dpsidmb(this%nlat, this%nlon), dvordlb(this%nlat, &
-&   this%nlon)
+    real(r8kind) :: dpsidlb(this%nlat, this%nlon), dpsidmb(this%nlat, this%nlon), dvordlb(this%nlat, this%nlon)
     real(r8kind) :: dvordm(this%nlat, this%nlon), gjacob(this%nlat, this%nlon), dpsidls(this%nsh2)
     real(r8kind) :: dvordmb(this%nlat, this%nlon), gjacobb(this%nlat, this%nlon), dpsidlsb(this%nsh2)
     type(qg_ggsp_type) :: ggsp
@@ -1127,41 +1126,55 @@ contains
     ! Get grid conversion object
     ggsp = this%ggsp
 
-! space derivatives of potential vorticity
-    vv = reshape(ggsp%DDL(pvor), (/this%nsh2/))
-    dvordl = ggsp%SPTOGG_PP(vv)
-    dvordm = ggsp%SPTOGG_PD(pvor)
-! space derivatives of streamfunction
-    dpsidls = reshape(ggsp%DDL(psiloc), (/this%nsh2/))
-    dpsidl = ggsp%SPTOGG_PP(dpsidls)
-    dpsidm = ggsp%SPTOGG_PD(psiloc)
+    ! space derivatives of potential vorticity
+    vv = reshape(ggsp%ddl(pvor), (/this%nsh2/))
+    dvordl = ggsp%sptogg_pp(vv)
+    dvordm = ggsp%sptogg_pd(pvor)
+
+    ! space derivatives of streamfunction
+    dpsidls = reshape(ggsp%ddl(psiloc), (/this%nsh2/))
+    dpsidl = ggsp%sptogg_pp(dpsidls)
+    dpsidm = ggsp%sptogg_pd(psiloc)
     dpsidlsb = 0.0_8
-    DO k=this%nsh2,1,-1
+    do k = this%nsh2, 1, -1
       dpsidlsb(k) = dpsidlsb(k) - sjacobb(k)
-    END DO
-    CALL ggsp%GGTOSP_B(gjacob, gjacobb, sjacobb)
+    end do
+
+!   call ggsp%GGTOSP_B(gjacob, gjacobb, sjacobb)
+!   Not 100% sure if this should be pp or pd
+    gjacobb = ggsp%sptogg_pp(sjacobb)
+
     dpsidlb = 0.0_8
     dpsidmb = 0.0_8
     dvordlb = 0.0_8
     dvordmb = 0.0_8
-    DO j=this%nlon,1,-1
-      DO i=this%nlat,1,-1
-        dpsidmb(i, j) = dpsidmb(i, j) + dvordl(i, j)*gjacobb(i, j)
-        dvordlb(i, j) = dvordlb(i, j) + dpsidm(i, j)*gjacobb(i, j)
-        dpsidlb(i, j) = dpsidlb(i, j) - dvordm(i, j)*gjacobb(i, j)
-        dvordmb(i, j) = dvordmb(i, j) - dpsidl(i, j)*gjacobb(i, j)
+    do j = this%nlon, 1, -1
+      do i = this%nlat, 1, -1
+        dpsidmb(i, j) = dpsidmb(i, j) + dvordl(i, j) * gjacobb(i, j)
+        dvordlb(i, j) = dvordlb(i, j) + dpsidm(i, j) * gjacobb(i, j)
+        dpsidlb(i, j) = dpsidlb(i, j) - dvordm(i, j) * gjacobb(i, j)
+        dvordmb(i, j) = dvordmb(i, j) - dpsidl(i, j) * gjacobb(i, j)
         gjacobb(i, j) = 0.0_8
-      END DO
-    END DO
-    CALL ggsp%SPTOGG_PD_B(psiloc, psilocb, dpsidmb)
-    CALL ggsp%SPTOGG_PP_B(dpsidls, dpsidlsb, dpsidlb)
-    CALL ggsp%DDL_B(psiloc, psilocb, dpsidlsb)
-    CALL ggsp%SPTOGG_PD_B(pvor, pvorb, dvordmb)
-    vvb = 0.0_8
-    CALL ggsp%SPTOGG_PP_B(vv, vvb, dvordlb)
-    CALL ggsp%DDL_B(pvor, pvorb, vvb)
+      end do
+    end do
 
-  END SUBROUTINE JACOB_B
+!   call ggsp%sptogg_PD_B(psiloc, psilocb, dpsidmb)
+!   call ggsp%sptogg_PP_B(dpsidls, dpsidlsb, dpsidlb)
+    psilocb = reshape(ggsp%ggtosp(dpsidmb), (/this%nsh2/))
+    dpsidlsb = reshape(ggsp%ggtosp(dpsidlb), (/this%nsh2/))
+
+    call ggsp%ddl_b(psiloc, psilocb, dpsidlsb)
+
+!   call ggsp%sptogg_PD_B(pvor, pvorb, dvordmb)
+    pvorb = reshape(ggsp%ggtosp(dvordmb), (/this%nsh2/))
+
+    vvb = 0.0_8
+!   call ggsp%sptogg_PP_B(vv, vvb, dvordlb)
+    vvb = reshape(ggsp%ggtosp(dvordlb), (/this%nsh2/))
+
+    call ggsp%ddl_b(pvor, pvorb, vvb)
+
+  end subroutine JACOB_B
 
 
   !----------------------------------------------------------------------
@@ -1171,10 +1184,10 @@ contains
   !----------------------------------------------------------------------
   function jacobd (this, psiloc, pvor) result(sjacob)
 
-    class(qg_adj_type), intent(in) :: this
-    real(r8kind),         intent(in) :: psiloc(this%nsh2)
-    real(r8kind),         intent(in) :: pvor(this%nsh2)
-    real(r8kind)                     :: sjacob(this%nsh2)
+    class(qg_adj_type), intent( in) :: this
+    real(r8kind),       intent( in) :: psiloc(this%nsh2)
+    real(r8kind),       intent( in) :: pvor(this%nsh2)
+    real(r8kind)                    :: sjacob(this%nsh2)
 
     integer      :: i, j, k
     real(r8kind) :: dpsidl(this%nlat, this%nlon),  dpsidm(this%nlat, this%nlon),  dvordl(this%nlat, this%nlon)
@@ -1259,8 +1272,8 @@ contains
     real(r8kind),       intent( in) :: psiloc(this%nsh2)
     real(r8kind),       intent(out) :: psilocb(this%nsh2)
     real(r8kind),       intent( in) :: pvor(this%nsh2)
-    real(r8kind)                    :: pvorb(this%nsh2)
-    real(r8kind)                    :: sjacobb(this%nsh2)
+    real(r8kind),       intent(out) :: pvorb(this%nsh2)
+    real(r8kind),       intent( in) :: sjacobb(this%nsh2)
 
     integer :: i, j, k
     real(r8kind) :: dpsidl(this%nlat, this%nlon), dpsidm(this%nlat, this%nlon), dvordl(this%nlat, this%nlon)
@@ -1462,7 +1475,7 @@ contains
   ! input  qprime which is potential vorticity field
   ! output psi,  the streamfunction and psit,  the layer thicknesses
   !-----------------------------------------------------------------------
-  SUBROUTINE QTOPSI_b(this, qprime, qprimeb, psi, psib, psit, psitb)
+  subroutine QTOPSI_b(this, qprime, qprimeb, psi, psib, psit, psitb)
 
 ! potential vorticity
     class(qg_adj_type), intent( in) :: this
@@ -1545,7 +1558,7 @@ contains
       wsb(k) = 0.0_r8kind
     end do
 
-  end SUBROUTINE QTOPSI_b
+  end subroutine QTOPSI_b
 
 
   !-----------------------------------------------------------------------
@@ -1743,7 +1756,7 @@ contains
   ! 8       2  2 --> imaginary part: k = 1-8 is T2 truncation
   ! etcetera
   !-----------------------------------------------------------------------
-  SUBROUTINE FMTOFS_b(this, y, yb, zb)
+  subroutine FMTOFS_b(this, y, yb, zb)
 
     class(qg_adj_type) :: this
     real(r8kind), intent(IN) :: y(:, :)
@@ -1813,7 +1826,7 @@ contains
       end do
       call POPINTEGER4(k)
     end do
-  end SUBROUTINE FMTOFS_b
+  end subroutine FMTOFS_b
 
 
   !-----------------------------------------------------------------------
@@ -1920,7 +1933,7 @@ contains
   ! 8       2  2 --> imaginary part: k = 1-8 is T2 truncation
   ! etcetera
   !-----------------------------------------------------------------------
-  SUBROUTINE FSTOFM_b(this, y, yb, ntr, zb)
+  subroutine FSTOFM_b(this, y, yb, ntr, zb)
 
     class(qg_adj_type), intent(in) :: this
     real(r8kind), intent(IN) :: y(:, :)
@@ -2005,7 +2018,7 @@ contains
         zb(i, l) = 0.0_r8kind
       end do
     end do
-  end SUBROUTINE FSTOFM_b
+  end subroutine FSTOFM_b
 
 
   !-----------------------------------------------------------------------

@@ -1253,99 +1253,109 @@ contains
   ! input psiloc,  pvor
   ! output sjacob
   !----------------------------------------------------------------------
-  SUBROUTINE JACOBD_B(this, psiloc, psilocb, pvor, pvorb, sjacobb)
+  subroutine jacobd_b(this, psiloc, psilocb, pvor, pvorb, sjacobb)
 
-    class(qg_adj_type), intent(in) :: this
-    real(r8kind), INTENT(IN) :: psiloc(this%nsh2)
-    real(r8kind) :: psilocb(this%nsh2)
-    real(r8kind), INTENT(IN) :: pvor(this%nsh2)
-    real(r8kind) :: pvorb(this%nsh2)
-    real(r8kind) :: sjacob(this%nsh2)
-    real(r8kind) :: sjacobb(this%nsh2)
+    class(qg_adj_type), intent( in) :: this
+    real(r8kind),       intent( in) :: psiloc(this%nsh2)
+    real(r8kind),       intent(out) :: psilocb(this%nsh2)
+    real(r8kind),       intent( in) :: pvor(this%nsh2)
+    real(r8kind)                    :: pvorb(this%nsh2)
+    real(r8kind)                    :: sjacobb(this%nsh2)
+
     integer :: i, j, k
     real(r8kind) :: dpsidl(this%nlat, this%nlon), dpsidm(this%nlat, this%nlon), dvordl(this%nlat, this%nlon)
-    real(r8kind) :: dpsidlb(this%nlat, this%nlon), dpsidmb(this%nlat, this%nlon), dvordlb(this%nlat, &
-&   this%nlon)
+    real(r8kind) :: dpsidlb(this%nlat, this%nlon), dpsidmb(this%nlat, this%nlon), dvordlb(this%nlat, this%nlon)
     real(r8kind) :: dvordm(this%nlat, this%nlon), gjacob(this%nlat, this%nlon), vv(this%nsh2)
     real(r8kind) :: dvordmb(this%nlat, this%nlon), gjacobb(this%nlat, this%nlon), vvb(this%nsh2)
     real(r8kind) :: azeta(this%nlat, this%nlon), dpsidls(this%nsh2)
     real(r8kind) :: azetab(this%nlat, this%nlon), dpsidlsb(this%nsh2)
-    integer :: branch
     type(qg_ggsp_type) :: ggsp
 
     ! Get grid conversion object
     ggsp = this%ggsp
 
-! space derivatives of potential vorticity 
-    vv = reshape(ggsp%DDL(pvor), (/this%nsh2/))
-    dvordl = ggsp%SPTOGG_PP(vv)
-    dvordm = ggsp%SPTOGG_PD(pvor)
-! space derivatives of streamfunction
-    dpsidls = reshape(ggsp%DDL(psiloc), (/this%nsh2/))
-    dpsidl = ggsp%SPTOGG_PP(dpsidls)
-    dpsidm = ggsp%SPTOGG_PD(psiloc)
-! dissipation 
-    IF (this%lgdiss) THEN
-      CALL PUSHCONTROL1B(1)
-    ELSE
-      CALL PUSHCONTROL1B(0)
-    END IF
-    dpsidlsb = 0.0_8
-    DO k=this%nsh2,1,-1
+    ! space derivatives of potential vorticity 
+    vv = reshape(ggsp%ddl(pvor), (/this%nsh2/))
+    dvordl = ggsp%sptogg_pp(vv)
+    dvordm = ggsp%sptogg_pd(pvor)
+
+    ! space derivatives of streamfunction
+    dpsidls = reshape(ggsp%ddl(psiloc), (/this%nsh2/))
+    dpsidl = ggsp%sptogg_pp(dpsidls)
+    dpsidm = ggsp%sptogg_pd(psiloc)
+
+    ! dissipation 
+    dpsidlsb = 0.0_r8kind
+    do k = this%nsh2, 1, -1
       dpsidlsb(k) = dpsidlsb(k) - sjacobb(k)
-    END DO
-    CALL POPCONTROL1B(branch)
-    IF (branch .EQ. 0) THEN
-      psilocb = 0.0_8
-      DO k=this%nsh2,1,-1
-        psilocb(k) = psilocb(k) + this%diss(k, 2)*sjacobb(k)
-      END DO
-      CALL ggsp%GGTOSP_B(gjacob, gjacobb, sjacobb)
-      dpsidlb = 0.0_8
-      dpsidmb = 0.0_8
-      vvb = 0.0_8
-    ELSE
-      CALL ggsp%GGTOSP_B(gjacob, gjacobb, sjacobb)
-      dpsidlb = 0.0_8
-      dpsidmb = 0.0_8
-      azetab = 0.0_8
-      DO j=this%nlon,1,-1
-        DO i=this%nlat,1,-1
-          dpsidmb(i, j) = dpsidmb(i, j) - this%ddisdy(i, j)*gjacobb(i, j)
-          azetab(i, j) = azetab(i, j) + this%rdiss(i, j)*gjacobb(i, j)
-          dpsidlb(i, j) = dpsidlb(i, j) - this%ddisdx(i, j)*gjacobb(i, j)
-        END DO
-      END DO
-      vvb = 0.0_8
-      CALL ggsp%SPTOGG_PP_B(vv, vvb, azetab)
-      psilocb = 0.0_8
-      DO k=this%nsh2,1,-1
-        psilocb(k) = psilocb(k) + this%diss(k, 2)*vvb(k)
-        vvb(k) = 0.0_8
-      END DO
-    END IF
-    dvordlb = 0.0_8
-    dvordmb = 0.0_8
-    DO j=this%nlon,1,-1
-      DO i=this%nlat,1,-1
-        dpsidmb(i, j) = dpsidmb(i, j) + (this%sinfi(i) * this%dorodl(i, j)+dvordl(i&
-&         , j))*gjacobb(i, j)
-        dvordlb(i, j) = dvordlb(i, j) + dpsidm(i, j)*gjacobb(i, j)
-        dpsidlb(i, j) = dpsidlb(i, j) - (this%sinfi(i) * this%dorodm(i, j)+dvordm(i&
-&         , j))*gjacobb(i, j)
-        dvordmb(i, j) = dvordmb(i, j) - dpsidl(i, j)*gjacobb(i, j)
-        gjacobb(i, j) = 0.0_8
-      END DO
-    END DO
-    CALL ggsp%SPTOGG_PD_B(psiloc, psilocb, dpsidmb)
-    CALL ggsp%SPTOGG_PP_B(dpsidls, dpsidlsb, dpsidlb)
-    CALL ggsp%DDL_B(psiloc, psilocb, dpsidlsb)
-    CALL ggsp%SPTOGG_PD_B(pvor, pvorb, dvordmb)
-    CALL ggsp%SPTOGG_PP_B(vv, vvb, dvordlb)
-    CALL ggsp%DDL_B(pvor, pvorb, vvb)
+    end do
 
-  END SUBROUTINE JACOBD_B
+    if (this%lgdiss) then
 
+!     call ggsp%ggtosp_b(gjacob, gjacobb, sjacobb)
+!     Not 100% sure if this should be sptogg_pp or sptogg_pd
+      gjacobb = ggsp%sptogg_pp(sjacobb)
+      dpsidlb = 0.0_r8kind
+      dpsidmb = 0.0_r8kind
+      azetab = 0.0_r8kind
+      do j = this%nlon, 1, -1
+        do i = this%nlat, 1, -1
+          dpsidmb(i, j) = dpsidmb(i, j) - this%ddisdy(i, j) * gjacobb(i, j)
+          azetab(i, j) = azetab(i, j) + this%rdiss(i, j) * gjacobb(i, j)
+          dpsidlb(i, j) = dpsidlb(i, j) - this%ddisdx(i, j) * gjacobb(i, j)
+        end do
+      end do
+      vvb = 0.0_r8kind
+!     call ggsp%sptogg_pp_b(vv, vvb, azetab)
+      vvb = reshape(ggsp%ggtosp(azetab), (/this%nsh2/))
+      psilocb = 0.0_r8kind
+      do k = this%nsh2, 1, -1
+        psilocb(k) = psilocb(k) + this%diss(k, 2) * vvb(k)
+        vvb(k) = 0.0_r8kind
+      end do
+
+    else
+
+      psilocb = 0.0_r8kind
+      do k = this%nsh2, 1, -1
+        psilocb(k) = psilocb(k) + this%diss(k, 2) * sjacobb(k)
+      end do
+!     call ggsp%ggtosp_b(gjacob, gjacobb, sjacobb)
+!     Not 100% sure if this should be sptogg_pp or sptogg_pd
+      gjacobb = ggsp%sptogg_pp(sjacobb)
+      dpsidlb = 0.0_r8kind
+      dpsidmb = 0.0_r8kind
+      vvb = 0.0_r8kind
+
+    end if
+
+    dvordlb = 0.0_r8kind
+    dvordmb = 0.0_r8kind
+    do j = this%nlon, 1, -1
+      do i = this%nlat, 1, -1
+        dpsidmb(i, j) = dpsidmb(i, j) + (this%sinfi(i) * this%dorodl(i, j) + dvordl(i, j)) * gjacobb(i, j)
+        dvordlb(i, j) = dvordlb(i, j) + dpsidm(i, j) * gjacobb(i, j)
+        dpsidlb(i, j) = dpsidlb(i, j) - (this%sinfi(i) * this%dorodm(i, j) + dvordm(i, j)) * gjacobb(i, j)
+        dvordmb(i, j) = dvordmb(i, j) - dpsidl(i, j) * gjacobb(i, j)
+        gjacobb(i, j) = 0.0_r8kind
+      end do
+    end do
+
+!   call ggsp%sptogg_pd_b(psiloc, psilocb, dpsidmb)
+!   call ggsp%sptogg_pp_b(dpsidls, dpsidlsb, dpsidlb)
+    psilocb = reshape(ggsp%ggtosp(dpsidmb), (/this%nsh2/))
+    dpsidlsb = reshape(ggsp%ggtosp(dpsidlb), (/this%nsh2/))
+
+    call ggsp%ddl_b(psiloc, psilocb, dpsidlsb)
+
+!   call ggsp%sptogg_pd_b(pvor, pvorb, dvordmb)
+!   call ggsp%sptogg_pp_b(vv, vvb, dvordlb)
+    pvorb = reshape(ggsp%ggtosp(dvordmb), (/this%nsh2/))
+    vvb = reshape(ggsp%ggtosp(dvordlb), (/this%nsh2/))
+
+    call ggsp%ddl_b(pvor, pvorb, vvb)
+
+  end subroutine jacobd_b
 
   !----------------------------------------------------------------------
   ! Advection of potential vorticity and dissipation on gaussian grid
@@ -1452,11 +1462,11 @@ contains
   ! input  qprime which is potential vorticity field
   ! output psi,  the streamfunction and psit,  the layer thicknesses
   !-----------------------------------------------------------------------
-  SUBROUTINE QTOPSI_B(this, qprime, qprimeb, psi, psib, psit, psitb)
+  SUBROUTINE QTOPSI_b(this, qprime, qprimeb, psi, psib, psit, psitb)
 
 ! potential vorticity
     class(qg_adj_type), intent( in) :: this
-    real(r8kind), INTENT(IN) :: qprime(:, :)
+    real(r8kind), intent(IN) :: qprime(:, :)
     real(r8kind) :: qprimeb(:, :)
 ! stream function at the nvl levels
     real(r8kind) :: psi(:, :)
@@ -1475,67 +1485,67 @@ contains
     integer :: ad_to
     integer :: ad_to0
     integer :: ad_to1
-    DO k=1,SIZE(psi, 1)
+    do k=1,SIZE(psi, 1)
       ws(k) = qprime(k, 1) + qprime(k, 3)
       psi(k, 1) = this%rinhel(k, 1)*(ws(k)+qprime(k, 2))
       psi(k, 2) = ws(k) - 2.d0*qprime(k, 2)
       psi(k, 3) = qprime(k, 1) - qprime(k, 3)
-    END DO
-    CALL PUSHINTEGER4(k - 1)
-    DO k=1,SIZE(psit, 1)
+    end do
+    call PUSHINTEGER4(k - 1)
+    do k=1,SIZE(psit, 1)
       psit(k, 1) = this%rinhel(k, 2)*psi(k, 2) + this%rinhel(k, 3)*psi(k, 3)
       psit(k, 2) = this%rinhel(k, 4)*psi(k, 2) + this%rinhel(k, 5)*psi(k, 3)
-    END DO
-    CALL PUSHINTEGER4(k - 1)
+    end do
+    call PUSHINTEGER4(k - 1)
     r3 = 1./3.
-    DO k=1,SIZE(psi, 1)
+    do k=1,SIZE(psi, 1)
       psi(k, 2) = r3*(psi(k, 1)-psit(k, 1)+psit(k, 2))
       psi(k, 1) = psi(k, 2) + psit(k, 1)
       psi(k, 3) = psi(k, 2) - psit(k, 2)
-    END DO
-    CALL PUSHINTEGER4(k - 1)
-    CALL POPINTEGER4(ad_to1)
-    DO k=ad_to1,1,-1
+    end do
+    call PUSHINTEGER4(k - 1)
+    call POPINTEGER4(ad_to1)
+    do k=ad_to1,1,-1
       psib(k, 2) = psib(k, 2) + psib(k, 3)
       psitb(k, 2) = psitb(k, 2) - psib(k, 3)
-      psib(k, 3) = 0.0_8
+      psib(k, 3) = 0.0_r8kind
       psib(k, 2) = psib(k, 2) + psib(k, 1)
       psitb(k, 1) = psitb(k, 1) + psib(k, 1)
-      psib(k, 1) = 0.0_8
+      psib(k, 1) = 0.0_r8kind
       tempb0 = r3*psib(k, 2)
       psib(k, 1) = psib(k, 1) + tempb0
       psitb(k, 1) = psitb(k, 1) - tempb0
       psitb(k, 2) = psitb(k, 2) + tempb0
-      psib(k, 2) = 0.0_8
-    END DO
-    CALL POPINTEGER4(ad_to0)
-    DO k=ad_to0,1,-1
+      psib(k, 2) = 0.0_r8kind
+    end do
+    call POPINTEGER4(ad_to0)
+    do k=ad_to0,1,-1
       psib(k, 2) = psib(k, 2) + this%rinhel(k, 4)*psitb(k, 2)
       psib(k, 3) = psib(k, 3) + this%rinhel(k, 5)*psitb(k, 2)
-      psitb(k, 2) = 0.0_8
+      psitb(k, 2) = 0.0_r8kind
       psib(k, 2) = psib(k, 2) + this%rinhel(k, 2)*psitb(k, 1)
       psib(k, 3) = psib(k, 3) + this%rinhel(k, 3)*psitb(k, 1)
-      psitb(k, 1) = 0.0_8
-    END DO
-    wsb = 0.0_8
-    CALL POPINTEGER4(ad_to)
-    DO k=ad_to,1,-1
+      psitb(k, 1) = 0.0_r8kind
+    end do
+    wsb = 0.0_r8kind
+    call POPINTEGER4(ad_to)
+    do k=ad_to,1,-1
       qprimeb(k, 1) = qprimeb(k, 1) + psib(k, 3)
       qprimeb(k, 3) = qprimeb(k, 3) - psib(k, 3)
-      psib(k, 3) = 0.0_8
+      psib(k, 3) = 0.0_r8kind
       wsb(k) = wsb(k) + psib(k, 2)
       qprimeb(k, 2) = qprimeb(k, 2) - 2.d0*psib(k, 2)
-      psib(k, 2) = 0.0_8
+      psib(k, 2) = 0.0_r8kind
       tempb = this%rinhel(k, 1)*psib(k, 1)
       wsb(k) = wsb(k) + tempb
       qprimeb(k, 2) = qprimeb(k, 2) + tempb
-      psib(k, 1) = 0.0_8
+      psib(k, 1) = 0.0_r8kind
       qprimeb(k, 1) = qprimeb(k, 1) + wsb(k)
       qprimeb(k, 3) = qprimeb(k, 3) + wsb(k)
-      wsb(k) = 0.0_8
-    END DO
+      wsb(k) = 0.0_r8kind
+    end do
 
-  END SUBROUTINE QTOPSI_B
+  end SUBROUTINE QTOPSI_b
 
 
   !-----------------------------------------------------------------------
@@ -1733,10 +1743,10 @@ contains
   ! 8       2  2 --> imaginary part: k = 1-8 is T2 truncation
   ! etcetera
   !-----------------------------------------------------------------------
-  SUBROUTINE FMTOFS_B(this, y, yb, zb)
+  SUBROUTINE FMTOFS_b(this, y, yb, zb)
 
     class(qg_adj_type) :: this
-    real(r8kind), INTENT(IN) :: y(:, :)
+    real(r8kind), intent(IN) :: y(:, :)
     real(r8kind) :: yb(:, :)
     real(r8kind), DIMENSION(SIZE(y, 1), SIZE(y, 2)) :: z
     real(r8kind), DIMENSION(SIZE(y, 1), SIZE(y, 2)) :: zb
@@ -1747,63 +1757,63 @@ contains
     integer :: branch
     integer :: ad_from
     integer :: ad_to
-    DO l=1,SIZE(y, 2)
-      CALL PUSHINTEGER4(k)
+    do l=1,SIZE(y, 2)
+      call PUSHINTEGER4(k)
       k = 1
-      DO m=0,this%nm
+      do m=0,this%nm
         IF (m .LT. 1) THEN
           max1 = 1
         ELSE
           max1 = m
-        END IF
+        end IF
         ad_from = max1
-        DO n=ad_from, this%nm
-          CALL PUSHINTEGER4(k)
+        do n=ad_from, this%nm
+          call PUSHINTEGER4(k)
           k = k + 1
           IF (m .EQ. 0) THEN
-            CALL PUSHINTEGER4(indx)
+            call PUSHINTEGER4(indx)
             indx = n**2
-            CALL PUSHCONTROL1B(0)
+            call PUSHCONTROL1B(0)
           ELSE
-            CALL PUSHINTEGER4(indx)
+            call PUSHINTEGER4(indx)
             indx = n**2 + 2*m - 1
-            CALL PUSHCONTROL1B(1)
-          END IF
+            call PUSHCONTROL1B(1)
+          end IF
           IF (m .NE. 0) THEN
-            CALL PUSHCONTROL1B(0)
+            call PUSHCONTROL1B(0)
           ELSE
-            CALL PUSHCONTROL1B(1)
-          END IF
-        END DO
-        CALL PUSHINTEGER4(ad_from)
-      END DO
-    END DO
-    CALL PUSHINTEGER4(l - 1)
-    yb = 0.0_8
-    CALL POPINTEGER4(ad_to)
-    DO l=ad_to,1,-1
-      DO m= this%nm,0,-1
-        CALL POPINTEGER4(ad_from)
-        DO n= this%nm,ad_from,-1
-          CALL POPCONTROL1B(branch)
+            call PUSHCONTROL1B(1)
+          end IF
+        end do
+        call PUSHINTEGER4(ad_from)
+      end do
+    end do
+    call PUSHINTEGER4(l - 1)
+    yb = 0.0_r8kind
+    call POPINTEGER4(ad_to)
+    do l=ad_to,1,-1
+      do m= this%nm,0,-1
+        call POPINTEGER4(ad_from)
+        do n= this%nm,ad_from,-1
+          call POPCONTROL1B(branch)
           IF (branch .EQ. 0) THEN
             yb(k+this%nsh, l) = yb(k+this%nsh, l) + zb(indx+1, l)
-            zb(indx+1, l) = 0.0_8
-          END IF
+            zb(indx+1, l) = 0.0_r8kind
+          end IF
           yb(k, l) = yb(k, l) + zb(indx, l)
-          zb(indx, l) = 0.0_8
-          CALL POPCONTROL1B(branch)
+          zb(indx, l) = 0.0_r8kind
+          call POPCONTROL1B(branch)
           IF (branch .EQ. 0) THEN
-            CALL POPINTEGER4(indx)
+            call POPINTEGER4(indx)
           ELSE
-            CALL POPINTEGER4(indx)
-          END IF
-          CALL POPINTEGER4(k)
-        END DO
-      END DO
-      CALL POPINTEGER4(k)
-    END DO
-  END SUBROUTINE FMTOFS_B
+            call POPINTEGER4(indx)
+          end IF
+          call POPINTEGER4(k)
+        end do
+      end do
+      call POPINTEGER4(k)
+    end do
+  end SUBROUTINE FMTOFS_b
 
 
   !-----------------------------------------------------------------------
@@ -1910,12 +1920,12 @@ contains
   ! 8       2  2 --> imaginary part: k = 1-8 is T2 truncation
   ! etcetera
   !-----------------------------------------------------------------------
-  SUBROUTINE FSTOFM_B(this, y, yb, ntr, zb)
+  SUBROUTINE FSTOFM_b(this, y, yb, ntr, zb)
 
     class(qg_adj_type), intent(in) :: this
-    real(r8kind), INTENT(IN) :: y(:, :)
+    real(r8kind), intent(IN) :: y(:, :)
     real(r8kind) :: yb(:, :)
-    integer, INTENT(IN) :: ntr
+    integer, intent(IN) :: ntr
     real(r8kind), DIMENSION(SIZE(y, 1), SIZE(y, 2)) :: z
     real(r8kind), DIMENSION(SIZE(y, 1), SIZE(y, 2)) :: zb
     integer :: m, n, k, indx, i, l
@@ -1926,76 +1936,76 @@ contains
     integer :: branch
     integer :: ad_from
     integer :: ad_to0
-    DO l=1,SIZE(y, 2)
-      DO i=1,SIZE(y, 1)
+    do l=1,SIZE(y, 2)
+      do i=1,SIZE(y, 1)
 
-      END DO
-      CALL PUSHINTEGER4(i - 1)
-      CALL PUSHINTEGER4(k)
+      end do
+      call PUSHINTEGER4(i - 1)
+      call PUSHINTEGER4(k)
       k = 1
-      DO m=0,this%nm
+      do m=0,this%nm
         IF (m .LT. 1) THEN
           max1 = 1
         ELSE
           max1 = m
-        END IF
+        end IF
         ad_from = max1
-        DO n=ad_from,this%nm
-          CALL PUSHINTEGER4(k)
+        do n=ad_from,this%nm
+          call PUSHINTEGER4(k)
           k = k + 1
           IF (m .LE. ntr .AND. n .LE. ntr) THEN
             IF (m .EQ. 0) THEN
-              CALL PUSHINTEGER4(indx)
+              call PUSHINTEGER4(indx)
               indx = n**2
-              CALL PUSHCONTROL1B(0)
+              call PUSHCONTROL1B(0)
             ELSE
-              CALL PUSHINTEGER4(indx)
+              call PUSHINTEGER4(indx)
               indx = n**2 + 2*m - 1
-              CALL PUSHCONTROL1B(1)
-            END IF
+              call PUSHCONTROL1B(1)
+            end IF
             IF (m .NE. 0) THEN
-              CALL PUSHCONTROL2B(0)
+              call PUSHCONTROL2B(0)
             ELSE
-              CALL PUSHCONTROL2B(1)
-            END IF
+              call PUSHCONTROL2B(1)
+            end IF
           ELSE
-            CALL PUSHCONTROL2B(2)
-          END IF
-        END DO
-        CALL PUSHINTEGER4(ad_from)
-      END DO
-    END DO
-    CALL PUSHINTEGER4(l - 1)
-    CALL POPINTEGER4(ad_to0)
-    DO l=ad_to0,1,-1
-      DO m=this%nm,0,-1
-        CALL POPINTEGER4(ad_from)
-        DO n=this%nm,ad_from,-1
-          CALL POPCONTROL2B(branch)
+            call PUSHCONTROL2B(2)
+          end IF
+        end do
+        call PUSHINTEGER4(ad_from)
+      end do
+    end do
+    call PUSHINTEGER4(l - 1)
+    call POPINTEGER4(ad_to0)
+    do l=ad_to0,1,-1
+      do m=this%nm,0,-1
+        call POPINTEGER4(ad_from)
+        do n=this%nm,ad_from,-1
+          call POPCONTROL2B(branch)
           IF (branch .EQ. 0) THEN
             yb(indx+1, l) = yb(indx+1, l) + zb(k+this%nsh, l)
-            zb(k+this%nsh, l) = 0.0_8
+            zb(k+this%nsh, l) = 0.0_r8kind
           ELSE IF (branch .NE. 1) THEN
             GOTO 100
-          END IF
+          end IF
           yb(indx, l) = yb(indx, l) + zb(k, l)
-          zb(k, l) = 0.0_8
-          CALL POPCONTROL1B(branch)
+          zb(k, l) = 0.0_r8kind
+          call POPCONTROL1B(branch)
           IF (branch .EQ. 0) THEN
-            CALL POPINTEGER4(indx)
+            call POPINTEGER4(indx)
           ELSE
-            CALL POPINTEGER4(indx)
-          END IF
- 100      CALL POPINTEGER4(k)
-        END DO
-      END DO
-      CALL POPINTEGER4(k)
-      CALL POPINTEGER4(ad_to)
-      DO i=ad_to,1,-1
-        zb(i, l) = 0.0_8
-      END DO
-    END DO
-  END SUBROUTINE FSTOFM_B
+            call POPINTEGER4(indx)
+          end IF
+ 100      call POPINTEGER4(k)
+        end do
+      end do
+      call POPINTEGER4(k)
+      call POPINTEGER4(ad_to)
+      do i=ad_to,1,-1
+        zb(i, l) = 0.0_r8kind
+      end do
+    end do
+  end SUBROUTINE FSTOFM_b
 
 
   !-----------------------------------------------------------------------
@@ -2798,7 +2808,7 @@ contains
     !  call length(dadold, e)
     !  write(*, *) 'dadold =',  e
     !  write(*, *) 'ddtad,  jtstep =',  jtstep, nstop
-    !  CALL DDTLAD(qprim, dqprim)
+    !  call DDTLAD(qprim, dqprim)
     call this%ddtlad(qprim, dqprim, jtstep)
     do i = 1, 3
       do j = 1, this%nsh2

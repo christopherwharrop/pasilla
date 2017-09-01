@@ -26,10 +26,8 @@ MODULE TAPENADE_D
 ! Model state
 ! Stream function at the nvl levels
   REAL*8 :: psi(nsh2, nvl)
-  REAL*8 :: psid(nsh2, nvl)
 ! Thickness at the ntl levels
   REAL*8 :: psit(nsh2, ntl)
-  REAL*8 :: psitd(nsh2, ntl)
 ! Potential vorticity
   REAL*8 :: qprime(nsh2, nvl)
   REAL*8 :: qprimed(nsh2, nvl)
@@ -93,10 +91,9 @@ MODULE TAPENADE_D
 
 CONTAINS
 !  Differentiation of adv_nsteps in forward (tangent) mode:
-!   variations   of useful results: psi tmp qprime psit
-!   with respect to varying inputs: psi tmp qprime psit
-!   RW status of diff variables: psi:in-out agg_copy:(loc) tmp:in-out
-!                qprime:in-out psit:in-out
+!   variations   of useful results: tmp qprime
+!   with respect to varying inputs: tmp qprime
+!   RW status of diff variables: agg_copy:(loc) tmp:in-out qprime:in-out
 !-----------------------------------------------------------------------
 ! performs a fourth order runge kutta time step at truncation nm
 ! with time step dt
@@ -151,7 +148,7 @@ CONTAINS
     END DO
     qprimed = FSTOFM_D(y, yd, nm, qprime)
 ! Make stream function consistent with potential vorticity
-    CALL QTOPSI_D(qprime, qprimed, psi, psid, psit, psitd)
+    CALL QTOPSI(qprime, psi, psit)
   END SUBROUTINE ADV_NSTEPS_D
 !-----------------------------------------------------------------------
 ! performs a fourth order runge kutta time step at truncation nm
@@ -202,8 +199,8 @@ CONTAINS
     CALL QTOPSI(qprime, psi, psit)
   END SUBROUTINE ADV_NSTEPS
 !  Differentiation of dqdt in forward (tangent) mode:
-!   variations   of useful results: psi tmp psit dydt
-!   with respect to varying inputs: psi tmp psit y
+!   variations   of useful results: tmp dydt
+!   with respect to varying inputs: tmp y
 !-----------------------------------------------------------------------
 ! computation of time derivative of the potential vorticity field
 ! input  y potential vorticity in french format
@@ -216,15 +213,24 @@ CONTAINS
     REAL*8, INTENT(IN) :: yd(:, :)
     REAL*8, INTENT(OUT) :: dydt(:, :)
     REAL*8, INTENT(OUT) :: dydtd(:, :)
+! qprime
+    REAL*8 :: local_qprime(nsh2, nvl)
+    REAL*8 :: local_qprimed(nsh2, nvl)
+! psi
+    REAL*8 :: local_psi(nsh2, nvl)
+    REAL*8 :: local_psid(nsh2, nvl)
+! psit
+    REAL*8 :: local_psit(nsh2, ntl)
+    REAL*8 :: local_psitd(nsh2, ntl)
 ! time derivative of qprime
     REAL*8 :: dqprdt(nsh2, nvl)
     REAL*8 :: dqprdtd(nsh2, nvl)
-    qprimed = FSTOFM_D(y, yd, nm, qprime)
-    CALL QTOPSI_D(qprime, qprimed, psi, psid, psit, psitd)
-! qprime --> psi and psit
+    local_qprimed = FSTOFM_D(y, yd, nm, local_qprime)
+    CALL QTOPSI_D(local_qprime, local_qprimed, local_psi, local_psid, &
+&           local_psit, local_psitd)
 ! psi, psit, qprime, for, diss --> dqprdt
-    dqprdtd = DDT_D(psi, psid, psit, psitd, qprime, qprimed, for, dqprdt&
-&     )
+    dqprdtd = DDT_D(local_psi, local_psid, local_psit, local_psitd, &
+&     local_qprime, local_qprimed, for, dqprdt)
     dydtd = FMTOFS_D(dqprdt, dqprdtd, dydt)
     RETURN
   END SUBROUTINE DQDT_D
@@ -238,13 +244,18 @@ CONTAINS
     IMPLICIT NONE
     REAL*8, INTENT(IN) :: y(:, :)
     REAL*8, INTENT(OUT) :: dydt(:, :)
+! qprime
+    REAL*8 :: local_qprime(nsh2, nvl)
+! psi
+    REAL*8 :: local_psi(nsh2, nvl)
+! psit
+    REAL*8 :: local_psit(nsh2, ntl)
 ! time derivative of qprime
     REAL*8 :: dqprdt(nsh2, nvl)
-    qprime = FSTOFM(y, nm)
-    CALL QTOPSI(qprime, psi, psit)
-! qprime --> psi and psit
+    local_qprime = FSTOFM(y, nm)
+    CALL QTOPSI(local_qprime, local_psi, local_psit)
 ! psi, psit, qprime, for, diss --> dqprdt
-    dqprdt = DDT(psi, psit, qprime, for)
+    dqprdt = DDT(local_psi, local_psit, local_qprime, for)
     dydt = FMTOFS(dqprdt)
     RETURN
   END SUBROUTINE DQDT
@@ -575,7 +586,7 @@ CONTAINS
   END FUNCTION JACOBD
 !  Differentiation of qtopsi in forward (tangent) mode:
 !   variations   of useful results: psi psit
-!   with respect to varying inputs: psi psit qprime
+!   with respect to varying inputs: qprime
 !-----------------------------------------------------------------------
 ! computation of streamfunction from potential vorticity
 ! input  qprime which is potential vorticity field
@@ -598,6 +609,7 @@ CONTAINS
     REAL*8 :: ws(nsh2)
     REAL*8 :: wsd(nsh2)
     INTRINSIC SIZE
+    psid = 0.0_8
     wsd = 0.0_8
     DO k=1,SIZE(psi, 1)
       wsd(k) = qprimed(k, 1) + qprimed(k, 3)
@@ -609,6 +621,7 @@ CONTAINS
       psid(k, 3) = qprimed(k, 1) - qprimed(k, 3)
       psi(k, 3) = qprime(k, 1) - qprime(k, 3)
     END DO
+    psitd = 0.0_8
     DO k=1,SIZE(psit, 1)
       psitd(k, 1) = rinhel(k, 2)*psid(k, 2) + rinhel(k, 3)*psid(k, 3)
       psit(k, 1) = rinhel(k, 2)*psi(k, 2) + rinhel(k, 3)*psi(k, 3)

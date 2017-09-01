@@ -123,11 +123,14 @@ contains
     real*8,         intent(   in) :: y(:,:)
     real*8,         intent(  out) :: dydt(:,:)
 
+    real*8 :: local_qprime(nsh2,nvl) ! qprime
+    real*8 :: local_psi(nsh2,nvl)    ! psi
+    real*8 :: local_psit(nsh2,ntl)   ! psit
     real*8 :: dqprdt(nsh2,nvl) ! time derivative of qprime
 
-    qprime = fstofm(y, nm)
-    call qtopsi(qprime, psi, psit)            ! qprime --> psi and psit
-    dqprdt = ddt(psi, psit, qprime, for) ! psi, psit, qprime, for, diss --> dqprdt
+    local_qprime = fstofm(y, nm)
+    call qtopsi(local_qprime, local_psi, local_psit)
+    dqprdt = ddt(local_psi, local_psit, local_qprime, for) ! psi, psit, qprime, for, diss --> dqprdt
     dydt = fmtofs(dqprdt)
 
     return

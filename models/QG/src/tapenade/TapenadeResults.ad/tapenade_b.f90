@@ -26,10 +26,8 @@ MODULE TAPENADE_B
 ! Model state
 ! Stream function at the nvl levels
   REAL*8 :: psi(nsh2, nvl)
-  REAL*8 :: psib(nsh2, nvl)
 ! Thickness at the ntl levels
   REAL*8 :: psit(nsh2, ntl)
-  REAL*8 :: psitb(nsh2, ntl)
 ! Potential vorticity
   REAL*8 :: qprime(nsh2, nvl)
   REAL*8 :: qprimeb(nsh2, nvl)
@@ -94,9 +92,8 @@ MODULE TAPENADE_B
 CONTAINS
 !  Differentiation of adv_nsteps in reverse (adjoint) mode:
 !   gradient     of useful results: qprime
-!   with respect to varying inputs: psi tmp qprime psit
-!   RW status of diff variables: psi:out agg_copy:(loc) tmp:out
-!                qprime:in-out psit:out
+!   with respect to varying inputs: tmp qprime
+!   RW status of diff variables: agg_copy:(loc) tmp:out qprime:in-out
 !-----------------------------------------------------------------------
 ! performs a fourth order runge kutta time step at truncation nm
 ! with time step dt
@@ -119,19 +116,14 @@ CONTAINS
     dt6 = dtt/6d0
 ! Advance the model forward in time n steps
     y = FMTOFS(qprime)
-    CALL PUSHREAL8ARRAY(psit, nsh2*ntl)
-    CALL PUSHREAL8ARRAY(qprime, nsh2*nvl)
     CALL PUSHREAL8ARRAY(tmp, nlat*nlon)
-    CALL PUSHREAL8ARRAY(psi, nsh2*nvl)
     CALL DQDT(y, dydt)
     DO l=1,nvl
       DO k=1,nvar
         yt(k, l) = y(k, l) + dt2*dydt(k, l)
       END DO
     END DO
-    CALL PUSHREAL8ARRAY(psit, nsh2*ntl)
     CALL PUSHREAL8ARRAY(tmp, nlat*nlon)
-    CALL PUSHREAL8ARRAY(psi, nsh2*nvl)
     CALL DQDT(yt, dyt)
     DO l=1,nvl
       DO k=1,nvar
@@ -139,9 +131,7 @@ CONTAINS
         yt(k, l) = y(k, l) + dt2*dyt(k, l)
       END DO
     END DO
-    CALL PUSHREAL8ARRAY(psit, nsh2*ntl)
     CALL PUSHREAL8ARRAY(tmp, nlat*nlon)
-    CALL PUSHREAL8ARRAY(psi, nsh2*nvl)
     CALL DQDT(yt, dym)
     DO l=1,nvl
       DO k=1,nvar
@@ -150,9 +140,7 @@ CONTAINS
         dym(k, l) = dyt(k, l) + dym(k, l)
       END DO
     END DO
-    CALL PUSHREAL8ARRAY(psit, nsh2*ntl)
     CALL PUSHREAL8ARRAY(tmp, nlat*nlon)
-    CALL PUSHREAL8ARRAY(psi, nsh2*nvl)
     CALL DQDT(yt, dyt)
     DO l=1,nvl
       DO k=1,nvar
@@ -174,13 +162,9 @@ CONTAINS
         dymb(k, l) = dymb(k, l) + 2.*tempb
       END DO
     END DO
-    CALL POPREAL8ARRAY(psi, nsh2*nvl)
     CALL POPREAL8ARRAY(tmp, nlat*nlon)
-    CALL POPREAL8ARRAY(psit, nsh2*ntl)
     ytb = 0.0_8
-    psitb = 0.0_8
     tmpb = 0.0_8
-    psib = 0.0_8
     CALL DQDT_B(yt, ytb, dyt, dytb)
     dytb = 0.0_8
     DO l=nvl,1,-1
@@ -192,9 +176,7 @@ CONTAINS
         ytb(k, l) = 0.0_8
       END DO
     END DO
-    CALL POPREAL8ARRAY(psi, nsh2*nvl)
     CALL POPREAL8ARRAY(tmp, nlat*nlon)
-    CALL POPREAL8ARRAY(psit, nsh2*ntl)
     CALL DQDT_B(yt, ytb, dym, dymb)
     DO l=nvl,1,-1
       DO k=nvar,1,-1
@@ -204,9 +186,7 @@ CONTAINS
         ytb(k, l) = 0.0_8
       END DO
     END DO
-    CALL POPREAL8ARRAY(psi, nsh2*nvl)
     CALL POPREAL8ARRAY(tmp, nlat*nlon)
-    CALL POPREAL8ARRAY(psit, nsh2*ntl)
     CALL DQDT_B(yt, ytb, dyt, dytb)
     DO l=nvl,1,-1
       DO k=nvar,1,-1
@@ -215,10 +195,7 @@ CONTAINS
         ytb(k, l) = 0.0_8
       END DO
     END DO
-    CALL POPREAL8ARRAY(psi, nsh2*nvl)
     CALL POPREAL8ARRAY(tmp, nlat*nlon)
-    CALL POPREAL8ARRAY(qprime, nsh2*nvl)
-    CALL POPREAL8ARRAY(psit, nsh2*ntl)
     CALL DQDT_B(y, yb, dydt, dydtb)
     CALL FMTOFS_B(qprime, qprimeb, yb)
   END SUBROUTINE ADV_NSTEPS_B
@@ -271,8 +248,8 @@ CONTAINS
     CALL QTOPSI(qprime, psi, psit)
   END SUBROUTINE ADV_NSTEPS
 !  Differentiation of dqdt in reverse (adjoint) mode:
-!   gradient     of useful results: psi tmp psit y dydt
-!   with respect to varying inputs: psi tmp psit y
+!   gradient     of useful results: tmp y dydt
+!   with respect to varying inputs: tmp y
 !-----------------------------------------------------------------------
 ! computation of time derivative of the potential vorticity field
 ! input  y potential vorticity in french format
@@ -285,26 +262,34 @@ CONTAINS
     REAL*8 :: yb(:, :)
     REAL*8 :: dydt(:, :)
     REAL*8 :: dydtb(:, :)
+! qprime
+    REAL*8 :: local_qprime(nsh2, nvl)
+    REAL*8 :: local_qprimeb(nsh2, nvl)
+! psi
+    REAL*8 :: local_psi(nsh2, nvl)
+    REAL*8 :: local_psib(nsh2, nvl)
+! psit
+    REAL*8 :: local_psit(nsh2, ntl)
+    REAL*8 :: local_psitb(nsh2, ntl)
 ! time derivative of qprime
     REAL*8 :: dqprdt(nsh2, nvl)
     REAL*8 :: dqprdtb(nsh2, nvl)
-    CALL PUSHREAL8ARRAY(qprime, 506*3)
-    qprime = FSTOFM(y, nm)
-    CALL PUSHREAL8ARRAY(psit, 506*2)
-    CALL PUSHREAL8ARRAY(psi, 506*3)
-    CALL QTOPSI(qprime, psi, psit)
-! qprime --> psi and psit
+    local_qprime = FSTOFM(y, nm)
+    CALL PUSHREAL8ARRAY(local_psit, 506*2)
+    CALL PUSHREAL8ARRAY(local_psi, 506*3)
+    CALL QTOPSI(local_qprime, local_psi, local_psit)
 ! psi, psit, qprime, for, diss --> dqprdt
     CALL PUSHREAL8ARRAY(tmp, nlat*nlon)
-    dqprdt = DDT(psi, psit, qprime, for)
+    dqprdt = DDT(local_psi, local_psit, local_qprime, for)
     CALL FMTOFS_B(dqprdt, dqprdtb, dydtb)
     CALL POPREAL8ARRAY(tmp, nlat*nlon)
-    CALL DDT_B(psi, psib, psit, psitb, qprime, qprimeb, for, dqprdtb)
-    CALL POPREAL8ARRAY(psi, 506*3)
-    CALL POPREAL8ARRAY(psit, 506*2)
-    CALL QTOPSI_B(qprime, qprimeb, psi, psib, psit, psitb)
-    CALL POPREAL8ARRAY(qprime, 506*3)
-    CALL FSTOFM_B(y, yb, nm, qprimeb)
+    CALL DDT_B(local_psi, local_psib, local_psit, local_psitb, &
+&        local_qprime, local_qprimeb, for, dqprdtb)
+    CALL POPREAL8ARRAY(local_psi, 506*3)
+    CALL POPREAL8ARRAY(local_psit, 506*2)
+    CALL QTOPSI_B(local_qprime, local_qprimeb, local_psi, local_psib, &
+&           local_psit, local_psitb)
+    CALL FSTOFM_B(y, yb, nm, local_qprimeb)
   END SUBROUTINE DQDT_B
 !-----------------------------------------------------------------------
 ! computation of time derivative of the potential vorticity field
@@ -316,18 +301,23 @@ CONTAINS
     IMPLICIT NONE
     REAL*8, INTENT(IN) :: y(:, :)
     REAL*8, INTENT(OUT) :: dydt(:, :)
+! qprime
+    REAL*8 :: local_qprime(nsh2, nvl)
+! psi
+    REAL*8 :: local_psi(nsh2, nvl)
+! psit
+    REAL*8 :: local_psit(nsh2, ntl)
 ! time derivative of qprime
     REAL*8 :: dqprdt(nsh2, nvl)
-    qprime = FSTOFM(y, nm)
-    CALL QTOPSI(qprime, psi, psit)
-! qprime --> psi and psit
+    local_qprime = FSTOFM(y, nm)
+    CALL QTOPSI(local_qprime, local_psi, local_psit)
 ! psi, psit, qprime, for, diss --> dqprdt
-    dqprdt = DDT(psi, psit, qprime, for)
+    dqprdt = DDT(local_psi, local_psit, local_qprime, for)
     dydt = FMTOFS(dqprdt)
     RETURN
   END SUBROUTINE DQDT
 !  Differentiation of ddt in reverse (adjoint) mode:
-!   gradient     of useful results: tmp psi dqprdt psit
+!   gradient     of useful results: tmp dqprdt
 !   with respect to varying inputs: tmp psi qprime psit
 !----------------------------------------------------------------------
 ! ddt
@@ -373,6 +363,7 @@ CONTAINS
         qprimeb(k, l) = qprimeb(k, l) + diss(k, 1)*dqprdtb(k, l)
       END DO
     END DO
+    psitb = 0.0_8
     DO k=nsh2,1,-1
       dum2b = dqprdtb(k, 2) - dqprdtb(k, 3)
       dum1b = dqprdtb(k, 1) - dqprdtb(k, 2)
@@ -530,7 +521,7 @@ CONTAINS
     RETURN
   END FUNCTION JACOB
 !  Differentiation of jacobd in reverse (adjoint) mode:
-!   gradient     of useful results: tmp sjacob psiloc pvor
+!   gradient     of useful results: tmp sjacob pvor
 !   with respect to varying inputs: tmp psiloc pvor
 !----------------------------------------------------------------------
 ! advection of potential vorticity and dissipation on gaussian grid
@@ -574,6 +565,7 @@ CONTAINS
     END DO
     CALL POPCONTROL1B(branch)
     IF (branch .EQ. 0) THEN
+      psilocb = 0.0_8
       DO k=nsh2,1,-1
         psilocb(k) = psilocb(k) + diss(k, 2)*sjacobb(k)
       END DO
@@ -595,6 +587,7 @@ CONTAINS
       END DO
       vvb = 0.0_8
       CALL SPTOGG_PP_B(vv, vvb, azetab)
+      psilocb = 0.0_8
       DO k=nsh2,1,-1
         psilocb(k) = psilocb(k) + diss(k, 2)*vvb(k)
         vvb(k) = 0.0_8
@@ -678,7 +671,7 @@ CONTAINS
   END FUNCTION JACOBD
 !  Differentiation of qtopsi in reverse (adjoint) mode:
 !   gradient     of useful results: psi psit qprime
-!   with respect to varying inputs: psi psit qprime
+!   with respect to varying inputs: qprime
 !-----------------------------------------------------------------------
 ! computation of streamfunction from potential vorticity
 ! input  qprime which is potential vorticity field

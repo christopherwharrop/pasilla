@@ -41,6 +41,8 @@ module QG_Model_ADJ
     real(r8kind), allocatable :: trajectory(:,:) ! Adjoint trajectory
     real(r8kind), allocatable :: psit(:,:)       ! Thickness at the ntl levels
     real(r8kind), allocatable :: qprime(:,:)     ! Potential vorticity
+    real(r8kind), allocatable :: psitb(:,:)       ! Thickness at the ntl levels
+    real(r8kind), allocatable :: qprimeb(:,:)     ! Potential vorticity
 
     ! Model Forcing
     real(r8kind), allocatable :: for(:,:)    ! Constant potential vorticity forcing at the nvl levels
@@ -108,21 +110,28 @@ module QG_Model_ADJ
     procedure, private :: init_state
     procedure, private :: artiforc
     procedure, private :: dqdt
+    procedure, private :: dqdt_b
     procedure, private :: ddt
+    procedure, private :: ddt_b
     procedure, private :: ddtl
     procedure, private :: ddtlad
     procedure, private :: ddtad
     procedure, private :: jacob
+    procedure, private :: jacob_b
     procedure, private :: jacobd
+    procedure, private :: jacobd_b
     procedure, private :: jacobp
     procedure, private :: psitoq
     procedure, private :: qtopsi
+    procedure, private :: qtopsi_b
     procedure, private :: psiq
     procedure, private :: qpsi
     procedure, private :: lap
     procedure, private :: lapinv
     procedure, private :: fmtofs
+    procedure, private :: fmtofs_b
     procedure, private :: fstofm
+    procedure, private :: fstofm_b
     procedure, private :: mudera
     procedure, private :: timiad
     procedure, private :: timinp
@@ -231,6 +240,9 @@ contains
     else
       allocate(qg_adj%trajectory, source = qg_adj%psi)
     end if
+    allocate(qg_adj%psitb(qg_adj%nsh2,qg_adj%ntl))
+    allocate(qg_adj%qprimeb(qg_adj%nsh2,qg_adj%nvl))
+    call qg_adj%psitoq(qg_adj%trajectory, qg_adj%psitb, qg_adj%qprimeb)
 
   end function constructor_qg_adj
 
@@ -683,6 +695,139 @@ contains
     class(qg_adj_type) :: this
     integer           :: nsteps
 
+    integer :: step, k, l, nvar
+    real(r8kind) :: dt2, dt6
+    real(r8kind) :: y(this%nsh2, this%nvl), dydt(this%nsh2, this%nvl), yt(this%nsh2, this%nvl)
+    real(r8kind) :: dyt(this%nsh2, this%nvl), dym(this%nsh2, this%nvl)
+    real(r8kind) :: yb(this%nsh2, this%nvl), dydtb(this%nsh2, this%nvl), ytb(this%nsh2, this%nvl)
+    real(r8kind) :: dytb(this%nsh2, this%nvl), dymb(this%nsh2, this%nvl)
+    real(r8kind) :: tempb
+
+    if (nsteps > 0) then
+
+      nvar = (this%nm + 2) * this%nm
+      dt2 = this%dtt * 0.5d0
+      dt6 = this%dtt / 6d0
+
+      ! Advance the model forward in time n steps
+      do step = 1, nsteps
+
+        y = this%FMTOFS(this%qprime)
+!       CALL PUSHREAL8ARRAY(tmp, nlat*nlon)
+        CALL this%DQDT(y, dydt)
+        DO l = 1, this%nvl
+          DO k = 1, nvar
+            yt(k, l) = y(k, l) + dt2 * dydt(k, l)
+          END DO
+        END DO
+!       CALL PUSHREAL8ARRAY(tmp, nlat*nlon)
+        CALL this%DQDT(yt, dyt)
+        DO l = 1, this%nvl
+          DO k = 1, nvar
+            CALL PUSHREAL8(yt(k, l))
+            yt(k, l) = y(k, l) + dt2 * dyt(k, l)
+          END DO
+        END DO
+!       CALL PUSHREAL8ARRAY(tmp, nlat*nlon)
+        CALL this%DQDT(yt, dym)
+        DO l = 1, this%nvl
+          DO k = 1, nvar
+            CALL PUSHREAL8(yt(k, l))
+            yt(k, l) = y(k, l) + this%dtt * dym(k, l)
+            dym(k, l) = dyt(k, l) + dym(k, l)
+          END DO
+        END DO
+!       CALL PUSHREAL8ARRAY(tmp, nlat*nlon)
+        CALL this%DQDT(yt, dyt)
+        DO l = 1, this%nvl
+          DO k = 1, nvar
+            CALL PUSHREAL8(y(k, l))
+            y(k, l) = y(k, l) + dt6 * (dydt(k, l) + dyt(k, l) + 2. * dym(k, l))
+          END DO
+        END DO
+        yb = 0.0_8
+        CALL this%FSTOFM_B(y, yb, this%nm, this%qprimeb)
+        dymb = 0.0_8
+        dytb = 0.0_8
+        dydtb = 0.0_8
+        DO l = this%nvl, 1, -1
+          DO k = nvar, 1, -1
+            CALL POPREAL8(y(k, l))
+            tempb = dt6 * yb(k, l)
+            dydtb(k, l) = dydtb(k, l) + tempb
+            dytb(k, l) = dytb(k, l) + tempb
+            dymb(k, l) = dymb(k, l) + 2. * tempb
+          END DO
+        END DO
+!       CALL POPREAL8ARRAY(tmp, nlat*nlon)
+        ytb = 0.0_8
+!        tmpb = 0.0_8
+        CALL this%DQDT_B(yt, ytb, dyt, dytb)
+        dytb = 0.0_8
+        DO l = this%nvl, 1, -1
+          DO k = nvar, 1, -1
+            dytb(k, l) = dytb(k, l) + dymb(k, l)
+            CALL POPREAL8(yt(k, l))
+            yb(k, l) = yb(k, l) + ytb(k, l)
+            dymb(k, l) = dymb(k, l) + this%dtt * ytb(k, l)
+            ytb(k, l) = 0.0_8
+          END DO
+        END DO
+!       CALL POPREAL8ARRAY(tmp, nlat*nlon)
+        CALL this%DQDT_B(yt, ytb, dym, dymb)
+        DO l = this%nvl, 1, -1
+          DO k = nvar, 1, -1
+            CALL POPREAL8(yt(k, l))
+            yb(k, l) = yb(k, l) + ytb(k, l)
+            dytb(k, l) = dytb(k, l) + dt2 * ytb(k, l)
+            ytb(k, l) = 0.0_8
+          END DO
+        END DO
+!       CALL POPREAL8ARRAY(tmp, nlat*nlon)
+        CALL this%DQDT_B(yt, ytb, dyt, dytb)
+        DO l = this%nvl, 1, -1
+          DO k = nvar, 1, -1
+            yb(k, l) = yb(k, l) + ytb(k, l)
+            dydtb(k, l) = dydtb(k, l) + dt2 * ytb(k, l)
+            ytb(k, l) = 0.0_8
+          END DO
+        END DO
+!       CALL POPREAL8ARRAY(tmp, nlat*nlon)
+        CALL this%DQDT_B(y, yb, dydt, dydtb)
+        CALL this%FMTOFS_B(this%qprime, this%qprimeb, yb)
+
+        ! Update model state with original trajectory
+        this%qprime = this%qprime + this%qprimeb
+
+        ! Update trajectory
+        this%qprimeb = this%fstofm(yb, this%nm)
+
+        ! Inrement the step count
+        this%step = this%step + 1
+
+      end do
+
+      ! Make stream function consistent with potential vorticity
+      call this%qtopsi(this%qprimeb, this%trajectory, this%psitb)
+      call this%qtopsi(this%qprime, this%psi, this%psit)
+
+    end if
+
+  end subroutine adv_nsteps
+
+
+  !-----------------------------------------------------------------------
+  ! performs a fourth order runge kutta time step at truncation nm
+  ! with time step dt
+  ! dqdt calculates the time derivative
+  ! input  qprime at current time
+  ! output qprime at current time plus dt
+  !-----------------------------------------------------------------------
+  subroutine adv_nsteps_orig(this, nsteps)
+
+    class(qg_adj_type) :: this
+    integer           :: nsteps
+
     integer :: step
     real(r8kind) :: x1(this%nsh2, 3), x2(this%nsh2, 3)
     ! Advance the model forward in time n steps
@@ -708,7 +853,7 @@ contains
     ! Make stream function consistent with potential vorticity
     call this%qtopsi(this%qprime, this%psi, this%psit)
 
-  end subroutine adv_nsteps
+  end subroutine adv_nsteps_orig
 
 
   !-----------------------------------------------------------------------
@@ -734,6 +879,52 @@ contains
 
   end subroutine dqdt
 
+
+  !  Differentiation of dqdt in reverse (adjoint) mode:
+  !   gradient     of useful results: tmp y dydt
+  !   with respect to varying inputs: tmp y
+  !-----------------------------------------------------------------------
+  ! computation of time derivative of the potential vorticity field
+  ! input  y potential vorticity in french format
+  ! output dydt time derivative of y in french format
+  ! values of qprime,  psi and psit are changed
+  !-----------------------------------------------------------------------
+  SUBROUTINE DQDT_B(this, y, yb, dydt, dydtb)
+
+    class(qg_adj_type), intent(in) :: this
+    REAL*8, INTENT(IN) :: y(:, :)
+    REAL*8 :: yb(:, :)
+    REAL*8 :: dydt(:, :)
+    REAL*8 :: dydtb(:, :)
+! qprime
+    REAL*8 :: local_qprime(this%nsh2, this%nvl)
+    REAL*8 :: local_qprimeb(this%nsh2, this%nvl)
+! psi
+    REAL*8 :: local_psi(this%nsh2, this%nvl)
+    REAL*8 :: local_psib(this%nsh2, this%nvl)
+! psit
+    REAL*8 :: local_psit(this%nsh2, this%ntl)
+    REAL*8 :: local_psitb(this%nsh2, this%ntl)
+! time derivative of qprime
+    REAL*8 :: dqprdt(this%nsh2, this%nvl)
+    REAL*8 :: dqprdtb(this%nsh2, this%nvl)
+
+    local_qprime = this%FSTOFM(y, this%nm)
+    CALL PUSHREAL8ARRAY(local_psit, this%nsh2*this%ntl)
+    CALL PUSHREAL8ARRAY(local_psi, this%nsh2*this%nvl)
+    CALL this%QTOPSI(local_qprime, local_psi, local_psit)
+! psi, psit, qprime, for, diss --> dqprdt
+!    CALL PUSHREAL8ARRAY(tmp, nlat*nlon)
+    dqprdt = this%DDT(local_psi, local_psit, local_qprime, this%for)
+    CALL this%FMTOFS_B(dqprdt, dqprdtb, dydtb)
+!    CALL POPREAL8ARRAY(tmp, nlat*nlon)
+    CALL this%DDT_B(local_psi, local_psib, local_psit, local_psitb, local_qprime, local_qprimeb, this%for, dqprdtb)
+    CALL POPREAL8ARRAY(local_psi, this%nsh2*this%nvl)
+    CALL POPREAL8ARRAY(local_psit, this%nsh2*this%ntl)
+    CALL this%QTOPSI_B(local_qprime, local_qprimeb, local_psi, local_psib, local_psit, local_psitb)
+    CALL this%FSTOFM_B(y, yb, this%nm, local_qprimeb)
+
+  END SUBROUTINE DQDT_B
 
   !----------------------------------------------------------------------
   ! ddt
@@ -783,6 +974,72 @@ contains
     return
 
   end function ddt
+
+
+!  Differentiation of ddt in reverse (adjoint) mode:
+!   gradient     of useful results: tmp dqprdt
+!   with respect to varying inputs: tmp psi qprime psit
+!----------------------------------------------------------------------
+! ddt
+!
+! computation of time derivative of the potential vorticity fields
+!
+! input qprime,  psi,  psit
+! output dqprdt
+!----------------------------------------------------------------------
+  SUBROUTINE DDT_B(this, psi, psib, psit, psitb, qprime, qprimeb, for, dqprdtb)
+
+    class(qg_adj_type), intent(in) :: this
+! stream function at the nvl levels
+    REAL*8, INTENT(IN) :: psi(this%nsh2, this%nvl)
+    REAL*8 :: psib(this%nsh2, this%nvl)
+! thickness at the ntl levels
+    REAL*8, INTENT(IN) :: psit(this%nsh2, this%ntl)
+    REAL*8 :: psitb(this%nsh2, this%ntl)
+! potential vorticity
+    REAL*8, INTENT(IN) :: qprime(this%nsh2, this%nvl)
+    REAL*8 :: qprimeb(this%nsh2, this%nvl)
+! constant potential vorticity forcing at the nvl levels
+    REAL*8, INTENT(IN) :: for(this%nsh2, this%nvl)
+    REAL*8 :: dqprdt(this%nsh2, this%nvl)
+    REAL*8 :: dqprdtb(this%nsh2, this%nvl)
+    INTEGER :: k, l, i, j
+    REAL*8 :: dum1, dum2
+    REAL*8 :: dum1b, dum2b
+    REAL*8, DIMENSION(this%nsh2) :: res
+    REAL*8, DIMENSION(this%nsh2) :: resb
+    REAL*8, DIMENSION(this%nsh2) :: res0
+    REAL*8, DIMENSION(this%nsh2) :: resb0
+! advection of potential vorticity at upper level
+!    CALL PUSHREAL8ARRAY(tmp, nlat*nlon)
+    res = this%JACOB(psi(:, 1), qprime(:, 1))
+! advection of potential vorticity at middle level
+!    CALL PUSHREAL8ARRAY(tmp, nlat*nlon)
+    res0 = this%JACOB(psi(:, 2), qprime(:, 2))
+! advection of potential vorticity and dissipation at lower level
+    qprimeb = 0.0_8
+    DO l=3,1,-1
+      DO k=this%nsh2,1,-1
+        qprimeb(k, l) = qprimeb(k, l) + this%diss(k, 1) * dqprdtb(k, l)
+      END DO
+    END DO
+    psitb = 0.0_8
+    DO k=this%nsh2,1,-1
+      dum2b = dqprdtb(k, 2) - dqprdtb(k, 3)
+      dum1b = dqprdtb(k, 1) - dqprdtb(k, 2)
+      psitb(k, 2) = psitb(k, 2) + this%relt2 * dum2b
+      psitb(k, 1) = psitb(k, 1) + this%relt1 * dum1b
+    END DO
+    CALL this%JACOBD_B(psi(:, 3), psib(:, 3), qprime(:, 3), qprimeb(:, 3), dqprdtb(:, 3))
+    dqprdtb(:, 3) = 0.0_8
+    resb0 = dqprdtb(:, 2)
+    dqprdtb(:, 2) = 0.0_8
+!    CALL POPREAL8ARRAY(tmp, nlat*nlon)
+    CALL this%JACOB_B(psi(:, 2), psib(:, 2), qprime(:, 2), qprimeb(:, 2), resb0)
+    resb = dqprdtb(:, 1)
+!    CALL POPREAL8ARRAY(tmp, nlat*nlon)
+    CALL this%JACOB_B(psi(:, 1), psib(:, 1), qprime(:, 1), qprimeb(:, 1), resb)
+  END SUBROUTINE DDT_B
 
 
   !----------------------------------------------------------------------
@@ -835,6 +1092,73 @@ contains
     return
 
   end function jacob
+
+
+!  Differentiation of jacob in reverse (adjoint) mode:
+!   gradient     of useful results: tmp sjacob psiloc pvor
+!   with respect to varying inputs: tmp psiloc pvor
+!----------------------------------------------------------------------
+! advection of potential vorticity
+! input psiloc,  pvor
+! output sjacob
+!----------------------------------------------------------------------
+  SUBROUTINE JACOB_B(this, psiloc, psilocb, pvor, pvorb, sjacobb)
+
+    class(qg_adj_type), intent(in) :: this
+    REAL*8, INTENT(IN) :: psiloc(this%nsh2)
+    REAL*8 :: psilocb(this%nsh2)
+    REAL*8, INTENT(IN) :: pvor(this%nsh2)
+    REAL*8 :: pvorb(this%nsh2)
+    REAL*8 :: sjacob(this%nsh2)
+    REAL*8 :: sjacobb(this%nsh2)
+    INTEGER :: i, j, k
+    REAL*8 :: vv(this%nsh2)
+    REAL*8 :: vvb(this%nsh2)
+    REAL*8 :: dpsidl(this%nlat, this%nlon), dpsidm(this%nlat, this%nlon), dvordl(this%nlat, this%nlon)
+    REAL*8 :: dpsidlb(this%nlat, this%nlon), dpsidmb(this%nlat, this%nlon), dvordlb(this%nlat, &
+&   this%nlon)
+    REAL*8 :: dvordm(this%nlat, this%nlon), gjacob(this%nlat, this%nlon), dpsidls(this%nsh2)
+    REAL*8 :: dvordmb(this%nlat, this%nlon), gjacobb(this%nlat, this%nlon), dpsidlsb(this%nsh2)
+    type(qg_ggsp_type) :: ggsp
+
+    ! Get grid conversion object
+    ggsp = this%ggsp
+
+! space derivatives of potential vorticity
+    vv = reshape(ggsp%DDL(pvor), (/this%nsh2/))
+    dvordl = ggsp%SPTOGG_PP(vv)
+    dvordm = ggsp%SPTOGG_PD(pvor)
+! space derivatives of streamfunction
+    dpsidls = reshape(ggsp%DDL(psiloc), (/this%nsh2/))
+    dpsidl = ggsp%SPTOGG_PP(dpsidls)
+    dpsidm = ggsp%SPTOGG_PD(psiloc)
+    dpsidlsb = 0.0_8
+    DO k=this%nsh2,1,-1
+      dpsidlsb(k) = dpsidlsb(k) - sjacobb(k)
+    END DO
+    CALL ggsp%GGTOSP_B(gjacob, gjacobb, sjacobb)
+    dpsidlb = 0.0_8
+    dpsidmb = 0.0_8
+    dvordlb = 0.0_8
+    dvordmb = 0.0_8
+    DO j=this%nlon,1,-1
+      DO i=this%nlat,1,-1
+        dpsidmb(i, j) = dpsidmb(i, j) + dvordl(i, j)*gjacobb(i, j)
+        dvordlb(i, j) = dvordlb(i, j) + dpsidm(i, j)*gjacobb(i, j)
+        dpsidlb(i, j) = dpsidlb(i, j) - dvordm(i, j)*gjacobb(i, j)
+        dvordmb(i, j) = dvordmb(i, j) - dpsidl(i, j)*gjacobb(i, j)
+        gjacobb(i, j) = 0.0_8
+      END DO
+    END DO
+    CALL ggsp%SPTOGG_PD_B(psiloc, psilocb, dpsidmb)
+    CALL ggsp%SPTOGG_PP_B(dpsidls, dpsidlsb, dpsidlb)
+    CALL ggsp%DDL_B(psiloc, psilocb, dpsidlsb)
+    CALL ggsp%SPTOGG_PD_B(pvor, pvorb, dvordmb)
+    vvb = 0.0_8
+    CALL ggsp%SPTOGG_PP_B(vv, vvb, dvordlb)
+    CALL ggsp%DDL_B(pvor, pvorb, vvb)
+
+  END SUBROUTINE JACOB_B
 
 
   !----------------------------------------------------------------------
@@ -915,6 +1239,108 @@ contains
     return
 
   end function jacobd
+
+
+!  Differentiation of jacobd in reverse (adjoint) mode:
+!   gradient     of useful results: tmp sjacob pvor
+!   with respect to varying inputs: tmp psiloc pvor
+!----------------------------------------------------------------------
+! advection of potential vorticity and dissipation on gaussian grid
+! input psiloc,  pvor
+! output sjacob
+!----------------------------------------------------------------------
+  SUBROUTINE JACOBD_B(this, psiloc, psilocb, pvor, pvorb, sjacobb)
+
+    class(qg_adj_type), intent(in) :: this
+    REAL*8, INTENT(IN) :: psiloc(this%nsh2)
+    REAL*8 :: psilocb(this%nsh2)
+    REAL*8, INTENT(IN) :: pvor(this%nsh2)
+    REAL*8 :: pvorb(this%nsh2)
+    REAL*8 :: sjacob(this%nsh2)
+    REAL*8 :: sjacobb(this%nsh2)
+    INTEGER :: i, j, k
+    REAL*8 :: dpsidl(this%nlat, this%nlon), dpsidm(this%nlat, this%nlon), dvordl(this%nlat, this%nlon)
+    REAL*8 :: dpsidlb(this%nlat, this%nlon), dpsidmb(this%nlat, this%nlon), dvordlb(this%nlat, &
+&   this%nlon)
+    REAL*8 :: dvordm(this%nlat, this%nlon), gjacob(this%nlat, this%nlon), vv(this%nsh2)
+    REAL*8 :: dvordmb(this%nlat, this%nlon), gjacobb(this%nlat, this%nlon), vvb(this%nsh2)
+    REAL*8 :: azeta(this%nlat, this%nlon), dpsidls(this%nsh2)
+    REAL*8 :: azetab(this%nlat, this%nlon), dpsidlsb(this%nsh2)
+    INTEGER :: branch
+    type(qg_ggsp_type) :: ggsp
+
+    ! Get grid conversion object
+    ggsp = this%ggsp
+
+! space derivatives of potential vorticity 
+    vv = reshape(ggsp%DDL(pvor), (/this%nsh2/))
+    dvordl = ggsp%SPTOGG_PP(vv)
+    dvordm = ggsp%SPTOGG_PD(pvor)
+! space derivatives of streamfunction
+    dpsidls = reshape(ggsp%DDL(psiloc), (/this%nsh2/))
+    dpsidl = ggsp%SPTOGG_PP(dpsidls)
+    dpsidm = ggsp%SPTOGG_PD(psiloc)
+! dissipation 
+    IF (this%lgdiss) THEN
+      CALL PUSHCONTROL1B(1)
+    ELSE
+      CALL PUSHCONTROL1B(0)
+    END IF
+    dpsidlsb = 0.0_8
+    DO k=this%nsh2,1,-1
+      dpsidlsb(k) = dpsidlsb(k) - sjacobb(k)
+    END DO
+    CALL POPCONTROL1B(branch)
+    IF (branch .EQ. 0) THEN
+      psilocb = 0.0_8
+      DO k=this%nsh2,1,-1
+        psilocb(k) = psilocb(k) + this%diss(k, 2)*sjacobb(k)
+      END DO
+      CALL ggsp%GGTOSP_B(gjacob, gjacobb, sjacobb)
+      dpsidlb = 0.0_8
+      dpsidmb = 0.0_8
+      vvb = 0.0_8
+    ELSE
+      CALL ggsp%GGTOSP_B(gjacob, gjacobb, sjacobb)
+      dpsidlb = 0.0_8
+      dpsidmb = 0.0_8
+      azetab = 0.0_8
+      DO j=this%nlon,1,-1
+        DO i=this%nlat,1,-1
+          dpsidmb(i, j) = dpsidmb(i, j) - this%ddisdy(i, j)*gjacobb(i, j)
+          azetab(i, j) = azetab(i, j) + this%rdiss(i, j)*gjacobb(i, j)
+          dpsidlb(i, j) = dpsidlb(i, j) - this%ddisdx(i, j)*gjacobb(i, j)
+        END DO
+      END DO
+      vvb = 0.0_8
+      CALL ggsp%SPTOGG_PP_B(vv, vvb, azetab)
+      psilocb = 0.0_8
+      DO k=this%nsh2,1,-1
+        psilocb(k) = psilocb(k) + this%diss(k, 2)*vvb(k)
+        vvb(k) = 0.0_8
+      END DO
+    END IF
+    dvordlb = 0.0_8
+    dvordmb = 0.0_8
+    DO j=this%nlon,1,-1
+      DO i=this%nlat,1,-1
+        dpsidmb(i, j) = dpsidmb(i, j) + (this%sinfi(i) * this%dorodl(i, j)+dvordl(i&
+&         , j))*gjacobb(i, j)
+        dvordlb(i, j) = dvordlb(i, j) + dpsidm(i, j)*gjacobb(i, j)
+        dpsidlb(i, j) = dpsidlb(i, j) - (this%sinfi(i) * this%dorodm(i, j)+dvordm(i&
+&         , j))*gjacobb(i, j)
+        dvordmb(i, j) = dvordmb(i, j) - dpsidl(i, j)*gjacobb(i, j)
+        gjacobb(i, j) = 0.0_8
+      END DO
+    END DO
+    CALL ggsp%SPTOGG_PD_B(psiloc, psilocb, dpsidmb)
+    CALL ggsp%SPTOGG_PP_B(dpsidls, dpsidlsb, dpsidlb)
+    CALL ggsp%DDL_B(psiloc, psilocb, dpsidlsb)
+    CALL ggsp%SPTOGG_PD_B(pvor, pvorb, dvordmb)
+    CALL ggsp%SPTOGG_PP_B(vv, vvb, dvordlb)
+    CALL ggsp%DDL_B(pvor, pvorb, vvb)
+
+  END SUBROUTINE JACOBD_B
 
 
   !----------------------------------------------------------------------
@@ -1011,6 +1437,100 @@ contains
     return
 
   end subroutine qtopsi
+
+
+!  Differentiation of qtopsi in reverse (adjoint) mode:
+!   gradient     of useful results: psi psit qprime
+!   with respect to varying inputs: qprime
+!-----------------------------------------------------------------------
+! computation of streamfunction from potential vorticity
+! input  qprime which is potential vorticity field
+! output psi,  the streamfunction and psit,  the layer thicknesses
+!-----------------------------------------------------------------------
+  SUBROUTINE QTOPSI_B(this, qprime, qprimeb, psi, psib, psit, psitb)
+
+! potential vorticity
+    class(qg_adj_type), intent( in) :: this
+    REAL*8, INTENT(IN) :: qprime(:, :)
+    REAL*8 :: qprimeb(:, :)
+! stream function at the nvl levels
+    REAL*8 :: psi(:, :)
+    REAL*8 :: psib(:, :)
+! thickness at the ntl levels
+    REAL*8 :: psit(:, :)
+    REAL*8 :: psitb(:, :)
+    INTEGER :: k
+    REAL*8 :: r3
+! only used as portable workspace
+    REAL*8 :: ws(this%nsh2)
+    REAL*8 :: wsb(this%nsh2)
+    INTRINSIC SIZE
+    REAL*8 :: tempb
+    REAL*8 :: tempb0
+    INTEGER :: ad_to
+    INTEGER :: ad_to0
+    INTEGER :: ad_to1
+    DO k=1,SIZE(psi, 1)
+      ws(k) = qprime(k, 1) + qprime(k, 3)
+      psi(k, 1) = this%rinhel(k, 1)*(ws(k)+qprime(k, 2))
+      psi(k, 2) = ws(k) - 2.d0*qprime(k, 2)
+      psi(k, 3) = qprime(k, 1) - qprime(k, 3)
+    END DO
+    CALL PUSHINTEGER4(k - 1)
+    DO k=1,SIZE(psit, 1)
+      psit(k, 1) = this%rinhel(k, 2)*psi(k, 2) + this%rinhel(k, 3)*psi(k, 3)
+      psit(k, 2) = this%rinhel(k, 4)*psi(k, 2) + this%rinhel(k, 5)*psi(k, 3)
+    END DO
+    CALL PUSHINTEGER4(k - 1)
+    r3 = 1./3.
+    DO k=1,SIZE(psi, 1)
+      psi(k, 2) = r3*(psi(k, 1)-psit(k, 1)+psit(k, 2))
+      psi(k, 1) = psi(k, 2) + psit(k, 1)
+      psi(k, 3) = psi(k, 2) - psit(k, 2)
+    END DO
+    CALL PUSHINTEGER4(k - 1)
+    CALL POPINTEGER4(ad_to1)
+    DO k=ad_to1,1,-1
+      psib(k, 2) = psib(k, 2) + psib(k, 3)
+      psitb(k, 2) = psitb(k, 2) - psib(k, 3)
+      psib(k, 3) = 0.0_8
+      psib(k, 2) = psib(k, 2) + psib(k, 1)
+      psitb(k, 1) = psitb(k, 1) + psib(k, 1)
+      psib(k, 1) = 0.0_8
+      tempb0 = r3*psib(k, 2)
+      psib(k, 1) = psib(k, 1) + tempb0
+      psitb(k, 1) = psitb(k, 1) - tempb0
+      psitb(k, 2) = psitb(k, 2) + tempb0
+      psib(k, 2) = 0.0_8
+    END DO
+    CALL POPINTEGER4(ad_to0)
+    DO k=ad_to0,1,-1
+      psib(k, 2) = psib(k, 2) + this%rinhel(k, 4)*psitb(k, 2)
+      psib(k, 3) = psib(k, 3) + this%rinhel(k, 5)*psitb(k, 2)
+      psitb(k, 2) = 0.0_8
+      psib(k, 2) = psib(k, 2) + this%rinhel(k, 2)*psitb(k, 1)
+      psib(k, 3) = psib(k, 3) + this%rinhel(k, 3)*psitb(k, 1)
+      psitb(k, 1) = 0.0_8
+    END DO
+    wsb = 0.0_8
+    CALL POPINTEGER4(ad_to)
+    DO k=ad_to,1,-1
+      qprimeb(k, 1) = qprimeb(k, 1) + psib(k, 3)
+      qprimeb(k, 3) = qprimeb(k, 3) - psib(k, 3)
+      psib(k, 3) = 0.0_8
+      wsb(k) = wsb(k) + psib(k, 2)
+      qprimeb(k, 2) = qprimeb(k, 2) - 2.d0*psib(k, 2)
+      psib(k, 2) = 0.0_8
+      tempb = this%rinhel(k, 1)*psib(k, 1)
+      wsb(k) = wsb(k) + tempb
+      qprimeb(k, 2) = qprimeb(k, 2) + tempb
+      psib(k, 1) = 0.0_8
+      qprimeb(k, 1) = qprimeb(k, 1) + wsb(k)
+      qprimeb(k, 3) = qprimeb(k, 3) + wsb(k)
+      wsb(k) = 0.0_8
+    END DO
+
+  END SUBROUTINE QTOPSI_B
 
 
   !-----------------------------------------------------------------------
@@ -1171,6 +1691,113 @@ contains
 
   end function fmtofs
 
+!  Differentiation of fmtofs in reverse (adjoint) mode:
+!   gradient     of useful results: z
+!   with respect to varying inputs: y
+!-----------------------------------------------------------------------
+! transforms francos format to the french format for global fields
+! input  y spectral coefficients in francos format
+! output z spectral coefficients in french format
+! fm format:
+! k       m  n
+! 1       0  0
+! 2       0  1
+! 3       0  2
+! :       :  :
+! nm+1    0  nm
+! nm+2    1  1 --> real part
+! nm+3    1  2 --> real part
+! :       :  :
+! nm+nm+1 1  nm --> real part
+! :       :  :
+! :       nm nm --> real part
+!  repeat for imaginary part
+!  disadvantage: 0 0 mode and imaginary parts of m = 0 modes are obsolete
+! fs format stores all m for every n first and has no obsolete indices
+! 
+! k       m  n
+! 1       0  1
+! 2       1  1 --> real part
+! 3       1  1 --> imaginary part: k = 1-3 is T1 truncation
+! 4       0  2
+! 5       1  2 --> real part
+! 6       1  2 --> imaginary part
+! 7       2  2 --> real part
+! 8       2  2 --> imaginary part: k = 1-8 is T2 truncation
+! etcetera
+!-----------------------------------------------------------------------
+  SUBROUTINE FMTOFS_B(this, y, yb, zb)
+
+    class(qg_adj_type) :: this
+    REAL*8, INTENT(IN) :: y(:, :)
+    REAL*8 :: yb(:, :)
+    REAL*8, DIMENSION(SIZE(y, 1), SIZE(y, 2)) :: z
+    REAL*8, DIMENSION(SIZE(y, 1), SIZE(y, 2)) :: zb
+    INTEGER :: m, n, k, indx, l
+    INTRINSIC SIZE
+    INTRINSIC MAX
+    INTEGER :: max1
+    INTEGER :: branch
+    INTEGER :: ad_from
+    INTEGER :: ad_to
+    DO l=1,SIZE(y, 2)
+      CALL PUSHINTEGER4(k)
+      k = 1
+      DO m=0,this%nm
+        IF (m .LT. 1) THEN
+          max1 = 1
+        ELSE
+          max1 = m
+        END IF
+        ad_from = max1
+        DO n=ad_from, this%nm
+          CALL PUSHINTEGER4(k)
+          k = k + 1
+          IF (m .EQ. 0) THEN
+            CALL PUSHINTEGER4(indx)
+            indx = n**2
+            CALL PUSHCONTROL1B(0)
+          ELSE
+            CALL PUSHINTEGER4(indx)
+            indx = n**2 + 2*m - 1
+            CALL PUSHCONTROL1B(1)
+          END IF
+          IF (m .NE. 0) THEN
+            CALL PUSHCONTROL1B(0)
+          ELSE
+            CALL PUSHCONTROL1B(1)
+          END IF
+        END DO
+        CALL PUSHINTEGER4(ad_from)
+      END DO
+    END DO
+    CALL PUSHINTEGER4(l - 1)
+    yb = 0.0_8
+    CALL POPINTEGER4(ad_to)
+    DO l=ad_to,1,-1
+      DO m= this%nm,0,-1
+        CALL POPINTEGER4(ad_from)
+        DO n= this%nm,ad_from,-1
+          CALL POPCONTROL1B(branch)
+          IF (branch .EQ. 0) THEN
+            yb(k+this%nsh, l) = yb(k+this%nsh, l) + zb(indx+1, l)
+            zb(indx+1, l) = 0.0_8
+          END IF
+          yb(k, l) = yb(k, l) + zb(indx, l)
+          zb(indx, l) = 0.0_8
+          CALL POPCONTROL1B(branch)
+          IF (branch .EQ. 0) THEN
+            CALL POPINTEGER4(indx)
+          ELSE
+            CALL POPINTEGER4(indx)
+          END IF
+          CALL POPINTEGER4(k)
+        END DO
+      END DO
+      CALL POPINTEGER4(k)
+    END DO
+  END SUBROUTINE FMTOFS_B
+
 
   !-----------------------------------------------------------------------
   ! transforms the french format to francos format for global fields
@@ -1238,6 +1865,129 @@ contains
     return
 
   end function fstofm
+
+
+!  Differentiation of fstofm in reverse (adjoint) mode:
+!   gradient     of useful results: y z
+!   with respect to varying inputs: y
+!-----------------------------------------------------------------------
+! transforms the french format to francos format for global fields
+! input  y spectral coef. in french format,  ntr is truncation limit
+! output z spectral coefficients in francos format
+! fm format:
+! k       m  n
+! 1       0  0
+! 2       0  1
+! 3       0  2
+! :       :  :
+! nm+1    0  nm
+! nm+2    1  1 --> real part
+! nm+3    1  2 --> real part
+! :       :  :
+! nm+nm+1 1  nm --> real part
+! :       :  :
+! :       nm nm --> real part
+!  repeat for imaginary part
+!  disadvantage: 0 0 mode and imaginary parts of m = 0 modes are obsolete
+! fs format stores all m for every n first and has no obsolete indices
+! 
+! k       m  n
+! 1       0  1
+! 2       1  1 --> real part
+! 3       1  1 --> imaginary part: k = 1-3 is T1 truncation
+! 4       0  2
+! 5       1  2 --> real part
+! 6       1  2 --> imaginary part
+! 7       2  2 --> real part
+! 8       2  2 --> imaginary part: k = 1-8 is T2 truncation
+! etcetera
+!-----------------------------------------------------------------------
+  SUBROUTINE FSTOFM_B(this, y, yb, ntr, zb)
+
+    class(qg_adj_type), intent(in) :: this
+    REAL*8, INTENT(IN) :: y(:, :)
+    REAL*8 :: yb(:, :)
+    INTEGER, INTENT(IN) :: ntr
+    REAL*8, DIMENSION(SIZE(y, 1), SIZE(y, 2)) :: z
+    REAL*8, DIMENSION(SIZE(y, 1), SIZE(y, 2)) :: zb
+    INTEGER :: m, n, k, indx, i, l
+    INTRINSIC SIZE
+    INTRINSIC MAX
+    INTEGER :: max1
+    INTEGER :: ad_to
+    INTEGER :: branch
+    INTEGER :: ad_from
+    INTEGER :: ad_to0
+    DO l=1,SIZE(y, 2)
+      DO i=1,SIZE(y, 1)
+
+      END DO
+      CALL PUSHINTEGER4(i - 1)
+      CALL PUSHINTEGER4(k)
+      k = 1
+      DO m=0,this%nm
+        IF (m .LT. 1) THEN
+          max1 = 1
+        ELSE
+          max1 = m
+        END IF
+        ad_from = max1
+        DO n=ad_from,this%nm
+          CALL PUSHINTEGER4(k)
+          k = k + 1
+          IF (m .LE. ntr .AND. n .LE. ntr) THEN
+            IF (m .EQ. 0) THEN
+              CALL PUSHINTEGER4(indx)
+              indx = n**2
+              CALL PUSHCONTROL1B(0)
+            ELSE
+              CALL PUSHINTEGER4(indx)
+              indx = n**2 + 2*m - 1
+              CALL PUSHCONTROL1B(1)
+            END IF
+            IF (m .NE. 0) THEN
+              CALL PUSHCONTROL2B(0)
+            ELSE
+              CALL PUSHCONTROL2B(1)
+            END IF
+          ELSE
+            CALL PUSHCONTROL2B(2)
+          END IF
+        END DO
+        CALL PUSHINTEGER4(ad_from)
+      END DO
+    END DO
+    CALL PUSHINTEGER4(l - 1)
+    CALL POPINTEGER4(ad_to0)
+    DO l=ad_to0,1,-1
+      DO m=this%nm,0,-1
+        CALL POPINTEGER4(ad_from)
+        DO n=this%nm,ad_from,-1
+          CALL POPCONTROL2B(branch)
+          IF (branch .EQ. 0) THEN
+            yb(indx+1, l) = yb(indx+1, l) + zb(k+this%nsh, l)
+            zb(k+this%nsh, l) = 0.0_8
+          ELSE IF (branch .NE. 1) THEN
+            GOTO 100
+          END IF
+          yb(indx, l) = yb(indx, l) + zb(k, l)
+          zb(k, l) = 0.0_8
+          CALL POPCONTROL1B(branch)
+          IF (branch .EQ. 0) THEN
+            CALL POPINTEGER4(indx)
+          ELSE
+            CALL POPINTEGER4(indx)
+          END IF
+ 100      CALL POPINTEGER4(k)
+        END DO
+      END DO
+      CALL POPINTEGER4(k)
+      CALL POPINTEGER4(ad_to)
+      DO i=ad_to,1,-1
+        zb(i, l) = 0.0_8
+      END DO
+    END DO
+  END SUBROUTINE FSTOFM_B
 
 
   !-----------------------------------------------------------------------

@@ -28,6 +28,7 @@ module QG_GGSP
     procedure, private :: sptogg
     procedure          :: ggtosp
     procedure          :: ddl
+    procedure          :: ddl_b
   end type qg_ggsp_type
 
   interface qg_ggsp_type
@@ -309,5 +310,31 @@ contains
     return
 
   end function ddl
+
+
+!  Differentiation of ddl in reverse (adjoint) mode:
+!   gradient     of useful results: as dadl
+!   with respect to varying inputs: as
+!-----------------------------------------------------------------------
+! zonal derivative in spectral space
+! input spectral field as
+! output spectral field dadl which is as differentiated wrt lambda
+!-----------------------------------------------------------------------
+  SUBROUTINE DDL_B(this, as, asb, dadlb)
+
+    class(qg_ggsp_type), intent(in) :: this
+    REAL*8, INTENT(IN) :: as(this%nsh, 2)
+    REAL*8 :: asb(this%nsh, 2)
+    REAL*8 :: dadl(this%nsh, 2)
+    REAL*8 :: dadlb(this%nsh, 2)
+    INTEGER :: k
+    DO k=this%nsh,1,-1
+      asb(k, 1) = asb(k, 1) + this%rm(k)*dadlb(k, 2)
+      dadlb(k, 2) = 0.0_8
+      asb(k, 2) = asb(k, 2) - this%rm(k)*dadlb(k, 1)
+      dadlb(k, 1) = 0.0_8
+    END DO
+  END SUBROUTINE DDL_B
+
 
 end module QG_GGSP

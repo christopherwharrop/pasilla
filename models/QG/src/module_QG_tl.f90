@@ -729,9 +729,12 @@ contains
             y(k, l)  = y(k, l) + dt6 * ( dydt(k, l) + dyt(k, l) + 2. * dym(k, l))
           END DO
         END DO
-        this%qprimed = this%fstofm(yd, this%nm)
-!        this%qprime = this%fstofm(y, this%nm)
+
+        ! Update model state with original trajectory
         this%qprime = this%qprime + this%qprimed
+
+        ! Update trajectory
+        this%qprimed = this%fstofm(yd, this%nm)
 
         ! Inrement the step count
         this%step = this%step + 1

@@ -712,7 +712,7 @@ contains
       ! Advance the model forward in time n steps
       do step = 1, nsteps
 
-        y = this%FMTOFS(this%qprime)
+        y = this%fmtofs(this%qprime)
 !       call PUSHREAL8ARRAY(tmp, nlat*nlon)
         call this%DQDT(y, dydt)
         do l = 1, this%nvl
@@ -746,7 +746,8 @@ contains
           end do
         end do
         yb = 0.0_8
-        call this%FSTOFM_B(y, yb, this%nm, this%qprimeb)
+!       call this%fstofm_B(y, yb, this%nm, this%qprimeb)
+        yb = this%fmtofs(this%qprimeb)
         dymb = 0.0_8
         dytb = 0.0_8
         dydtb = 0.0_8
@@ -794,13 +795,14 @@ contains
         end do
 !       call POPREAL8ARRAY(tmp, nlat*nlon)
         call this%DQDT_B(y, yb, dydt, dydtb)
-        call this%FMTOFS_B(this%qprime, this%qprimeb, yb)
-
-        ! Update model state with original trajectory
-        this%qprime = this%qprime + this%qprimeb
+!       call this%fmtofs_B(this%qprime, this%qprimeb, yb)
+        this%qprimeb = this%fstofm(yb, this%nm)
 
         ! Update trajectory
         this%qprimeb = this%fstofm(yb, this%nm)
+
+        ! Update model state with original trajectory
+        this%qprime = this%qprime + this%qprimeb
 
         ! Inrement the step count
         this%step = this%step - 1
@@ -910,20 +912,32 @@ contains
     real(r8kind) :: dqprdt(this%nsh2, this%nvl)
     real(r8kind) :: dqprdtb(this%nsh2, this%nvl)
 
-    local_qprime = this%FSTOFM(y, this%nm)
+    local_qprime = this%fstofm(y, this%nm)
+
     call PUSHREAL8ARRAY(local_psit, this%nsh2*this%ntl)
     call PUSHREAL8ARRAY(local_psi, this%nsh2*this%nvl)
+
     call this%QTOPSI(local_qprime, local_psi, local_psit)
 ! psi, psit, qprime, for, diss --> dqprdt
-!    call PUSHREAL8ARRAY(tmp, nlat*nlon)
+
+!   call PUSHREAL8ARRAY(tmp, nlat*nlon)
+
     dqprdt = this%DDT(local_psi, local_psit, local_qprime, this%for)
-    call this%FMTOFS_B(dqprdt, dqprdtb, dydtb)
-!    call POPREAL8ARRAY(tmp, nlat*nlon)
+
+!   call this%fmtofs_b(dqprdt, dqprdtb, dydtb)
+    dqprdtb = this%fstofm(dydtb, this%nm)
+
+!   call POPREAL8ARRAY(tmp, nlat*nlon)
+
     call this%DDT_B(local_psi, local_psib, local_psit, local_psitb, local_qprime, local_qprimeb, this%for, dqprdtb)
+
     call POPREAL8ARRAY(local_psi, this%nsh2*this%nvl)
     call POPREAL8ARRAY(local_psit, this%nsh2*this%ntl)
+
     call this%QTOPSI_B(local_qprime, local_qprimeb, local_psi, local_psib, local_psit, local_psitb)
-    call this%FSTOFM_B(y, yb, this%nm, local_qprimeb)
+
+!   call this%fstofm_B(y, yb, this%nm, local_qprimeb)
+    yb = this%fmtofs(local_qprimeb)
 
   end subroutine DQDT_B
 
@@ -1174,7 +1188,7 @@ contains
 
     call ggsp%ddl_b(pvor, pvorb, vvb)
 
-  end subroutine JACOB_B
+  end subroutine jacob_b
 
 
   !----------------------------------------------------------------------
@@ -1756,7 +1770,7 @@ contains
   ! 8       2  2 --> imaginary part: k = 1-8 is T2 truncation
   ! etcetera
   !-----------------------------------------------------------------------
-  subroutine FMTOFS_b(this, y, yb, zb)
+  subroutine fmtofs_b(this, y, yb, zb)
 
     class(qg_adj_type) :: this
     real(r8kind), intent(IN) :: y(:, :)
@@ -1826,7 +1840,7 @@ contains
       end do
       call POPINTEGER4(k)
     end do
-  end subroutine FMTOFS_b
+  end subroutine fmtofs_b
 
 
   !-----------------------------------------------------------------------
@@ -1933,7 +1947,7 @@ contains
   ! 8       2  2 --> imaginary part: k = 1-8 is T2 truncation
   ! etcetera
   !-----------------------------------------------------------------------
-  subroutine FSTOFM_b(this, y, yb, ntr, zb)
+  subroutine fstofm_b(this, y, yb, ntr, zb)
 
     class(qg_adj_type), intent(in) :: this
     real(r8kind), intent(IN) :: y(:, :)
@@ -2018,7 +2032,7 @@ contains
         zb(i, l) = 0.0_r8kind
       end do
     end do
-  end subroutine FSTOFM_b
+  end subroutine fstofm_b
 
 
   !-----------------------------------------------------------------------

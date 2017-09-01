@@ -880,6 +880,7 @@ contains
   end subroutine dqdt
 
 
+  !-----------------------------------------------------------------------
   !  Differentiation of dqdt in reverse (adjoint) mode:
   !   gradient     of useful results: tmp y dydt
   !   with respect to varying inputs: tmp y
@@ -892,22 +893,22 @@ contains
   SUBROUTINE DQDT_B(this, y, yb, dydt, dydtb)
 
     class(qg_adj_type), intent(in) :: this
-    REAL*8, INTENT(IN) :: y(:, :)
-    REAL*8 :: yb(:, :)
-    REAL*8 :: dydt(:, :)
-    REAL*8 :: dydtb(:, :)
+    real(r8kind), INTENT(IN) :: y(:, :)
+    real(r8kind) :: yb(:, :)
+    real(r8kind) :: dydt(:, :)
+    real(r8kind) :: dydtb(:, :)
 ! qprime
-    REAL*8 :: local_qprime(this%nsh2, this%nvl)
-    REAL*8 :: local_qprimeb(this%nsh2, this%nvl)
+    real(r8kind) :: local_qprime(this%nsh2, this%nvl)
+    real(r8kind) :: local_qprimeb(this%nsh2, this%nvl)
 ! psi
-    REAL*8 :: local_psi(this%nsh2, this%nvl)
-    REAL*8 :: local_psib(this%nsh2, this%nvl)
+    real(r8kind) :: local_psi(this%nsh2, this%nvl)
+    real(r8kind) :: local_psib(this%nsh2, this%nvl)
 ! psit
-    REAL*8 :: local_psit(this%nsh2, this%ntl)
-    REAL*8 :: local_psitb(this%nsh2, this%ntl)
+    real(r8kind) :: local_psit(this%nsh2, this%ntl)
+    real(r8kind) :: local_psitb(this%nsh2, this%ntl)
 ! time derivative of qprime
-    REAL*8 :: dqprdt(this%nsh2, this%nvl)
-    REAL*8 :: dqprdtb(this%nsh2, this%nvl)
+    real(r8kind) :: dqprdt(this%nsh2, this%nvl)
+    real(r8kind) :: dqprdtb(this%nsh2, this%nvl)
 
     local_qprime = this%FSTOFM(y, this%nm)
     CALL PUSHREAL8ARRAY(local_psit, this%nsh2*this%ntl)
@@ -976,40 +977,41 @@ contains
   end function ddt
 
 
-!  Differentiation of ddt in reverse (adjoint) mode:
-!   gradient     of useful results: tmp dqprdt
-!   with respect to varying inputs: tmp psi qprime psit
-!----------------------------------------------------------------------
-! ddt
-!
-! computation of time derivative of the potential vorticity fields
-!
-! input qprime,  psi,  psit
-! output dqprdt
-!----------------------------------------------------------------------
+  !----------------------------------------------------------------------
+  !  Differentiation of ddt in reverse (adjoint) mode:
+  !   gradient     of useful results: tmp dqprdt
+  !   with respect to varying inputs: tmp psi qprime psit
+  !----------------------------------------------------------------------
+  ! ddt
+  !
+  ! computation of time derivative of the potential vorticity fields
+  !
+  ! input qprime,  psi,  psit
+  ! output dqprdt
+  !----------------------------------------------------------------------
   SUBROUTINE DDT_B(this, psi, psib, psit, psitb, qprime, qprimeb, for, dqprdtb)
 
     class(qg_adj_type), intent(in) :: this
 ! stream function at the nvl levels
-    REAL*8, INTENT(IN) :: psi(this%nsh2, this%nvl)
-    REAL*8 :: psib(this%nsh2, this%nvl)
+    real(r8kind), INTENT(IN) :: psi(this%nsh2, this%nvl)
+    real(r8kind) :: psib(this%nsh2, this%nvl)
 ! thickness at the ntl levels
-    REAL*8, INTENT(IN) :: psit(this%nsh2, this%ntl)
-    REAL*8 :: psitb(this%nsh2, this%ntl)
+    real(r8kind), INTENT(IN) :: psit(this%nsh2, this%ntl)
+    real(r8kind) :: psitb(this%nsh2, this%ntl)
 ! potential vorticity
-    REAL*8, INTENT(IN) :: qprime(this%nsh2, this%nvl)
-    REAL*8 :: qprimeb(this%nsh2, this%nvl)
+    real(r8kind), INTENT(IN) :: qprime(this%nsh2, this%nvl)
+    real(r8kind) :: qprimeb(this%nsh2, this%nvl)
 ! constant potential vorticity forcing at the nvl levels
-    REAL*8, INTENT(IN) :: for(this%nsh2, this%nvl)
-    REAL*8 :: dqprdt(this%nsh2, this%nvl)
-    REAL*8 :: dqprdtb(this%nsh2, this%nvl)
-    INTEGER :: k, l, i, j
-    REAL*8 :: dum1, dum2
-    REAL*8 :: dum1b, dum2b
-    REAL*8, DIMENSION(this%nsh2) :: res
-    REAL*8, DIMENSION(this%nsh2) :: resb
-    REAL*8, DIMENSION(this%nsh2) :: res0
-    REAL*8, DIMENSION(this%nsh2) :: resb0
+    real(r8kind), INTENT(IN) :: for(this%nsh2, this%nvl)
+    real(r8kind) :: dqprdt(this%nsh2, this%nvl)
+    real(r8kind) :: dqprdtb(this%nsh2, this%nvl)
+    integer :: k, l, i, j
+    real(r8kind) :: dum1, dum2
+    real(r8kind) :: dum1b, dum2b
+    real(r8kind), DIMENSION(this%nsh2) :: res
+    real(r8kind), DIMENSION(this%nsh2) :: resb
+    real(r8kind), DIMENSION(this%nsh2) :: res0
+    real(r8kind), DIMENSION(this%nsh2) :: resb0
 ! advection of potential vorticity at upper level
 !    CALL PUSHREAL8ARRAY(tmp, nlat*nlon)
     res = this%JACOB(psi(:, 1), qprime(:, 1))
@@ -1094,31 +1096,32 @@ contains
   end function jacob
 
 
-!  Differentiation of jacob in reverse (adjoint) mode:
-!   gradient     of useful results: tmp sjacob psiloc pvor
-!   with respect to varying inputs: tmp psiloc pvor
-!----------------------------------------------------------------------
-! advection of potential vorticity
-! input psiloc,  pvor
-! output sjacob
-!----------------------------------------------------------------------
+  !----------------------------------------------------------------------
+  !  Differentiation of jacob in reverse (adjoint) mode:
+  !   gradient     of useful results: tmp sjacob psiloc pvor
+  !   with respect to varying inputs: tmp psiloc pvor
+  !----------------------------------------------------------------------
+  ! advection of potential vorticity
+  ! input psiloc,  pvor
+  ! output sjacob
+  !----------------------------------------------------------------------
   SUBROUTINE JACOB_B(this, psiloc, psilocb, pvor, pvorb, sjacobb)
 
     class(qg_adj_type), intent(in) :: this
-    REAL*8, INTENT(IN) :: psiloc(this%nsh2)
-    REAL*8 :: psilocb(this%nsh2)
-    REAL*8, INTENT(IN) :: pvor(this%nsh2)
-    REAL*8 :: pvorb(this%nsh2)
-    REAL*8 :: sjacob(this%nsh2)
-    REAL*8 :: sjacobb(this%nsh2)
-    INTEGER :: i, j, k
-    REAL*8 :: vv(this%nsh2)
-    REAL*8 :: vvb(this%nsh2)
-    REAL*8 :: dpsidl(this%nlat, this%nlon), dpsidm(this%nlat, this%nlon), dvordl(this%nlat, this%nlon)
-    REAL*8 :: dpsidlb(this%nlat, this%nlon), dpsidmb(this%nlat, this%nlon), dvordlb(this%nlat, &
+    real(r8kind), INTENT(IN) :: psiloc(this%nsh2)
+    real(r8kind) :: psilocb(this%nsh2)
+    real(r8kind), INTENT(IN) :: pvor(this%nsh2)
+    real(r8kind) :: pvorb(this%nsh2)
+    real(r8kind) :: sjacob(this%nsh2)
+    real(r8kind) :: sjacobb(this%nsh2)
+    integer :: i, j, k
+    real(r8kind) :: vv(this%nsh2)
+    real(r8kind) :: vvb(this%nsh2)
+    real(r8kind) :: dpsidl(this%nlat, this%nlon), dpsidm(this%nlat, this%nlon), dvordl(this%nlat, this%nlon)
+    real(r8kind) :: dpsidlb(this%nlat, this%nlon), dpsidmb(this%nlat, this%nlon), dvordlb(this%nlat, &
 &   this%nlon)
-    REAL*8 :: dvordm(this%nlat, this%nlon), gjacob(this%nlat, this%nlon), dpsidls(this%nsh2)
-    REAL*8 :: dvordmb(this%nlat, this%nlon), gjacobb(this%nlat, this%nlon), dpsidlsb(this%nsh2)
+    real(r8kind) :: dvordm(this%nlat, this%nlon), gjacob(this%nlat, this%nlon), dpsidls(this%nsh2)
+    real(r8kind) :: dvordmb(this%nlat, this%nlon), gjacobb(this%nlat, this%nlon), dpsidlsb(this%nsh2)
     type(qg_ggsp_type) :: ggsp
 
     ! Get grid conversion object
@@ -1241,32 +1244,33 @@ contains
   end function jacobd
 
 
-!  Differentiation of jacobd in reverse (adjoint) mode:
-!   gradient     of useful results: tmp sjacob pvor
-!   with respect to varying inputs: tmp psiloc pvor
-!----------------------------------------------------------------------
-! advection of potential vorticity and dissipation on gaussian grid
-! input psiloc,  pvor
-! output sjacob
-!----------------------------------------------------------------------
+  !----------------------------------------------------------------------
+  !  Differentiation of jacobd in reverse (adjoint) mode:
+  !   gradient     of useful results: tmp sjacob pvor
+  !   with respect to varying inputs: tmp psiloc pvor
+  !----------------------------------------------------------------------
+  ! advection of potential vorticity and dissipation on gaussian grid
+  ! input psiloc,  pvor
+  ! output sjacob
+  !----------------------------------------------------------------------
   SUBROUTINE JACOBD_B(this, psiloc, psilocb, pvor, pvorb, sjacobb)
 
     class(qg_adj_type), intent(in) :: this
-    REAL*8, INTENT(IN) :: psiloc(this%nsh2)
-    REAL*8 :: psilocb(this%nsh2)
-    REAL*8, INTENT(IN) :: pvor(this%nsh2)
-    REAL*8 :: pvorb(this%nsh2)
-    REAL*8 :: sjacob(this%nsh2)
-    REAL*8 :: sjacobb(this%nsh2)
-    INTEGER :: i, j, k
-    REAL*8 :: dpsidl(this%nlat, this%nlon), dpsidm(this%nlat, this%nlon), dvordl(this%nlat, this%nlon)
-    REAL*8 :: dpsidlb(this%nlat, this%nlon), dpsidmb(this%nlat, this%nlon), dvordlb(this%nlat, &
+    real(r8kind), INTENT(IN) :: psiloc(this%nsh2)
+    real(r8kind) :: psilocb(this%nsh2)
+    real(r8kind), INTENT(IN) :: pvor(this%nsh2)
+    real(r8kind) :: pvorb(this%nsh2)
+    real(r8kind) :: sjacob(this%nsh2)
+    real(r8kind) :: sjacobb(this%nsh2)
+    integer :: i, j, k
+    real(r8kind) :: dpsidl(this%nlat, this%nlon), dpsidm(this%nlat, this%nlon), dvordl(this%nlat, this%nlon)
+    real(r8kind) :: dpsidlb(this%nlat, this%nlon), dpsidmb(this%nlat, this%nlon), dvordlb(this%nlat, &
 &   this%nlon)
-    REAL*8 :: dvordm(this%nlat, this%nlon), gjacob(this%nlat, this%nlon), vv(this%nsh2)
-    REAL*8 :: dvordmb(this%nlat, this%nlon), gjacobb(this%nlat, this%nlon), vvb(this%nsh2)
-    REAL*8 :: azeta(this%nlat, this%nlon), dpsidls(this%nsh2)
-    REAL*8 :: azetab(this%nlat, this%nlon), dpsidlsb(this%nsh2)
-    INTEGER :: branch
+    real(r8kind) :: dvordm(this%nlat, this%nlon), gjacob(this%nlat, this%nlon), vv(this%nsh2)
+    real(r8kind) :: dvordmb(this%nlat, this%nlon), gjacobb(this%nlat, this%nlon), vvb(this%nsh2)
+    real(r8kind) :: azeta(this%nlat, this%nlon), dpsidls(this%nsh2)
+    real(r8kind) :: azetab(this%nlat, this%nlon), dpsidlsb(this%nsh2)
+    integer :: branch
     type(qg_ggsp_type) :: ggsp
 
     ! Get grid conversion object
@@ -1439,37 +1443,38 @@ contains
   end subroutine qtopsi
 
 
-!  Differentiation of qtopsi in reverse (adjoint) mode:
-!   gradient     of useful results: psi psit qprime
-!   with respect to varying inputs: qprime
-!-----------------------------------------------------------------------
-! computation of streamfunction from potential vorticity
-! input  qprime which is potential vorticity field
-! output psi,  the streamfunction and psit,  the layer thicknesses
-!-----------------------------------------------------------------------
+  !-----------------------------------------------------------------------
+  !  Differentiation of qtopsi in reverse (adjoint) mode:
+  !   gradient     of useful results: psi psit qprime
+  !   with respect to varying inputs: qprime
+  !-----------------------------------------------------------------------
+  ! computation of streamfunction from potential vorticity
+  ! input  qprime which is potential vorticity field
+  ! output psi,  the streamfunction and psit,  the layer thicknesses
+  !-----------------------------------------------------------------------
   SUBROUTINE QTOPSI_B(this, qprime, qprimeb, psi, psib, psit, psitb)
 
 ! potential vorticity
     class(qg_adj_type), intent( in) :: this
-    REAL*8, INTENT(IN) :: qprime(:, :)
-    REAL*8 :: qprimeb(:, :)
+    real(r8kind), INTENT(IN) :: qprime(:, :)
+    real(r8kind) :: qprimeb(:, :)
 ! stream function at the nvl levels
-    REAL*8 :: psi(:, :)
-    REAL*8 :: psib(:, :)
+    real(r8kind) :: psi(:, :)
+    real(r8kind) :: psib(:, :)
 ! thickness at the ntl levels
-    REAL*8 :: psit(:, :)
-    REAL*8 :: psitb(:, :)
-    INTEGER :: k
-    REAL*8 :: r3
+    real(r8kind) :: psit(:, :)
+    real(r8kind) :: psitb(:, :)
+    integer :: k
+    real(r8kind) :: r3
 ! only used as portable workspace
-    REAL*8 :: ws(this%nsh2)
-    REAL*8 :: wsb(this%nsh2)
+    real(r8kind) :: ws(this%nsh2)
+    real(r8kind) :: wsb(this%nsh2)
     INTRINSIC SIZE
-    REAL*8 :: tempb
-    REAL*8 :: tempb0
-    INTEGER :: ad_to
-    INTEGER :: ad_to0
-    INTEGER :: ad_to1
+    real(r8kind) :: tempb
+    real(r8kind) :: tempb0
+    integer :: ad_to
+    integer :: ad_to0
+    integer :: ad_to1
     DO k=1,SIZE(psi, 1)
       ws(k) = qprime(k, 1) + qprime(k, 3)
       psi(k, 1) = this%rinhel(k, 1)*(ws(k)+qprime(k, 2))
@@ -1691,55 +1696,57 @@ contains
 
   end function fmtofs
 
-!  Differentiation of fmtofs in reverse (adjoint) mode:
-!   gradient     of useful results: z
-!   with respect to varying inputs: y
-!-----------------------------------------------------------------------
-! transforms francos format to the french format for global fields
-! input  y spectral coefficients in francos format
-! output z spectral coefficients in french format
-! fm format:
-! k       m  n
-! 1       0  0
-! 2       0  1
-! 3       0  2
-! :       :  :
-! nm+1    0  nm
-! nm+2    1  1 --> real part
-! nm+3    1  2 --> real part
-! :       :  :
-! nm+nm+1 1  nm --> real part
-! :       :  :
-! :       nm nm --> real part
-!  repeat for imaginary part
-!  disadvantage: 0 0 mode and imaginary parts of m = 0 modes are obsolete
-! fs format stores all m for every n first and has no obsolete indices
-! 
-! k       m  n
-! 1       0  1
-! 2       1  1 --> real part
-! 3       1  1 --> imaginary part: k = 1-3 is T1 truncation
-! 4       0  2
-! 5       1  2 --> real part
-! 6       1  2 --> imaginary part
-! 7       2  2 --> real part
-! 8       2  2 --> imaginary part: k = 1-8 is T2 truncation
-! etcetera
-!-----------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------
+  !  Differentiation of fmtofs in reverse (adjoint) mode:
+  !   gradient     of useful results: z
+  !   with respect to varying inputs: y
+  !-----------------------------------------------------------------------
+  ! transforms francos format to the french format for global fields
+  ! input  y spectral coefficients in francos format
+  ! output z spectral coefficients in french format
+  ! fm format:
+  ! k       m  n
+  ! 1       0  0
+  ! 2       0  1
+  ! 3       0  2
+  ! :       :  :
+  ! nm+1    0  nm
+  ! nm+2    1  1 --> real part
+  ! nm+3    1  2 --> real part
+  ! :       :  :
+  ! nm+nm+1 1  nm --> real part
+  ! :       :  :
+  ! :       nm nm --> real part
+  !  repeat for imaginary part
+  !  disadvantage: 0 0 mode and imaginary parts of m = 0 modes are obsolete
+  ! fs format stores all m for every n first and has no obsolete indices
+  ! 
+  ! k       m  n
+  ! 1       0  1
+  ! 2       1  1 --> real part
+  ! 3       1  1 --> imaginary part: k = 1-3 is T1 truncation
+  ! 4       0  2
+  ! 5       1  2 --> real part
+  ! 6       1  2 --> imaginary part
+  ! 7       2  2 --> real part
+  ! 8       2  2 --> imaginary part: k = 1-8 is T2 truncation
+  ! etcetera
+  !-----------------------------------------------------------------------
   SUBROUTINE FMTOFS_B(this, y, yb, zb)
 
     class(qg_adj_type) :: this
-    REAL*8, INTENT(IN) :: y(:, :)
-    REAL*8 :: yb(:, :)
-    REAL*8, DIMENSION(SIZE(y, 1), SIZE(y, 2)) :: z
-    REAL*8, DIMENSION(SIZE(y, 1), SIZE(y, 2)) :: zb
-    INTEGER :: m, n, k, indx, l
+    real(r8kind), INTENT(IN) :: y(:, :)
+    real(r8kind) :: yb(:, :)
+    real(r8kind), DIMENSION(SIZE(y, 1), SIZE(y, 2)) :: z
+    real(r8kind), DIMENSION(SIZE(y, 1), SIZE(y, 2)) :: zb
+    integer :: m, n, k, indx, l
     INTRINSIC SIZE
     INTRINSIC MAX
-    INTEGER :: max1
-    INTEGER :: branch
-    INTEGER :: ad_from
-    INTEGER :: ad_to
+    integer :: max1
+    integer :: branch
+    integer :: ad_from
+    integer :: ad_to
     DO l=1,SIZE(y, 2)
       CALL PUSHINTEGER4(k)
       k = 1
@@ -1867,57 +1874,58 @@ contains
   end function fstofm
 
 
-!  Differentiation of fstofm in reverse (adjoint) mode:
-!   gradient     of useful results: y z
-!   with respect to varying inputs: y
-!-----------------------------------------------------------------------
-! transforms the french format to francos format for global fields
-! input  y spectral coef. in french format,  ntr is truncation limit
-! output z spectral coefficients in francos format
-! fm format:
-! k       m  n
-! 1       0  0
-! 2       0  1
-! 3       0  2
-! :       :  :
-! nm+1    0  nm
-! nm+2    1  1 --> real part
-! nm+3    1  2 --> real part
-! :       :  :
-! nm+nm+1 1  nm --> real part
-! :       :  :
-! :       nm nm --> real part
-!  repeat for imaginary part
-!  disadvantage: 0 0 mode and imaginary parts of m = 0 modes are obsolete
-! fs format stores all m for every n first and has no obsolete indices
-! 
-! k       m  n
-! 1       0  1
-! 2       1  1 --> real part
-! 3       1  1 --> imaginary part: k = 1-3 is T1 truncation
-! 4       0  2
-! 5       1  2 --> real part
-! 6       1  2 --> imaginary part
-! 7       2  2 --> real part
-! 8       2  2 --> imaginary part: k = 1-8 is T2 truncation
-! etcetera
-!-----------------------------------------------------------------------
+  !-----------------------------------------------------------------------
+  !  Differentiation of fstofm in reverse (adjoint) mode:
+  !   gradient     of useful results: y z
+  !   with respect to varying inputs: y
+  !-----------------------------------------------------------------------
+  ! transforms the french format to francos format for global fields
+  ! input  y spectral coef. in french format,  ntr is truncation limit
+  ! output z spectral coefficients in francos format
+  ! fm format:
+  ! k       m  n
+  ! 1       0  0
+  ! 2       0  1
+  ! 3       0  2
+  ! :       :  :
+  ! nm+1    0  nm
+  ! nm+2    1  1 --> real part
+  ! nm+3    1  2 --> real part
+  ! :       :  :
+  ! nm+nm+1 1  nm --> real part
+  ! :       :  :
+  ! :       nm nm --> real part
+  !  repeat for imaginary part
+  !  disadvantage: 0 0 mode and imaginary parts of m = 0 modes are obsolete
+  ! fs format stores all m for every n first and has no obsolete indices
+  ! 
+  ! k       m  n
+  ! 1       0  1
+  ! 2       1  1 --> real part
+  ! 3       1  1 --> imaginary part: k = 1-3 is T1 truncation
+  ! 4       0  2
+  ! 5       1  2 --> real part
+  ! 6       1  2 --> imaginary part
+  ! 7       2  2 --> real part
+  ! 8       2  2 --> imaginary part: k = 1-8 is T2 truncation
+  ! etcetera
+  !-----------------------------------------------------------------------
   SUBROUTINE FSTOFM_B(this, y, yb, ntr, zb)
 
     class(qg_adj_type), intent(in) :: this
-    REAL*8, INTENT(IN) :: y(:, :)
-    REAL*8 :: yb(:, :)
-    INTEGER, INTENT(IN) :: ntr
-    REAL*8, DIMENSION(SIZE(y, 1), SIZE(y, 2)) :: z
-    REAL*8, DIMENSION(SIZE(y, 1), SIZE(y, 2)) :: zb
-    INTEGER :: m, n, k, indx, i, l
+    real(r8kind), INTENT(IN) :: y(:, :)
+    real(r8kind) :: yb(:, :)
+    integer, INTENT(IN) :: ntr
+    real(r8kind), DIMENSION(SIZE(y, 1), SIZE(y, 2)) :: z
+    real(r8kind), DIMENSION(SIZE(y, 1), SIZE(y, 2)) :: zb
+    integer :: m, n, k, indx, i, l
     INTRINSIC SIZE
     INTRINSIC MAX
-    INTEGER :: max1
-    INTEGER :: ad_to
-    INTEGER :: branch
-    INTEGER :: ad_from
-    INTEGER :: ad_to0
+    integer :: max1
+    integer :: ad_to
+    integer :: branch
+    integer :: ad_from
+    integer :: ad_to0
     DO l=1,SIZE(y, 2)
       DO i=1,SIZE(y, 1)
 

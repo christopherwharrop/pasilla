@@ -312,14 +312,15 @@ contains
   end function ddl
 
 
-!  Differentiation of ddl in reverse (adjoint) mode:
-!   gradient     of useful results: as dadl
-!   with respect to varying inputs: as
-!-----------------------------------------------------------------------
-! zonal derivative in spectral space
-! input spectral field as
-! output spectral field dadl which is as differentiated wrt lambda
-!-----------------------------------------------------------------------
+  !-----------------------------------------------------------------------
+  !  Differentiation of ddl in reverse (adjoint) mode:
+  !   gradient     of useful results: as dadl
+  !   with respect to varying inputs: as
+  !-----------------------------------------------------------------------
+  ! zonal derivative in spectral space
+  ! input spectral field as
+  ! output spectral field dadl which is as differentiated wrt lambda
+  !-----------------------------------------------------------------------
   SUBROUTINE DDL_B(this, as, asb, dadlb)
 
     class(qg_ggsp_type), intent(in) :: this

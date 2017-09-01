@@ -321,21 +321,23 @@ contains
   ! input spectral field as
   ! output spectral field dadl which is as differentiated wrt lambda
   !-----------------------------------------------------------------------
-  SUBROUTINE DDL_B(this, as, asb, dadlb)
+  subroutine ddl_b(this, as, asb, dadlb)
 
-    class(qg_ggsp_type), intent(in) :: this
-    REAL*8, INTENT(IN) :: as(this%nsh, 2)
-    REAL*8 :: asb(this%nsh, 2)
-    REAL*8 :: dadl(this%nsh, 2)
-    REAL*8 :: dadlb(this%nsh, 2)
-    INTEGER :: k
-    DO k=this%nsh,1,-1
-      asb(k, 1) = asb(k, 1) + this%rm(k)*dadlb(k, 2)
-      dadlb(k, 2) = 0.0_8
-      asb(k, 2) = asb(k, 2) - this%rm(k)*dadlb(k, 1)
-      dadlb(k, 1) = 0.0_8
-    END DO
-  END SUBROUTINE DDL_B
+    class(qg_ggsp_type), intent( in) :: this
+    real(r8kind),        intent( in) :: as(this%nsh, 2)
+    real(r8kind),        intent(out) :: asb(this%nsh, 2)
+    real(r8kind),        intent(out) :: dadlb(this%nsh, 2)
+
+    integer :: k
+
+    do k=this%nsh,1,-1
+      asb(k, 1) = asb(k, 1) + this%rm(k) * dadlb(k, 2)
+      dadlb(k, 2) = 0.0_r8kind
+      asb(k, 2) = asb(k, 2) - this%rm(k) * dadlb(k, 1)
+      dadlb(k, 1) = 0.0_r8kind
+    end do
+
+  end subroutine ddl_b
 
 
 end module QG_GGSP

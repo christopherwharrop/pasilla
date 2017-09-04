@@ -27,6 +27,10 @@ module QG_GGSP
     procedure          :: sptogg_pd
     procedure, private :: sptogg
     procedure          :: ggtosp
+    procedure          :: sptogg_pp_b
+    procedure          :: sptogg_pd_b
+    procedure, private :: sptogg_b
+    procedure          :: ggtosp_b
     procedure          :: ddl
     procedure          :: ddl_b
   end type qg_ggsp_type
@@ -144,6 +148,32 @@ contains
 
 
   !-----------------------------------------------------------------------
+  !  Differentiation of sptogg_pp in reverse (adjoint) mode:
+  !   gradient     of useful results: tmp agg as
+  !   with respect to varying inputs: tmp as
+  !-----------------------------------------------------------------------
+  ! conversion from spectral coefficients to gaussian grid using
+  ! legendre polynomials
+  !
+  ! input  spectral field as
+  ! output gaussian grid agg
+  !-----------------------------------------------------------------------
+  subroutine sptogg_pp_b(this, as, asb, aggb)
+
+    ! Input
+    class(qg_ggsp_type), intent(inout) :: this
+    real(r8kind),        intent(   in) :: as(this%nsh, 2)
+    real(r8kind)                       :: asb(this%nsh, 2)
+
+    ! Return value
+    real(r8kind) :: agg(this%nlat, this%nlon)
+    real(r8kind) :: aggb(this%nlat, this%nlon)
+
+    call this%sptogg_b(as, asb, this%pp, aggb)
+
+  end subroutine sptogg_pp_b
+
+  !-----------------------------------------------------------------------
   ! conversion from spectral coefficients to gaussian grid using
   ! derivatives with respect to sin(fi) .
   !
@@ -164,6 +194,33 @@ contains
   end function sptogg_pd
 
  
+  !-----------------------------------------------------------------------
+  !  Differentiation of sptogg_pd in reverse (adjoint) mode:
+  !   gradient     of useful results: tmp agg as
+  !   with respect to varying inputs: tmp as
+  !-----------------------------------------------------------------------
+  ! conversion from spectral coefficients to gaussian grid using
+  ! derivatives with respect to sin(fi) .
+  !
+  ! input  spectral field as
+  ! output gaussian grid agg
+  !-----------------------------------------------------------------------
+  subroutine sptogg_pd_b(this, as, asb, aggb)
+
+    ! Input
+    class(qg_ggsp_type), intent(inout) :: this
+    real(r8kind),        intent(   in) :: as(this%nsh, 2)
+    real(r8kind)                       :: asb(this%nsh, 2)
+
+    ! Return value
+    real(r8kind) :: agg(this%nlat, this%nlon)
+    real(r8kind) :: aggb(this%nlat, this%nlon)
+
+    call this%sptogg_b(as, asb, this%pd, aggb)
+
+  end subroutine sptogg_pd_b
+
+
   !-----------------------------------------------------------------------
   ! conversion from spectral coefficients to gaussian grid
   ! input  spectral field as,  legendre polynomials pploc (pp or pd) 
@@ -226,6 +283,81 @@ contains
  
 
   !-----------------------------------------------------------------------
+  !  Differentiation of sptogg in reverse (adjoint) mode:
+  !   gradient     of useful results: tmp agg as
+  !   with respect to varying inputs: tmp as
+  !-----------------------------------------------------------------------
+  ! conversion from spectral coefficients to gaussian grid
+  ! input  spectral field as,  legendre polynomials pploc (pp or pd)
+  !        where pp are legendre polynomials and pd derivatives with
+  !        respect to sin(fi)
+  ! output gaussian grid agg
+  !-----------------------------------------------------------------------
+  subroutine sptogg_b(this, as, asb, pploc, aggb)
+
+   ! Input
+    class(qg_ggsp_type), intent(inout) :: this
+    real(r8kind),        intent(   in) :: as(:, :)
+    real(r8kind)                       :: asb(:, :)
+    real(r8kind),        intent(   in) :: pploc(:, :)
+
+    ! Return value
+    real(r8kind) :: agg(this%nlat, this%nlon)
+    real(r8kind) :: aggb(this%nlat, this%nlon)
+
+    ! Local data
+    !    real*8, allocatable :: tmp(:,:)   ! Work space used by the nag version of the fft
+    real(r8kind), allocatable :: tmp(:,:)   ! Work space used by the nag version of the fft
+    INTEGER :: i, j, k, k1, k2, m, mi, mr, nlon1
+    INTEGER :: ifail
+    INTEGER :: ad_to
+    INTEGER :: ad_from
+    INTEGER :: ad_to0
+
+    nlon1 = this%nlon + 1
+    k2 = this%nshm(0)
+    k = k2 + 1
+    CALL PUSHINTEGER4(k - 1)
+    DO m=1,this%nm
+      CALL PUSHINTEGER4(mr)
+      mr = m + 1
+      CALL PUSHINTEGER4(mi)
+      mi = nlon1 - m
+      k1 = k2 + 1
+      k2 = k2 + this%nshm(m)
+      ad_from = k1
+      k = k2 + 1
+      CALL PUSHINTEGER4(k - 1)
+      CALL PUSHINTEGER4(ad_from)
+    END DO
+    allocate(tmp(this%nlat,this%nlon))
+!    CALL C06FQF_B(this%nlat, this%nlon, agg, aggb, 'r', this%trigi, tmp, tmpb, ifail)
+    call c06fpf (this%nlat, this%nlon, aggb, 'r', this%trigd, tmp, ifail)
+    DO m=this%nm,1,-1
+      CALL POPINTEGER4(ad_from)
+      CALL POPINTEGER4(ad_to0)
+      DO k=ad_to0,ad_from,-1
+        DO i=this%nlat,1,-1
+          asb(k, 2) = asb(k, 2) - pploc(i, k)*aggb(i, mi)
+        END DO
+        DO i=this%nlat,1,-1
+          asb(k, 1) = asb(k, 1) + pploc(i, k)*aggb(i, mr)
+        END DO
+      END DO
+      CALL POPINTEGER4(mi)
+      CALL POPINTEGER4(mr)
+    END DO
+    CALL POPINTEGER4(ad_to)
+    DO k=ad_to,1,-1
+      DO i=this%nlat,1,-1
+        asb(k, 1) = asb(k, 1) + pploc(i, k)*aggb(i, 1)
+      END DO
+    END DO
+
+  END SUBROUTINE SPTOGG_B
+
+
+  !-----------------------------------------------------------------------
   ! conversion from gaussian grid (agg) to spectral coefficients (as)
   ! input gaussian grid field agg
   ! output as contains spectral coefficients
@@ -285,6 +417,87 @@ contains
     enddo
 
   end function ggtosp
+
+
+  !-----------------------------------------------------------------------
+  !  Differentiation of ggtosp in reverse (adjoint) mode:
+  !   gradient     of useful results: tmp as
+  !   with respect to varying inputs: tmp agg
+  !-----------------------------------------------------------------------
+  ! conversion from gaussian grid (agg) to spectral coefficients (as)
+  ! input gaussian grid field agg
+  ! output as contains spectral coefficients
+  !-----------------------------------------------------------------------
+  SUBROUTINE GGTOSP_B(this, agg, aggb, asb)
+
+    ! Input
+    class(qg_ggsp_type), intent(inout) :: this
+    real(r8kind), INTENT(IN) :: agg(:, :)
+    real(r8kind) :: aggb(:, :)
+
+    ! Return value
+    real(r8kind) :: as(this%nsh, 2)
+    real(r8kind) :: asb(this%nsh, 2)
+
+    ! Local data
+    real(r8kind), allocatable :: agg_copyb(:,:)  ! Copy of input gaussian grid field
+    real(r8kind), allocatable :: tmp(:,:)       ! Work space used by the nag version of the fft
+    INTEGER :: i, k, k1, k2, m, mi, mr, nlon1
+    INTEGER :: ifail
+    REAL :: trigd
+
+    ! Make a local copy of agg so it is not destroyed by c06fpf
+    !    allocate(agg_copy(nlat,nlon))
+    ! fourier transform
+    !    allocate(tmp(nlat,nlon))
+    INTEGER :: ad_to
+    INTEGER :: ad_from
+    INTEGER :: ad_to0
+
+    nlon1 = this%nlon + 1
+    k2 = this%nshm(0)
+    k = k2 + 1
+    CALL PUSHINTEGER4(k - 1)
+    DO m=1,this%nm
+      CALL PUSHINTEGER4(mr)
+      mr = m + 1
+      CALL PUSHINTEGER4(mi)
+      mi = nlon1 - m
+      k1 = k2 + 1
+      k2 = k2 + this%nshm(m)
+      ad_from = k1
+      k = k2 + 1
+      CALL PUSHINTEGER4(k - 1)
+      CALL PUSHINTEGER4(ad_from)
+    END DO
+    allocate(agg_copyb(this%nlat,this%nlon))
+    agg_copyb = 0.0_8
+    DO m=this%nm,1,-1
+      CALL POPINTEGER4(ad_from)
+      CALL POPINTEGER4(ad_to0)
+      DO k=ad_to0,ad_from,-1
+        DO i=this%nlat,1,-1
+          agg_copyb(i, mi) = agg_copyb(i, mi) + this%pw(i, k)*asb(k, 2)
+          agg_copyb(i, mr) = agg_copyb(i, mr) + this%pw(i, k)*asb(k, 1)
+        END DO
+      END DO
+      CALL POPINTEGER4(mi)
+      CALL POPINTEGER4(mr)
+    END DO
+    CALL POPINTEGER4(ad_to)
+    DO k=ad_to,1,-1
+      DO i=this%nlat,1,-1
+        agg_copyb(i, 1) = agg_copyb(i, 1) + this%pw(i, k)*asb(k, 1)
+      END DO
+    END DO
+!    CALL C06FPF_B(this%nlat, this%nlon, agg_copy, agg_copyb, 'r', this%trigd, tmp, tmpb, ifail)
+    allocate(tmp(this%nlat,this%nlon))
+    call c06fqf (this%nlat, this%nlon, agg_copyb, 'r', this%trigi, tmp, ifail)
+
+    aggb = 0.0_8
+    aggb(:, :) = agg_copyb(:, :)
+
+  END SUBROUTINE GGTOSP_B
 
 
   !-----------------------------------------------------------------------

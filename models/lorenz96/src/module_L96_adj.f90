@@ -16,14 +16,16 @@ module L96_ADJ
     integer                   :: step
     real(r8kind)              :: clock
     real(r8kind), allocatable :: state(:)
+    real(r8kind), allocatable :: location(:)
     real(r8kind), allocatable :: trajectory(:)
   contains
     final              :: destructor_adj
     procedure, private :: comp_dt
     procedure          :: adv_nsteps
     procedure          :: get_config
-!    procedure          :: get_location
+    procedure          :: get_location
     procedure          :: get_state
+    procedure          :: get_trajectory
     procedure          :: get_step
     procedure          :: get_clock
     procedure          :: print
@@ -50,6 +52,8 @@ contains
     real(r8kind), optional, intent(in) :: trajectory(:)
     integer,      optional, intent(in) :: step
 
+    integer :: j
+
     constructor_adj%config = config
 
     ! Initialize model step
@@ -61,6 +65,12 @@ contains
 
     ! Initialize model clock
     constructor_adj%clock = constructor_adj%step * config%get_time_step()
+
+    ! Localize the model domain
+    allocate(constructor_adj%location(config%get_nx()))
+    do j = 1, config%get_nx()
+      constructor_adj%location(j) = (j - 1.0_r8kind) / config%get_nx()
+    end do
 
     ! Initialize model state
     allocate(constructor_adj%state(config%get_nx()))
@@ -182,6 +192,7 @@ contains
     do step = 1, nsteps
 
 ! TAPENADE code
+! This code is wrong and needs to be redone
 !      call this%comp_dt(this%trajectory, dx)
 !      x1 = this%delta_t * dx
 !      inter = this%trajectory + x1 / 2.0
@@ -221,15 +232,24 @@ contains
 !
 !      call this%comp_dt_b(this%trajectory, this%state, dx, dxb)
 !
+!      this%state = this%state + this%trajectory
+!      this%trajectory = dxb
 
-
-! Lidia's MATRIX formulation with correct trajectory
+! Lidia's MATRIX formulation with compensation for an incorrect input trajectory
 44    FORMAT (A8,6F10.6)
       call buildMprime(this%state, mprime)
       x2 = -this%config%get_time_step() * matmul(mprime,this%trajectory)
       x1 = -this%config%get_time_step() * matmul(transpose(mprime), x2)
       this%trajectory = this%trajectory + x2 + x1
       this%state = this%state + this%trajectory
+
+! MATRIX formulation that assumes a correct input trajectory is available for the adjoint
+! The above MATRIX forumulation compensates for an input trajectory valid at time t+1
+! of the correct one.  This formulation assumes the correct trajectory is available
+!44    FORMAT (A8,6F10.6)
+!      call buildMprime(this%state, mprime)
+!      this%state = this%state + this%trajectory
+!      this%trajectory = this%trajectory + this%config%get_time_step() * matmul(transpose(mprime), this%trajectory) 
 
       ! Increment time step
       this%clock = this%clock - this%config%get_time_step()
@@ -305,14 +325,14 @@ contains
   !
   ! Return the model location vector
   !------------------------------------------------------------------  
-!  pure function get_location(this)
-!
-!    class(l96_adj_type), intent(in) :: this
-!    real(r8kind), dimension(this%config%get_nx()) :: get_location
-!
-!    get_location = this%location    
-!
-!  end function get_location
+  pure function get_location(this)
+
+    class(l96_adj_type), intent(in) :: this
+    real(r8kind), dimension(this%config%get_nx()) :: get_location
+
+    get_location = this%location
+
+  end function get_location
 
 
   !------------------------------------------------------------------  
@@ -328,6 +348,21 @@ contains
     get_state = this%state    
 
   end function get_state
+
+
+  !------------------------------------------------------------------
+  ! get_trajectory
+  !
+  ! Return the model trajectory vector
+  !------------------------------------------------------------------
+  pure function get_trajectory(this)
+
+    class(l96_adj_type), intent(in) :: this
+    real(r8kind), dimension(this%config%get_nx()) :: get_trajectory
+
+    get_trajectory = this%trajectory
+
+  end function get_trajectory
 
 
   !------------------------------------------------------------------  

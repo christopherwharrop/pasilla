@@ -9,9 +9,9 @@ FFLAGS+=$(GPTLFLAGS)
 FFLAGS+=$(ENDIAN_FLAG)
 FFLAGS+=-g -traceback -O0
 
-OBJS=module_QG_model.o module_QG_config.o module_QG_writer.o module_QG_reader.o module_QG_ggsp.o nag.o module_QG_tl.o module_QG_adj.o module_QG_util.o module_QGTL_writer.o module_QGADJ_writer.o
+OBJS=module_QG_model.o module_QG_config.o module_QG_writer.o module_QG_reader.o module_QG_ggsp.o nag.o nagb.o module_QG_tl.o module_QG_adj.o module_QG_util.o module_QGTL_writer.o module_QGADJ_writer.o
 
-all: QG.exe QGTLAD.exe libqg.a
+all: QG.exe QGTLAD.exe QGTL_test.exe libqg.a
 
 libqg.a: $(OBJS) module_QG_tl.o module_QG_adj.o
 	ar rcs libqg.a $(OBJS)  module_QG_tl.o module_QG_adj.o
@@ -22,8 +22,14 @@ QG.exe: QG.f90 $(OBJS)
 QGTLAD.exe: QGTLAD.f90 $(OBJS)
 	$(FC) $(FFLAGS) -o QGTLAD.exe QGTLAD.f90 $(OBJS) $(INCLUDES) $(LIBS)
 
+QGTL_test.exe: QGTL_test.f90 $(OBJS)
+	$(FC) $(FFLAGS) -o QGTL_test.exe QGTL_test.f90 $(OBJS) $(INCLUDES) $(LIBS)
+
 nag.o: nag.f
 	$(FC) $(FFLAGS) -c nag.f
+
+nagb.o: nagb.f90
+	$(FC) $(FFLAGS) -c nagb.f90
 
 module_QG_model.o: module_QG_model.f90 module_QG_config.o module_QG_ggsp.o nag.o
 	$(FC) $(FFLAGS) -c module_QG_model.f90 $(INCLUDES)
@@ -49,7 +55,7 @@ module_QGADJ_writer.o: module_QGADJ_writer.f90 module_QG_adj.o
 module_QG_reader.o: module_QG_reader.f90 module_QG_model.o
 	$(FC) $(FFLAGS) -c module_QG_reader.f90 $(INCLUDES)
 
-module_QG_ggsp.o: module_QG_ggsp.f90 nag.o
+module_QG_ggsp.o: module_QG_ggsp.f90 nag.o nagb.o
 	$(FC) $(FFLAGS) -c module_QG_ggsp.f90 $(INCLUDES)
 
 module_QG_util.o: module_QG_util.f90

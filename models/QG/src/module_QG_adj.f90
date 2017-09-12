@@ -695,13 +695,17 @@ contains
     class(qg_adj_type) :: this
     integer           :: nsteps
 
-    integer :: step, k, l, nvar
+    integer :: step, k, l, nvar, i
     real(r8kind) :: dt2, dt6
     real(r8kind) :: y(this%nsh2, this%nvl), dydt(this%nsh2, this%nvl), yt(this%nsh2, this%nvl)
     real(r8kind) :: dyt(this%nsh2, this%nvl), dym(this%nsh2, this%nvl)
     real(r8kind) :: yb(this%nsh2, this%nvl), dydtb(this%nsh2, this%nvl), ytb(this%nsh2, this%nvl)
     real(r8kind) :: dytb(this%nsh2, this%nvl), dymb(this%nsh2, this%nvl)
+    real(r8kind) :: qprimeb_save(this%nsh2, this%nvl)
     real(r8kind) :: tempb
+    type(qg_config_type) :: config
+
+    config = this%config
 
     if (nsteps > 0) then
 
@@ -711,6 +715,13 @@ contains
 
       ! Advance the model forward in time n steps
       do step = 1, nsteps
+
+!        qprimeb_save = this%qprimeb
+!write(*,*) 'qprimeb before'
+!write(*,'(F20.15)') (qprimeb_save(i,1), i=1,10)
+!write(*,*)
+
+!        this%qprime = this%qprime + qprimeb_save
 
         y = this%fmtofs(this%qprime)
 !       call PUSHREAL8ARRAY(tmp, nlat*nlon)
@@ -746,8 +757,11 @@ contains
           end do
         end do
         yb = 0.0_8
+
 !       call this%fstofm_B(y, yb, this%nm, this%qprimeb)
         yb = this%fmtofs(this%qprimeb)
+        this%qprimeb = 0.0_r8kind
+
         dymb = 0.0_8
         dytb = 0.0_8
         dydtb = 0.0_8
@@ -795,18 +809,39 @@ contains
         end do
 !       call POPREAL8ARRAY(tmp, nlat*nlon)
         call this%DQDT_B(y, yb, dydt, dydtb)
-!       call this%fmtofs_B(this%qprime, this%qprimeb, yb)
 
-        ! Update model state with original trajectory
-        this%qprime = this%qprime + this%qprimeb
+!       call this%fmtofs_B(this%qprime, this%qprimeb, yb)
+       this%qprimeb = this%fstofm(yb, this%nm)
+       yb = 0.0_r8kind
+
+!write(*,*) 'qprimeb after'
+!write(*,'(F20.15)') (this%qprimeb(i,1), i=1,10)
+!write(*,*)
 
         ! Update trajectory
-        this%qprimeb = this%fstofm(yb, this%nm)
+!        this%qprimeb = qprimeb_save + this%fstofm(yb, this%nm)
+!        this%qprimeb = this%qprimeb ! + qprimeb_save
+
+!write(*,*) 'qprime before'
+!write(*,'(F20.15)') (this%qprime(i,1), i=1,10)
+!write(*,*)
+
+
+        ! Update model state with original trajectory plus its increment
+!        this%qprime = this%qprime + qprimeb_save
+!        this%qprime = this%qprime + this%qprimeb
+!        this%qprime = this%qprime + this%qprimeb
+!write(*,*) 'qprime after'
+!write(*,'(F20.15)') (this%qprime(i,1), i=1,10)
+!write(*,*)
+
 
         ! Inrement the step count
         this%step = this%step - 1
 
       end do
+
+      this%qprime = this%qprime + this%qprimeb
 
       ! Make stream function consistent with potential vorticity
       call this%qtopsi(this%qprimeb, this%trajectory, this%psitb)
@@ -869,11 +904,18 @@ contains
     real(r8kind),         intent(   in) :: y(:,:)
     real(r8kind),         intent(  out) :: dydt(:,:)
 
+! qprime
+    real(r8kind) :: local_qprime(this%nsh2, this%nvl)
+! psi
+    real(r8kind) :: local_psi(this%nsh2, this%nvl)
+! psit
+    real(r8kind) :: local_psit(this%nsh2, this%ntl)
+
     real(r8kind) :: dqprdt(this%nsh2,this%nvl) ! time derivative of qprime
 
-    this%qprime = this%fstofm(y, this%nm)
-    call this%qtopsi(this%qprime, this%psi, this%psit)            ! qprime --> psi and psit
-    dqprdt = this%ddt(this%psi, this%psit, this%qprime, this%for) ! psi, psit, qprime, for, diss --> dqprdt
+    local_qprime = this%fstofm(y, this%nm)
+    call this%qtopsi(local_qprime, local_psi, local_psit)            ! qprime --> psi and psit
+    dqprdt = this%ddt(local_psi, local_psit, local_qprime, this%for) ! psi, psit, qprime, for, diss --> dqprdt
     dydt = this%fmtofs(dqprdt)
 
     return
@@ -911,10 +953,12 @@ contains
     real(r8kind) :: dqprdt(this%nsh2, this%nvl)
     real(r8kind) :: dqprdtb(this%nsh2, this%nvl)
 
+!    local_psi = 0.0_r8kind
+!    local_psit = 0.0_r8kind
     local_qprime = this%fstofm(y, this%nm)
 
-    call PUSHREAL8ARRAY(local_psit, this%nsh2*this%ntl)
-    call PUSHREAL8ARRAY(local_psi, this%nsh2*this%nvl)
+!    call PUSHREAL8ARRAY(local_psit, this%nsh2*this%ntl)
+!    call PUSHREAL8ARRAY(local_psi, this%nsh2*this%nvl)
 
     call this%qtopsi(local_qprime, local_psi, local_psit)
 ! psi, psit, qprime, for, diss --> dqprdt
@@ -925,16 +969,18 @@ contains
 
 !   call this%fmtofs_b(dqprdt, dqprdtb, dydtb)
     dqprdtb = this%fstofm(dydtb, this%nm)
+    dydtb = 0.0_r8kind
 
 !   call POPREAL8ARRAY(tmp, nlat*nlon)
 
     call this%ddt_b(local_psi, local_psib, local_psit, local_psitb, local_qprime, local_qprimeb, this%for, dqprdtb)
 
-    call POPREAL8ARRAY(local_psi, this%nsh2*this%nvl)
-    call POPREAL8ARRAY(local_psit, this%nsh2*this%ntl)
+!    call POPREAL8ARRAY(local_psi, this%nsh2*this%nvl)
+!    call POPREAL8ARRAY(local_psit, this%nsh2*this%ntl)
 
 !    call this%QTOPSI_B(local_qprime, local_qprimeb, local_psi, local_psib, local_psit, local_psitb)
-    call this%psitoq(local_psi, local_psit, local_qprime)
+!    call this%psitoq(local_psi, local_psit, local_qprime)
+    call this%psitoq(local_psib, local_psitb, local_qprimeb)
 
 !   call this%fstofm_B(y, yb, this%nm, local_qprimeb)
     yb = this%fmtofs(local_qprimeb)
@@ -1154,9 +1200,9 @@ contains
       dpsidlsb(k) = dpsidlsb(k) - sjacobb(k)
     end do
 
-   call ggsp%GGTOSP_B(gjacob, gjacobb, sjacobb)
+!   call ggsp%GGTOSP_B(gjacob, gjacobb, sjacobb)
 !   Not 100% sure if this should be pp or pd
-!    gjacobb = ggsp%sptogg_pd(sjacobb)
+    gjacobb = ggsp%sptogg_pw(sjacobb)
 
     dpsidlb = 0.0_8
     dpsidmb = 0.0_8
@@ -1172,19 +1218,19 @@ contains
       end do
     end do
 
-   call ggsp%sptogg_PD_B(psiloc, psilocb, dpsidmb)
-   call ggsp%sptogg_PP_B(dpsidls, dpsidlsb, dpsidlb)
-!    psilocb = reshape(ggsp%ggtosp(dpsidmb), (/this%nsh2/))
-!    dpsidlsb = reshape(ggsp%ggtosp(dpsidlb), (/this%nsh2/))
+!   call ggsp%sptogg_PD_B(psiloc, psilocb, dpsidmb)
+!   call ggsp%sptogg_PP_B(dpsidls, dpsidlsb, dpsidlb)
+    psilocb = reshape(ggsp%ggtosp(dpsidmb), (/this%nsh2/))
+    dpsidlsb = reshape(ggsp%ggtosp(dpsidlb), (/this%nsh2/))
 
     call ggsp%ddl_b(psiloc, psilocb, dpsidlsb)
 
-   call ggsp%sptogg_PD_B(pvor, pvorb, dvordmb)
-!    pvorb = reshape(ggsp%ggtosp(dvordmb), (/this%nsh2/))
+!   call ggsp%sptogg_PD_B(pvor, pvorb, dvordmb)
+    pvorb = reshape(ggsp%ggtosp(dvordmb), (/this%nsh2/))
 
     vvb = 0.0_8
-   call ggsp%sptogg_PP_B(vv, vvb, dvordlb)
-!    vvb = reshape(ggsp%ggtosp(dvordlb), (/this%nsh2/))
+!   call ggsp%sptogg_PP_B(vv, vvb, dvordlb)
+    vvb = reshape(ggsp%ggtosp(dvordlb), (/this%nsh2/))
 
     call ggsp%ddl_b(pvor, pvorb, vvb)
 
@@ -1319,9 +1365,9 @@ contains
 
     if (this%lgdiss) then
 
-     call ggsp%ggtosp_b(gjacob, gjacobb, sjacobb)
+!     call ggsp%ggtosp_b(gjacob, gjacobb, sjacobb)
 !     Not 100% sure if this should be sptogg_pp or sptogg_pd
-!      gjacobb = ggsp%sptogg_pd(sjacobb)
+      gjacobb = ggsp%sptogg_pw(sjacobb)
       dpsidlb = 0.0_r8kind
       dpsidmb = 0.0_r8kind
       azetab = 0.0_r8kind
@@ -1333,8 +1379,8 @@ contains
         end do
       end do
       vvb = 0.0_r8kind
-     call ggsp%sptogg_pp_b(vv, vvb, azetab)
-!      vvb = reshape(ggsp%ggtosp(azetab), (/this%nsh2/))
+!     call ggsp%sptogg_pp_b(vv, vvb, azetab)
+      vvb = reshape(ggsp%ggtosp(azetab), (/this%nsh2/))
       psilocb = 0.0_r8kind
       do k = this%nsh2, 1, -1
         psilocb(k) = psilocb(k) + this%diss(k, 2) * vvb(k)
@@ -1347,9 +1393,9 @@ contains
       do k = this%nsh2, 1, -1
         psilocb(k) = psilocb(k) + this%diss(k, 2) * sjacobb(k)
       end do
-     call ggsp%ggtosp_b(gjacob, gjacobb, sjacobb)
+!     call ggsp%ggtosp_b(gjacob, gjacobb, sjacobb)
 !     Not 100% sure if this should be sptogg_pp or sptogg_pd
-!      gjacobb = ggsp%sptogg_pd(sjacobb)
+      gjacobb = ggsp%sptogg_pw(sjacobb)
       dpsidlb = 0.0_r8kind
       dpsidmb = 0.0_r8kind
       vvb = 0.0_r8kind
@@ -1368,17 +1414,17 @@ contains
       end do
     end do
 
-   call ggsp%sptogg_pd_b(psiloc, psilocb, dpsidmb)
-   call ggsp%sptogg_pp_b(dpsidls, dpsidlsb, dpsidlb)
-!    psilocb = reshape(ggsp%ggtosp(dpsidmb), (/this%nsh2/))
-!    dpsidlsb = reshape(ggsp%ggtosp(dpsidlb), (/this%nsh2/))
+!   call ggsp%sptogg_pd_b(psiloc, psilocb, dpsidmb)
+!   call ggsp%sptogg_pp_b(dpsidls, dpsidlsb, dpsidlb)
+    psilocb = reshape(ggsp%ggtosp(dpsidmb), (/this%nsh2/))
+    dpsidlsb = reshape(ggsp%ggtosp(dpsidlb), (/this%nsh2/))
 
     call ggsp%ddl_b(psiloc, psilocb, dpsidlsb)
 
-   call ggsp%sptogg_pd_b(pvor, pvorb, dvordmb)
-   call ggsp%sptogg_pp_b(vv, vvb, dvordlb)
-!    pvorb = reshape(ggsp%ggtosp(dvordmb), (/this%nsh2/))
-!    vvb = reshape(ggsp%ggtosp(dvordlb), (/this%nsh2/))
+!   call ggsp%sptogg_pd_b(pvor, pvorb, dvordmb)
+!   call ggsp%sptogg_pp_b(vv, vvb, dvordlb)
+    pvorb = reshape(ggsp%ggtosp(dvordmb), (/this%nsh2/))
+    vvb = reshape(ggsp%ggtosp(dvordlb), (/this%nsh2/))
 
     call ggsp%ddl_b(pvor, pvorb, vvb)
 

@@ -95,6 +95,7 @@ module QG_Model_TL
     procedure :: get_nsh2
     procedure :: get_nvl
     procedure :: get_psi
+    procedure :: get_trajectory
     procedure :: get_psig
     procedure :: get_lat_lon_grid
     procedure :: get_for
@@ -2196,6 +2197,19 @@ contains
     psi = this%psi
 
   end function get_psi
+
+
+  !-------------------------------------------------------------------------------
+  ! get_trajectory
+  !-------------------------------------------------------------------------------
+  function get_trajectory(this) result(trajectory)
+
+    class(qg_tl_type),            intent(in) :: this
+    real(r8kind), dimension(this%nsh2,this%nvl) :: trajectory
+
+    trajectory = this%trajectory
+
+  end function get_trajectory
 
 
   !-------------------------------------------------------------------------------

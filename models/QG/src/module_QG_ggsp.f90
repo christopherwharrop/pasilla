@@ -25,6 +25,7 @@ module QG_GGSP
     final :: destructor_qg_ggsp
     procedure          :: sptogg_pp
     procedure          :: sptogg_pd
+    procedure          :: sptogg_pw
     procedure, private :: sptogg
     procedure          :: ggtosp
     procedure          :: sptogg_pp_b
@@ -222,6 +223,27 @@ contains
 
 
   !-----------------------------------------------------------------------
+  ! conversion from spectral coefficients to gaussian grid using
+  ! derivatives with respect to pw
+  !
+  ! input  spectral field as
+  ! output gaussian grid agg
+  !-----------------------------------------------------------------------
+  function sptogg_pw (this, as) result(agg)
+
+    ! Input
+    class(qg_ggsp_type), intent(inout) :: this
+    real(r8kind),        intent(   in) :: as(this%nsh, 2)
+
+    ! Return value
+    real(r8kind) :: agg(this%nlat, this%nlon)
+
+    agg = this%sptogg(as, this%pw)
+
+  end function sptogg_pw
+
+
+  !-----------------------------------------------------------------------
   ! conversion from spectral coefficients to gaussian grid
   ! input  spectral field as,  legendre polynomials pploc (pp or pd) 
   !        where pp are legendre polynomials and pd derivatives with
@@ -307,7 +329,7 @@ contains
 
     ! Local data
     !    real*8, allocatable :: tmp(:,:)   ! Work space used by the nag version of the fft
-    real(r8kind), allocatable :: tmp(:,:)   ! Work space used by the nag version of the fft
+    real(r8kind), allocatable :: tmp(:,:), tmpb(:,:)   ! Work space used by the nag version of the fft
     INTEGER :: i, j, k, k1, k2, m, mi, mr, nlon1
     INTEGER :: ifail
     INTEGER :: ad_to
@@ -331,6 +353,7 @@ contains
       CALL PUSHINTEGER4(ad_from)
     END DO
     allocate(tmp(this%nlat,this%nlon))
+    allocate(tmpb(this%nlat,this%nlon))
 !    CALL C06FQF_B(this%nlat, this%nlon, agg, aggb, 'r', this%trigi, tmp, tmpb, ifail)
     call c06fpf (this%nlat, this%nlon, aggb, 'r', this%trigd, tmp, ifail)
     DO m=this%nm,1,-1
@@ -440,8 +463,8 @@ contains
     real(r8kind) :: asb(this%nsh, 2)
 
     ! Local data
-    real(r8kind), allocatable :: agg_copyb(:,:)  ! Copy of input gaussian grid field
-    real(r8kind), allocatable :: tmp(:,:)       ! Work space used by the nag version of the fft
+    real(r8kind), allocatable :: agg_copy(:,:), agg_copyb(:,:)  ! Copy of input gaussian grid field
+    real(r8kind), allocatable :: tmp(:,:), tmpb(:,:)       ! Work space used by the nag version of the fft
     INTEGER :: i, k, k1, k2, m, mi, mr, nlon1
     INTEGER :: ifail
     REAL :: trigd
@@ -471,6 +494,7 @@ contains
       CALL PUSHINTEGER4(ad_from)
     END DO
     allocate(agg_copyb(this%nlat,this%nlon))
+    allocate(agg_copy(this%nlat,this%nlon))
     agg_copyb = 0.0_8
     DO m=this%nm,1,-1
       CALL POPINTEGER4(ad_from)
@@ -490,8 +514,9 @@ contains
         agg_copyb(i, 1) = agg_copyb(i, 1) + this%pw(i, k)*asb(k, 1)
       END DO
     END DO
-!    CALL C06FPF_B(this%nlat, this%nlon, agg_copy, agg_copyb, 'r', this%trigd, tmp, tmpb, ifail)
     allocate(tmp(this%nlat,this%nlon))
+    allocate(tmpb(this%nlat,this%nlon))
+!    CALL C06FPF_B(this%nlat, this%nlon, agg_copy, agg_copyb, 'r', this%trigd, tmp, tmpb, ifail)
     call c06fqf (this%nlat, this%nlon, agg_copyb, 'r', this%trigi, tmp, ifail)
 
     aggb = 0.0_8

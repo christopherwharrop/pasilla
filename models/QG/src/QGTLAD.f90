@@ -135,10 +135,12 @@ program QG
     new_state = model%get_psi()
 
     ! Instantiate an adjoint with the new state at t=t+increment
-    model_adj = qg_adj_type(config, state = old_state, trajectory = -(new_state - old_state), step = step - 1 + increment)
+!    model_adj = qg_adj_type(config, state = old_state, trajectory = -(new_state - old_state), step = step - 1 + increment)
+    model_adj = qg_adj_type(config, state = new_state, trajectory = old_state - new_state, step = step + increment)
 
     ! Advance adjoint trajectory (backward) increment steps to t=t
-    call model_adj%adv_nsteps(increment)
+!    call model_adj%adv_nsteps(increment)
+    call model_adj%adv_nsteps(increment+1)
 
     ! Output tangent linear state at t=t+increment
     write(filename,'(A,I0.7)') 'qg_tl_out_', model_tl%get_step()

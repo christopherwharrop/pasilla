@@ -96,6 +96,7 @@ module QG_Model_ADJ
     procedure :: get_nsh2
     procedure :: get_nvl
     procedure :: get_psi
+    procedure :: get_trajectory
     procedure :: get_psig
     procedure :: get_lat_lon_grid
     procedure :: get_for
@@ -355,9 +356,9 @@ contains
     close(11)
 
     ! Read mu operator from mu_operator.dat
-    open(unit=10, file='mu_operator.dat', status='old', form='unformatted')
-    read(10) this%derimu
-    close(10)
+!    open(unit=10, file='mu_operator.dat', status='old', form='unformatted')
+!    read(10) this%derimu
+!    close(10)
 
     ! compensation for normalization in nag fft routines
     sqn = sqrt(dble(this%nlon))
@@ -716,7 +717,7 @@ contains
       ! Advance the model forward in time n steps
       do step = 1, nsteps
 
-!        qprimeb_save = this%qprimeb
+        qprimeb_save = this%qprimeb
 !write(*,*) 'qprimeb before'
 !write(*,'(F20.15)') (qprimeb_save(i,1), i=1,10)
 !write(*,*)
@@ -758,9 +759,9 @@ contains
         end do
         yb = 0.0_8
 
-!       call this%fstofm_B(y, yb, this%nm, this%qprimeb)
-        yb = this%fmtofs(this%qprimeb)
-        this%qprimeb = 0.0_r8kind
+       call this%fstofm_B(y, yb, this%nm, this%qprimeb)
+!        yb = this%fmtofs(this%qprimeb)
+!        this%qprimeb = 0.0_r8kind
 
         dymb = 0.0_8
         dytb = 0.0_8
@@ -810,9 +811,9 @@ contains
 !       call POPREAL8ARRAY(tmp, nlat*nlon)
         call this%DQDT_B(y, yb, dydt, dydtb)
 
-!       call this%fmtofs_B(this%qprime, this%qprimeb, yb)
-       this%qprimeb = this%fstofm(yb, this%nm)
-       yb = 0.0_r8kind
+       call this%fmtofs_B(this%qprime, this%qprimeb, yb)
+!       this%qprimeb = this%fstofm(yb, this%nm)
+!       yb = 0.0_r8kind
 
 !write(*,*) 'qprimeb after'
 !write(*,'(F20.15)') (this%qprimeb(i,1), i=1,10)
@@ -828,7 +829,7 @@ contains
 
 
         ! Update model state with original trajectory plus its increment
-!        this%qprime = this%qprime + qprimeb_save
+        this%qprime = this%qprime + qprimeb_save
 !        this%qprime = this%qprime + this%qprimeb
 !        this%qprime = this%qprime + this%qprimeb
 !write(*,*) 'qprime after'
@@ -957,8 +958,8 @@ contains
 !    local_psit = 0.0_r8kind
     local_qprime = this%fstofm(y, this%nm)
 
-!    call PUSHREAL8ARRAY(local_psit, this%nsh2*this%ntl)
-!    call PUSHREAL8ARRAY(local_psi, this%nsh2*this%nvl)
+    call PUSHREAL8ARRAY(local_psit, this%nsh2*this%ntl)
+    call PUSHREAL8ARRAY(local_psi, this%nsh2*this%nvl)
 
     call this%qtopsi(local_qprime, local_psi, local_psit)
 ! psi, psit, qprime, for, diss --> dqprdt
@@ -967,23 +968,23 @@ contains
 
     dqprdt = this%ddt(local_psi, local_psit, local_qprime, this%for)
 
-!   call this%fmtofs_b(dqprdt, dqprdtb, dydtb)
-    dqprdtb = this%fstofm(dydtb, this%nm)
-    dydtb = 0.0_r8kind
+   call this%fmtofs_b(dqprdt, dqprdtb, dydtb)
+!    dqprdtb = this%fstofm(dydtb, this%nm)
+!    dydtb = 0.0_r8kind
 
 !   call POPREAL8ARRAY(tmp, nlat*nlon)
 
     call this%ddt_b(local_psi, local_psib, local_psit, local_psitb, local_qprime, local_qprimeb, this%for, dqprdtb)
 
-!    call POPREAL8ARRAY(local_psi, this%nsh2*this%nvl)
-!    call POPREAL8ARRAY(local_psit, this%nsh2*this%ntl)
+    call POPREAL8ARRAY(local_psi, this%nsh2*this%nvl)
+    call POPREAL8ARRAY(local_psit, this%nsh2*this%ntl)
 
-!    call this%QTOPSI_B(local_qprime, local_qprimeb, local_psi, local_psib, local_psit, local_psitb)
+    call this%QTOPSI_B(local_qprime, local_qprimeb, local_psi, local_psib, local_psit, local_psitb)
 !    call this%psitoq(local_psi, local_psit, local_qprime)
-    call this%psitoq(local_psib, local_psitb, local_qprimeb)
+!    call this%psitoq(local_psib, local_psitb, local_qprimeb)
 
-!   call this%fstofm_B(y, yb, this%nm, local_qprimeb)
-    yb = this%fmtofs(local_qprimeb)
+   call this%fstofm_B(y, yb, this%nm, local_qprimeb)
+!    yb = this%fmtofs(local_qprimeb)
 
   end subroutine DQDT_B
 
@@ -1203,6 +1204,7 @@ contains
 !   call ggsp%GGTOSP_B(gjacob, gjacobb, sjacobb)
 !   Not 100% sure if this should be pp or pd
     gjacobb = ggsp%sptogg_pw(sjacobb)
+
 
     dpsidlb = 0.0_8
     dpsidmb = 0.0_8
@@ -1823,13 +1825,14 @@ contains
     real(r8kind) :: yb(:, :)
     real(r8kind), DIMENSION(SIZE(y, 1), SIZE(y, 2)) :: z
     real(r8kind), DIMENSION(SIZE(y, 1), SIZE(y, 2)) :: zb
+
     integer :: m, n, k, indx, l
-    INTRINSIC SIZE
-    INTRINSIC MAX
+
     integer :: max1
     integer :: branch
     integer :: ad_from
     integer :: ad_to
+
     do l=1,SIZE(y, 2)
       call PUSHINTEGER4(k)
       k = 1
@@ -1886,6 +1889,7 @@ contains
       end do
       call POPINTEGER4(k)
     end do
+
   end subroutine fmtofs_b
 
 
@@ -2001,14 +2005,14 @@ contains
     integer, intent(IN) :: ntr
     real(r8kind), DIMENSION(SIZE(y, 1), SIZE(y, 2)) :: z
     real(r8kind), DIMENSION(SIZE(y, 1), SIZE(y, 2)) :: zb
+
     integer :: m, n, k, indx, i, l
-    INTRINSIC SIZE
-    INTRINSIC MAX
     integer :: max1
     integer :: ad_to
     integer :: branch
     integer :: ad_from
     integer :: ad_to0
+
     do l=1,SIZE(y, 2)
       do i=1,SIZE(y, 1)
 
@@ -2078,6 +2082,7 @@ contains
         zb(i, l) = 0.0_r8kind
       end do
     end do
+
   end subroutine fstofm_b
 
 
@@ -3183,6 +3188,19 @@ contains
     psi = this%psi
 
   end function get_psi
+
+
+  !-------------------------------------------------------------------------------
+  ! get_trajectory
+  !-------------------------------------------------------------------------------
+  function get_trajectory(this) result(trajectory)
+
+    class(qg_adj_type),            intent(in) :: this
+    real(r8kind), dimension(this%nsh2,this%nvl) :: trajectory
+
+    trajectory = this%trajectory
+
+  end function get_trajectory
 
 
   !-------------------------------------------------------------------------------

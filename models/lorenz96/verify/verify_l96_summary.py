@@ -1,10 +1,12 @@
-#!//contrib/anaconda/2.3.0/bin/python
+#!/bin/env python
+##!//contrib/anaconda/2.3.0/bin/python
 
 vx=open("verify_l96_summary.txt","w")
 
 
 #for h in range(0,361,36):
-for h in range(0,1201,60):
+#for h in range(0,1201,60):
+for h in range(0,1201,120):
   toton=[]
   totof=[]
 

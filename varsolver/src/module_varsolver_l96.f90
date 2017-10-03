@@ -59,6 +59,8 @@ contains
         read(stdin,nml=method3)
       case(4)
         read(stdin,nml=method4)
+      case(5)
+        read(stdin,nml=method4)
       case DEFAULT
         write(*,'(A,A,A)') 'ERROR: method "',mthd,'" is not supported!'
         stop
@@ -179,15 +181,17 @@ contains
     open(newunit=fileunit, file=trim(filename), form='formatted', status='old')
 
     ! Read the number of obs
-    read(fileunit, '(I)') obs_len
+    read(fileunit, *) obs_len
 
     ! Allocate space for obs arrays
     allocate(obs_tim(obs_len))
     allocate(obs_pos(obs_len))
     allocate(obs_vec(obs_len))
 
+    print *, obs_len
     do i=1,obs_len
       read(fileunit, *) obs_tim(i), obs_pos(i), obs_vec(i)
+      print *, obs_tim(i), obs_pos(i), obs_vec(i)
     end do
 
     close(fileunit)
@@ -401,8 +405,8 @@ contains
     obs_opt(:,:) = 0.0
     tmp_rhh(:,:) = 0.0
     tmp_hrr(:,:) = 0.0
+    jvc_for      = 0.0
 
-    jvc_for=0.0
     do t=1,tim_len
        ! ASSUME THAT OBS_OPR=H, OBS_COV=R(-1/2), BKG_COV=B(1/2), OBS_VEC=(Y-HXb)
        tim_opr(:,:)=obs_opr(t,:,:)
@@ -420,14 +424,17 @@ contains
        call dgemm("N","N",bkg_len,bkg_len,obs_len,1.d0,obs_opt,bkg_len,tmp_rhh,obs_len,0.d0,tim_hrh,bkg_len)
        hrh_cov(t,:,:)=tim_hrh(:,:)
 
-      ! CREATE COST FUNCTION TERM (Y-HXb)R(-1)(Y-HXb), A CONSTANT
+!      CREATE COST FUNCTION TERM (Y-HXb)R(-1)(Y-HXb), A CONSTANT
        call dgemv("N",obs_len,obs_len,1.d0,tim_obc,obs_len,obs_vvc,1,0.d0,tmp_jfo,1)
-       do i=1,obs_len                        ! CREATE (Y-HXb)(T)R(-1)(Y-HXb) 
-          jvc_for=jvc_for+tmp_jfo(i)*tmp_jfo(i)
-       end do
+
+!      CREATE (Y-HXb)(T)R(-1)(Y-HXb) 
+       jvc_for=jvc_for+dot_product(tmp_jfo,tmp_jfo)
 
 !      CREATE R(-1) from R(-1/2) 
        call dgemm("N","N",obs_len,obs_len,obs_len,1.d0,tim_obc,obs_len,tim_obc,obs_len,0.d0,tmp_obc,obs_len)
+
+!      REDEFINE H
+       obs_opt=transpose(tim_opr)
 
 !      H(T)R(-1) 
        call dgemm("N","N",bkg_len,obs_len,obs_len,1.d0,obs_opt,bkg_len,tmp_obc,obs_len,0.d0,tmp_hrr,bkg_len)
@@ -661,8 +668,10 @@ contains
              print *, "BACKWARD_MODEL"
              model = l96_model_type(bkg_config, state=mdl_vec(:), step=t)
              call model%adv_nsteps(1)
-             model_ADJ = l96_adj_type(bkg_config, state=mdl_vec(:), trajectory=-(model%get_state() - mdl_vec(:)), step = t)
-             call model_ADJ%adv_nsteps(10)
+!             model_ADJ = l96_adj_type(bkg_config, state=mdl_vec(:), trajectory=-(model%get_state() - mdl_vec(:)), step = t)
+!             call model_ADJ%adv_nsteps(10)
+             model_ADJ = l96_adj_type(bkg_config, state=model%get_state(), trajectory=mdl_vec(:) - model%get_state(), step = t + 1)
+             call model_ADJ%adv_nsteps(11)
              mdl_vec(:) = model_ADJ%get_state()
              print *, "END BACKWARD_MODEL"
           end if

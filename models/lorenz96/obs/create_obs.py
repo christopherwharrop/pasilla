@@ -1,4 +1,4 @@
-#!//contrib/anaconda/2.3.0/bin/python
+#!/bin/env python
 
 import sys
 from scipy.io import netcdf

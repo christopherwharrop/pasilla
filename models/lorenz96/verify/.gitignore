@@ -1,0 +1,4 @@
+# Ignore verification output
+vx????
+vx*.txt
+verify_l96_summary.txt

@@ -4,12 +4,11 @@ import sys
 from scipy.io import netcdf
 import numpy as np
 
-method=int(sys.argv[1])
-print "Generating obss for method = ", method
+#method=int(sys.argv[1])
+#print "Generating obs for method = ", method
 
 text=open("obs_sites.txt",'r')
 lobs=text.readlines()
-print len(lobs)
 text.close()
 
 spinup = 40000
@@ -31,28 +30,35 @@ for h in range(spinup + 60,spinup + 28801,60):
     state_t   = np.array(ncf_t.variables["State"].data) 
     state_tp1 = np.array(ncf_tp1.variables["State"].data) 
 
-    obs = open("lorenz96obs_"+str(h).zfill(7)+".txt","w")
-    n = 1
-    obs.write("%d\n" % len(lobs))
-    for l in lobs:
-	(x,y)=(l.strip()).split(",")
-        if (method > 1):
-            if ((n-1)%4==0):
-                t=1
-                state = state_tm1[int(x)-1]
-            elif ((n+1)%4==0):
-                t=3
-                state = state_tp1[int(x)-1]
+    # Pre-calculate random errors from N(0,1) to apply to the observations
+    # ensuring that each method has the same obs values
+    err = np.random.normal(0,1,len(lobs))
+
+    for method in (1,2,3):
+
+        obs = open("lorenz96obs_"+str(method)+"_"+str(h).zfill(7)+".txt","w")
+        n = 1
+        obs.write("%d\n" % len(lobs))
+        for l in lobs:
+            (x,y)=(l.strip()).split(",")
+            if (method > 1):
+                if ((n-1)%4==0):
+                    t=1
+                    state = state_tm1[int(x)-1]
+                elif ((n+1)%4==0):
+                    t=3
+                    state = state_tp1[int(x)-1]
+                else:
+                    t=2
+                    state = state_t[int(x)-1]
             else:
-                t=2
                 state = state_t[int(x)-1]
-        else:
-            state = state_t[int(x)-1]
-        if (method < 3):
-            t=1
-        obs.write("%d, %8.3f, %8.3f\n" % (t,float(y),state))
-        n=n+1
-    obs.close
+            if (method < 3):
+                t=1
+            obs.write("%d, %8.3f, %8.3f\n" % (t,float(y),state+err[n-1]))
+            n=n+1
+        obs.close
+
     ncf_tm1.close
     ncf_t.close
     ncf_tp1.close

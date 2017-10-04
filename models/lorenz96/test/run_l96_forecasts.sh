@@ -8,7 +8,7 @@ module load netcdf
 export OMP_STACKSIZE=1G
 
 # Set locations of data, namelists, and executables
-PASILLA_DIR=/scratch3/BMC/nim/Brian.Etherton/pasilla
+PASILLA_DIR=/scratch4/BMC/gsd-hpcs/Christopher.W.Harrop/pasilla.tapenade
 OBS_DIR=${PASILLA_DIR}/models/lorenz96/obs
 NATURE_DIR=${PASILLA_DIR}/models/lorenz96/nature  # Needed for initial analysis file
 VARSOLVER_DIR=${PASILLA_DIR}/varsolver
@@ -18,19 +18,20 @@ GPTL_PATH=/contrib/gptl/gptl-v5.5_nompi_noomp/bin
 PARSE_PATH=/home/Brian.Etherton/bin
 
 # Set experiment location
-BASE_DIR=/scratch3/BMC/nim/Brian.Etherton/pasilla/models/lorenz96/test
+BASE_DIR=${PASILLA_DIR}/models/lorenz96/test
 
 # Set model parameters
 lorenz96_forcing=8.10 
-lorenz96_delta_t=0.000833
+lorenz96_time_step=0.000833
 start_offset=10
 
 
 one_hour=10                      # There are 10 steps in one "hour"
-(( fcst_length=78*$one_hour ))   # Forecast lead time = 78 "hours"
+(( fcst_length=120*$one_hour ))   # Forecast lead time = 120 "hours"
 (( fcst_interval=6*$one_hour ))  # Make a forecast every 6 "hours"
 start_fcst=40000                 # Starting forecast step
-(( end_fcst=$start_fcst+100*24*$one_hour ))  # Perform forecasts for 100 days
+(( end_fcst=$start_fcst+120*24*$one_hour ))  # Perform forecasts for 120 days
+#(( end_fcst=$start_fcst ))  # Perform forecasts for 120 days
 
 # Loop over forecasts to perform
 f=$start_fcst
@@ -51,17 +52,14 @@ while [ $f -le $end_fcst ]; do
 
   # Loop over methods
 # for method in 1 2 3 4 5; do
-  for method in 1; do
+# for method in 1 2 3 4; do
+#  for method in 1 2 3; do
+  for method in 3; do
 
     # Set OMP options for this method
     method_dir=$method
     export OMP_NUM_THREADS=1
-    if [ $method -eq 4 ]; then
-      method_dir=4_1
-    fi
     if [ $method -eq 5 ]; then
-      method=4
-      method_dir=4_3
       export OMP_NUM_THREADS=3
     fi
 
@@ -79,15 +77,17 @@ while [ $f -le $end_fcst ]; do
         t7=`printf "%07d" $t`
         bkgdir="../../../$prev_f7/$method_dir/lorenz96prd"
         bkgfile="lorenz96out_${t7}.nc"
-        cp $bkgdir/$bkgfile .
-        ln -s $bkgfile lorenz96out_000000${tidx}.nc 
+#        cp $bkgdir/$bkgfile .
+#        ln -s $bkgfile bkgin_000000${tidx}.nc
+        ln -s $bkgdir/$bkgfile bkgin_000000${tidx}.nc
         (( tidx=$tidx+1 ))
       done
 
       # Bring in the obs file
-      obsfile="lorenz96obs_${f7}_${method}.txt"
-      cp $OBS_DIR/$obsfile .
-      ln -s $obsfile lorenz96obs_${method}.txt
+      obsfile="lorenz96obs_${method}_${f7}.txt"
+#      cp $OBS_DIR/method_${method}/$obsfile .
+#      ln -s $obsfile lorenz96obs_${method}.txt
+      ln -s $OBS_DIR/method_${method}/$obsfile lorenz96obs_${method}.txt
 
       # Bring in the namelist and set it up
       cp $VARSOLVER_DIR/parm/varsolver_l96.namelist .
@@ -128,20 +128,24 @@ while [ $f -le $end_fcst ]; do
       ncgen -o $anlfile anal.txt
 
     else  # Get analysis from DA
-      cp ../varsolverprd/$anlfile .
+      if [ $method -lt 3 ]; then
+        cp ../varsolverprd/bkgout_0000001.nc $anlfile
+      else
+        cp ../varsolverprd/bkgout_0000002.nc $anlfile
+      fi
     fi
   
     # Copy the namelist and set it up
     cp $LORENZ96_DIR/parm/lorenz96.namelist .    
     sed -i "s/forcing = [^[:blank:]]*,/forcing = ${lorenz96_forcing},/" lorenz96.namelist
-    sed -i "s/delta_t = [^[:blank:]]*,/delta_t = ${lorenz96_delta_t},/" lorenz96.namelist
+    sed -i "s/time_step = [^[:blank:]]*,/time_step = ${lorenz96_time_step},/" lorenz96.namelist
     sed -i "s/start_step = [^[:blank:]]*,/start_step = ${f},/" lorenz96.namelist
     sed -i "s/run_steps = [^[:blank:]]*,/run_steps = ${fcst_length},/" lorenz96.namelist
     sed -i "s/output_interval_steps = [^[:blank:]]*,/output_interval_steps = 10,/" lorenz96.namelist
 
     # Run the lorenz96 model
     cp $LORENZ96_DIR/exe/lorenz96.exe .
-    ./lorenz96.exe < ./lorenz96.namelist 
+    ./lorenz96.exe < ./lorenz96.namelist 2>&1 lorenz96.out
 
   done # for method
 

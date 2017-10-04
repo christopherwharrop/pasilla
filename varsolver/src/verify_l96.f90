@@ -19,8 +19,8 @@ program adept
   ! BJE
   ! INITIALIZE GPTL AND START A TIMER
   ret = gptlsetutr (gptlnanotime)
-  ret = gptlinitialize ()                    
-  ret = gptlstart ('adept')                 
+  ret = gptlinitialize ()
+  ret = gptlstart ('adept')
 
   ! BJE
   ! FIRST - NEED TO KNOW HOW MANY OBSERVATIONS AND STATE VECTOR
@@ -34,23 +34,12 @@ program adept
   ! BJE
   ! KNOWING THE NUMBERS, ALLOCATE VECTORS/MATRICIES (ARRAYS) ACCORDINGLY
   mod_len=size(mod_vec)
-  allocate (tru_interp(mod_len))
  
-  ! CWH
-  ! INITIALIZE THE ALLOCATED VECTORS/MATRICES
-  tru_interp(:)  = 0.0
-
-  ! BJE
-  ! KNOWING THE LOCATION OF THE OBS, CREATE OBS OPERATOR, H 
-  call get_mod_opr(tru_vec,mod_pos,tru_pos,tru_interp)
-
   ! BJE
   ! GET THE INNOVATION VECTOR - (Y-HXb) - OVERWRITE OBS_VEC
   print *,"MOD = ",mod_vec(1:3)
-  print *,"TRU = ",tru_interp(1:3)
-!  mod_vec = mod_vec - tru_vec
-  mod_vec=mod_vec-tru_interp
-!  mod_vec(:)=mod_vec(:)/100000.0d0
+  print *,"TRU = ",tru_vec(1:3)
+  mod_vec = mod_vec - tru_vec
 
   ! BJE
   ! PRINT OUT THE MEAN ABSOLUTE ERROR AND MEAN SQUARED ERROR
@@ -58,7 +47,7 @@ program adept
 
   open(40,file="verify.txt",form="formatted", status="new")
   write(40,*) "MAE ALL = ",sum(mod_vec)/float(mod_len)
-  write(40,*) "MSE ALL = ",dot_product(mod_vec,mod_vec)/float(mod_len)
+!  write(40,*) "MSE ALL = ",dot_product(mod_vec,mod_vec)/float(mod_len)
   write(40,*) "RMSE ALL = ",sqrt(dot_product(mod_vec,mod_vec)/float(mod_len))
   close (40)
 
@@ -66,7 +55,6 @@ program adept
   ! END THE TIMER AND OUTPUT THE GPTL RESULTS
   ret = gptlstop ('adept') 
   ret = gptlpr (0) 
-  !ret = gptlpr_summary (MPI_COMM_WORLD) 
   ret = gptlfinalize ()
 
   ! THAT IS THE END OF THE MAIN PROGRAM

@@ -14,7 +14,8 @@ h=$1
 i=$start_fcst
 while [ $i -le $end_fcst ]; do
 
-  for m in 1 3; do
+#  for m in 1 2 3; do
+  for m in 3; do
 
     v=`expr $i + $h`
     echo $i $h $v
@@ -31,7 +32,6 @@ while [ $i -le $end_fcst ]; do
     ln -s ../../test/${ii}/${m}/lorenz96prd/lorenz96out_${vv}.nc model.nc
     rm -f verify.txt
     ../../../../varsolver/exe/verify_l96.exe
-    ls
     mv verify.txt verify.method${m}.init${ii}.lead${hh}.txt
 
   done

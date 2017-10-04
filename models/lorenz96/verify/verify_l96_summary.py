@@ -10,7 +10,8 @@ for h in range(0,1201,60):
 
 #  for m in range(1,5):
 #  for m in range(1,5):
-  for m in (1,3):
+#  for m in (1,2,3):
+  for m in [3]:
 
     hh=str(h).zfill(4)
     mm=str(m)

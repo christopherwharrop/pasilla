@@ -12,12 +12,12 @@ while [ $h -le $fcst_length ]; do
 
   hh=` printf %04d $h `
 
-  rm -rf ./vx${hh}
-  mkdir -p ./vx${hh}
-  cd ./vx${hh}
+  rm -rf vx${hh}
+  mkdir -p vx${hh}
+  cd vx${hh}
   cp ../run_verify_l96.sh .
-  #./run_verify_l96.sh ${h} > verify_l96_lead${hh}.log &
-  ./run_verify_l96.sh ${h} > verify_l96_lead${hh}.log 
+  ./run_verify_l96.sh ${h} > verify_l96_lead${hh}.log &
+#  ./run_verify_l96.sh ${h} > verify_l96_lead${hh}.log 
   cd ../
 
   (( h = $h + $fcst_interval ))

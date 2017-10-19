@@ -19,7 +19,7 @@ GPTL_PATH=/contrib/gptl/gptl-v5.5_nompi_noomp/bin
 resol="21"
 
 # Set the experiment id
-expid='harrop'
+expid='tltest'
 
 # Set the path to the QG model install - DO NOT CHANGE THIS LINE
 qgdir=$(dirname $(dirname $(readlink -m $0) ))

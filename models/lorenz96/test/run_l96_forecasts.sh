@@ -53,8 +53,8 @@ while [ $f -le $end_fcst ]; do
   # Loop over methods
 # for method in 1 2 3 4 5; do
 # for method in 1 2 3 4; do
-#  for method in 1 2 3; do
-  for method in 3; do
+  for method in 1 2 3; do
+#  for method in 1; do
 
     # Set OMP options for this method
     method_dir=$method

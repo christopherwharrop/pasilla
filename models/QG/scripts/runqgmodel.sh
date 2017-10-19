@@ -16,19 +16,22 @@ module load netcdf
 GPTL_PATH=/contrib/gptl/gptl-v5.5_nompi_noomp/bin
 
 # Set the resolution of the run
-resol="21"
+#resol="21"
+resol="106"
 
-# Set the spinupt steps for the run
-spinup_steps=0
+# Set the spinup steps for the run
+spinup_steps=720
 
 # Set the run steps for the run
-run_steps=1440
+#run_steps=1440
+run_steps=8640
 
 # Set the output interval for the run
 output_interval_steps=3
 
 # Set the experiment output directory name
-expid='harrop'
+#expid='harrop'
+expid='nature'
 
 # Set the path to the QG model install - DO NOT CHANGE THIS LINE
 qgdir=$(dirname $(dirname $(readlink -m $0) ))

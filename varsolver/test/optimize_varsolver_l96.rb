@@ -10,8 +10,8 @@ dsigma=ARGV[1].to_f
 dalpha=ARGV[2].to_f
 
 # Set bounds of sigma
-lsigma=dsigma
-usigma=3.0
+lsigma=1.0
+usigma=4.0
 
 # Set bounds of alpha
 lalpha=dalpha
@@ -34,9 +34,10 @@ while !params.empty?
   batch.each do |param|
     printf "Processing method = %d, sigma = %5.2f, alpha=%7.4f\n", method, param["sigma"], param["alpha"]
     threads << Thread.new { `./run_varsolver.sh #{method} #{param["sigma"]} #{param["alpha"]}` }
-#    threads << Thread.new { puts "#{method} #{sigma} #{alpha}" }
+#break
   end
   threads.each do |thread|
     thread.join
   end
+#break
 end

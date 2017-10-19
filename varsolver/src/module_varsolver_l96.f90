@@ -565,7 +565,7 @@ contains
 
 !   PARAMETERS FOR VAR - SHOULD BE FROM NAMELIST
     nitr = 0
-    mxit = 50
+    mxit = 100
     jold = 100.0 
     jnew = 0.0
     jthr = 0.01 
@@ -584,9 +584,11 @@ contains
     anl_vec=bkg_vec
 
 ! ITERATE TO SOLVE THE COST FUNCTION
-    do while ( abs(jold-jnew) > jthr)
-       if (nitr.gt.mxit) exit
-       if (jnew.lt.0.0) exit
+!    do while ( abs(jold-jnew) > jthr)
+!       if (nitr.gt.mxit) exit
+!       if (jnew.lt.0.0) exit
+    do while ( (abs(jold-jnew) > jthr) .AND. (nitr .le. mxit) .AND. (jnew .ge. 0.0) )
+
        jold=jnew
        jnew=0.0
  

@@ -74,14 +74,20 @@ module QG_Model_ADJ
     ! Orography
     real(r8kind), allocatable  :: phi(:)      ! Gauss points in radians
     real(r8kind), allocatable  :: sinfi(:)    ! Sine of phi
+    real(r8kind), allocatable  :: sinfib(:)    ! Sine of phi
     real(r8kind), allocatable  :: cosfi(:)    ! Cosine of phi
     logical                    :: lgdiss      ! If .true. then orography and land-sea mask dependent friction at the lower level plus Ekman friction, else only Ekman friction
     real(r8kind), allocatable  :: orog(:)     ! Orography
     real(r8kind), allocatable  :: dorodl(:,:) ! Derivative of orog wrt lambda
+    real(r8kind), allocatable  :: dorodlb(:,:) ! Derivative of orog wrt lambda
     real(r8kind), allocatable  :: dorodm(:,:) ! Derivative of orag wrt sin(fi)
+    real(r8kind), allocatable  :: dorodmb(:,:) ! Derivative of orag wrt sin(fi)
     real(r8kind), allocatable  :: rdiss(:,:)  ! Landsea-mask/orography dependent friction
+    real(r8kind), allocatable  :: rdissb(:,:)  ! Landsea-mask/orography dependent friction
     real(r8kind), allocatable  :: ddisdx(:,:) ! Landsea-mask/orography dependent friction
+    real(r8kind), allocatable  :: ddisdxb(:,:) ! Landsea-mask/orography dependent friction
     real(r8kind), allocatable  :: ddisdy(:,:) ! Landsea-mask/orography dependent friction
+    real(r8kind), allocatable  :: ddisdyb(:,:) ! Landsea-mask/orography dependent friction
 
   contains
     final :: destructor_qg_adj
@@ -462,6 +468,7 @@ contains
     allocate(fmu(this%nlat, 2))
     allocate(this%phi(this%nlat))
     allocate(this%sinfi(this%nlat))
+    allocate(this%sinfib(this%nlat))
     allocate(this%cosfi(this%nlat))
     rnorm = 1.0d0 / sqrt(3.0d0 * this%nlon)
     do i = 1, this%nlat
@@ -496,6 +503,8 @@ contains
     allocate(ws(this%nsh2))
     allocate(this%dorodl(this%nlat,this%nlon))
     allocate(this%dorodm(this%nlat,this%nlon))
+    allocate(this%dorodlb(this%nlat,this%nlon))
+    allocate(this%dorodmb(this%nlat,this%nlon))
     allocate(agg2(this%nlat, this%nlon))
     this%lgdiss = ((addisl .gt. 0.0) .or. (addish .gt. 0.0))
     this%orog = reshape(this%ggsp%ggtosp (agg), (/this%nsh2/))
@@ -518,6 +527,9 @@ contains
       allocate(this%rdiss(this%nlat,this%nlon))
       allocate(this%ddisdx(this%nlat,this%nlon))
       allocate(this%ddisdy(this%nlat,this%nlon))
+      allocate(this%rdissb(this%nlat,this%nlon))
+      allocate(this%ddisdxb(this%nlat,this%nlon))
+      allocate(this%ddisdyb(this%nlat,this%nlon))
       ws = reshape(this%ggsp%ggtosp (agg), (/this%nsh2/))
       wsx = reshape(this%ggsp%ddl (ws), (/this%nsh2/))
       this%rdiss = this%ggsp%sptogg_pp (ws)
@@ -777,6 +789,13 @@ contains
         end do
 !       call POPREAL8ARRAY(tmp, nlat*nlon)
         ytb = 0.0_8
+        this%ddisdyb = 0.0_8
+        this%ddisdxb = 0.0_8
+        this%dorodmb = 0.0_8
+        this%dorodlb = 0.0_8
+        this%rdissb = 0.0_8
+        this%sinfib = 0.0_8
+
 !        tmpb = 0.0_8
         call this%DQDT_B(yt, ytb, dyt, dytb)
         dytb = 0.0_8
@@ -936,7 +955,7 @@ contains
   !-----------------------------------------------------------------------
   subroutine DQDT_B(this, y, yb, dydt, dydtb)
 
-    class(qg_adj_type), intent(in) :: this
+    class(qg_adj_type), intent(inout) :: this
     real(r8kind), INTENT(IN) :: y(:, :)
     real(r8kind) :: yb(:, :)
     real(r8kind) :: dydt(:, :)
@@ -1052,7 +1071,7 @@ contains
   !----------------------------------------------------------------------
   subroutine DDT_B(this, psi, psib, psit, psitb, qprime, qprimeb, for, dqprdtb)
 
-    class(qg_adj_type), intent(in) :: this
+    class(qg_adj_type), intent(inout) :: this
 ! stream function at the nvl levels
     real(r8kind), INTENT(IN) :: psi(this%nsh2, this%nvl)
     real(r8kind) :: psib(this%nsh2, this%nvl)
@@ -1330,7 +1349,7 @@ contains
   !----------------------------------------------------------------------
   subroutine jacobd_b(this, psiloc, psilocb, pvor, pvorb, sjacobb)
 
-    class(qg_adj_type), intent( in) :: this
+    class(qg_adj_type), intent(inout) :: this
     real(r8kind),       intent( in) :: psiloc(this%nsh2)
     real(r8kind),       intent(out) :: psilocb(this%nsh2)
     real(r8kind),       intent( in) :: pvor(this%nsh2)
@@ -1344,6 +1363,8 @@ contains
     real(r8kind) :: dvordmb(this%nlat, this%nlon), gjacobb(this%nlat, this%nlon), vvb(this%nsh2)
     real(r8kind) :: azeta(this%nlat, this%nlon), dpsidls(this%nsh2)
     real(r8kind) :: azetab(this%nlat, this%nlon), dpsidlsb(this%nsh2)
+    real(r8kind) :: tempb, tempb0
+
     type(qg_ggsp_type) :: ggsp
 
     ! Get grid conversion object
@@ -1360,6 +1381,12 @@ contains
     dpsidm = ggsp%sptogg_pd(psiloc)
 
     ! dissipation 
+    if (this%lgdiss) then
+      do k=1,this%nsh2
+        vv(k) = this%diss(k, 2)*psiloc(k)
+      end do
+      azeta = ggsp%sptogg_pp(vv)
+    end if
     dpsidlsb = 0.0_r8kind
     do k = this%nsh2, 1, -1
       dpsidlsb(k) = dpsidlsb(k) - sjacobb(k)
@@ -1375,9 +1402,12 @@ contains
       azetab = 0.0_r8kind
       do j = this%nlon, 1, -1
         do i = this%nlat, 1, -1
-          dpsidmb(i, j) = dpsidmb(i, j) - this%ddisdy(i, j) * gjacobb(i, j)
-          azetab(i, j) = azetab(i, j) + this%rdiss(i, j) * gjacobb(i, j)
-          dpsidlb(i, j) = dpsidlb(i, j) - this%ddisdx(i, j) * gjacobb(i, j)
+          dpsidmb(i, j) = dpsidmb(i, j) - this%ddisdy(i, j)*gjacobb(i, j)
+          this%ddisdyb(i, j) = this%ddisdyb(i, j) - dpsidm(i, j)*gjacobb(i, j)
+          this%rdissb(i, j) = this%rdissb(i, j) + azeta(i, j)*gjacobb(i, j)
+          azetab(i, j) = azetab(i, j) + this%rdiss(i, j)*gjacobb(i, j)
+          dpsidlb(i, j) = dpsidlb(i, j) - this%ddisdx(i, j)*gjacobb(i, j)
+          this%ddisdxb(i, j) = this%ddisdxb(i, j) - dpsidl(i, j)*gjacobb(i, j)       
         end do
       end do
       vvb = 0.0_r8kind
@@ -1408,11 +1438,16 @@ contains
     dvordmb = 0.0_r8kind
     do j = this%nlon, 1, -1
       do i = this%nlat, 1, -1
-        dpsidmb(i, j) = dpsidmb(i, j) + (this%sinfi(i) * this%dorodl(i, j) + dvordl(i, j)) * gjacobb(i, j)
-        dvordlb(i, j) = dvordlb(i, j) + dpsidm(i, j) * gjacobb(i, j)
-        dpsidlb(i, j) = dpsidlb(i, j) - (this%sinfi(i) * this%dorodm(i, j) + dvordm(i, j)) * gjacobb(i, j)
-        dvordmb(i, j) = dvordmb(i, j) - dpsidl(i, j) * gjacobb(i, j)
-        gjacobb(i, j) = 0.0_r8kind
+        tempb = dpsidm(i, j)*gjacobb(i, j)
+        tempb0 = -(dpsidl(i, j)*gjacobb(i, j))
+        dpsidmb(i, j) = dpsidmb(i, j) + (dvordl(i, j)+this%sinfi(i)*this%dorodl(i, j))*gjacobb(i, j)
+        dvordlb(i, j) = dvordlb(i, j) + tempb
+        this%sinfib(i) = this%sinfib(i) + this%dorodm(i, j)*tempb0 + this%dorodl(i, j)*tempb
+        this%dorodlb(i, j) = this%dorodlb(i, j) + this%sinfi(i)*tempb
+        dpsidlb(i, j) = dpsidlb(i, j) - (dvordm(i, j)+this%sinfi(i)*this%dorodm(i, j))*gjacobb(i, j)
+        dvordmb(i, j) = dvordmb(i, j) + tempb0
+        this%dorodmb(i, j) = this%dorodmb(i, j) + this%sinfi(i)*tempb0
+        gjacobb(i, j) = 0.0_8
       end do
     end do
 

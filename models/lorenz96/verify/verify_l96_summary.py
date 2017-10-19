@@ -6,14 +6,14 @@ vx=open("verify_l96_summary.txt","w")
 
 #for h in range(0,361,36):
 #for h in range(0,1201,60):
-for h in range(0,1201,120):
+for h in range(0,1201,60):
   toton=[]
   totof=[]
 
 #  for m in range(1,5):
 #  for m in range(1,5):
-#  for m in (1,2,3):
-  for m in [3]:
+  for m in (1,2,3):
+#  for m in [1]:
 
     hh=str(h).zfill(4)
     mm=str(m)

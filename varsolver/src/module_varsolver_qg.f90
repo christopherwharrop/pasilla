@@ -687,8 +687,10 @@ contains
              print *, "BACKWARD_MODEL"
              model = qg_model_type(bkg_config, state_vector=mdl_vec(:), step=t)
              call model%adv_nsteps(1)
-             model_ADJ = qg_adj_type(bkg_config, state_vector=mdl_vec(:), trajectory_vector=-(model%get_state_vector() - mdl_vec(:)), step = t)
-             call model_ADJ%adv_nsteps(3)
+!            model_ADJ = qg_adj_type(bkg_config, state_vector=mdl_vec(:), trajectory_vector=-(model%get_state_vector() - mdl_vec(:)), step = t)
+!            call model_ADJ%adv_nsteps(3)
+             model_ADJ = qg_adj_type(bkg_config, state_vector=model%get_state_vector(), trajectory_vector=mdl_vec(:) - model%get_state_vector(), step = t + 1)
+             call model_ADJ%adv_nsteps(4)
              mdl_vec(:) = model_ADJ%get_state_vector()
              print *, "END BACKWARD_MODEL"
           end if

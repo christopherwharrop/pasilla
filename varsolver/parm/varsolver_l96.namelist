@@ -4,8 +4,12 @@
 /
 
 &method1
- alph = 0.005,
- sigma = 1.40,
+ alph = 0.0070,
+ sigma = 2.00,
+! alph = 0.01,
+! sigma = 1.75,
+! alph = 0.043,
+! sigma = 0.8,
 /
 
 &method2
@@ -14,8 +18,12 @@
 /
 
 &method3
- alph = 0.007,
- sigma = 1.30,
+ alph = 0.0385,
+ sigma = 1.65,
+! alph = 0.0005,
+! sigma = 3.25,
+! alph = 0.0245,
+! sigma = 1.30,
 /
 
 &method4

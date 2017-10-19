@@ -37,7 +37,7 @@ output_interval_steps=$one_hour
 resolution=21
 time_step=1200
 
-(( fcst_length=120*$one_hour ))  # Forecast lead time = 78 "hours"
+(( fcst_length=120*$one_hour ))  # Forecast lead time = 120 "hours"
 (( fcst_interval=1*$one_hour ))  # Make a forecast every 1 "hours"
 start_epoch=0                    # First forecast in the series (cold start cycle)
 (( assimilation_window=12*$one_hour ))       # Assimilate observations every 1 "hours"
@@ -61,7 +61,7 @@ while [ $f -le $end_fcst ]; do
 
   # Loop over methods
 # for method in 1 2 3 4 5; do
-  for method in 1 3 4 5; do
+  for method in 1 3; do
 
     OBS_DIR=${PASILLA_DIR}/models/QG/obs_$method
 
@@ -116,7 +116,7 @@ while [ $f -le $end_fcst ]; do
       ${GPTL_PATH}/hex2name.pl ./varsolver_qg.exe ./timing.0 > ./timing.varsolver_qg.txt
       ${PARSE_PATH}/parsetiming.rb -t 1 -d 6 timing.varsolver_qg.txt > timing.varsolver_qg.parse.txt
 
-    fi  # if f >= start_epoch
+    fi  # if f > start_epoch
 
     # Run the QG model forecast with assimilation
 
@@ -154,9 +154,16 @@ while [ $f -le $end_fcst ]; do
 
     # Copy the inputdata into place
     obsfile="sf7910T106.shfs"
-    ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/${obsfile}
-    ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/qgcoefT${resolution}.dat
-    ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/qgbergT${resolution}.dat
+#    ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/${obsfile}
+#    ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/qgcoefT${resolution}.dat
+#    ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/qgbergT${resolution}.dat
+#      ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/qginitT${resolution}.nc
+#      ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/qgforcingT${resolution}.nc
+      ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/${obsfile}
+      ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/qgcoefT${resolution}.dat
+      ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/qgbergT${resolution}.dat
+      ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/bT${resolution}.nc b.nc
+      ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/mu_operator.dat
 
     # Run the QG model
     cp $QG_DIR/exe/QG.exe .

@@ -47,7 +47,7 @@ program adept
 
   open(40,file="verify.txt",form="formatted", status="new")
   write(40,*) "MAE ALL = ",sum(mod_vec)/float(mod_len)
-!  write(40,*) "MSE ALL = ",dot_product(mod_vec,mod_vec)/float(mod_len)
+  write(40,*) "MSE ALL = ",dot_product(mod_vec,mod_vec)/float(mod_len)
   write(40,*) "RMSE ALL = ",sqrt(dot_product(mod_vec,mod_vec)/float(mod_len))
   close (40)
 

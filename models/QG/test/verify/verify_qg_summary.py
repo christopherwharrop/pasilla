@@ -1,4 +1,4 @@
-#!//contrib/anaconda/2.3.0/bin/python
+#!/bin/env python
 
 vx=open("verify_qg_summary.txt","w")
 
@@ -7,10 +7,13 @@ for h in range(0,361,36):
   toton=[]
   totof=[]
 
-  for m in range(1,5):
+#  for m in range(1,5):
+#  for m in (1,2,3):
+  for m in (1,3):
 
-    hh=str(h).zfill(3)
+    hh=str(h).zfill(4)
     mm=str(m)
+
     fon=open("vx"+hh+"_"+mm+"_on.txt",'r')
     von=fon.readlines()
     fon.close()

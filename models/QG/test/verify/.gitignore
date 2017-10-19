@@ -1,0 +1,3 @@
+# Ignore verification output
+vx*
+verify_qg_summary.txt*

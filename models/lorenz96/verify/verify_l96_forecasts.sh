@@ -2,7 +2,7 @@
 
 one_hour=10                       # There are 10 steps in one "hour"
 (( fcst_length=120*$one_hour ))   # Forecast lead time = 120 "hours"
-(( fcst_interval=12*$one_hour ))  # Make a forecast every 6 "hours"
+(( fcst_interval=6*$one_hour ))  # Make a forecast every 6 "hours"
 start_fcst=40000                  # Starting forecast step
 (( end_fcst=$start_fcst+100*24*$one_hour ))  # Perform forecasts for 120 days
 

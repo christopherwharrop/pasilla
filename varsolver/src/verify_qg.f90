@@ -57,12 +57,20 @@ program adept
   open(4,file="verify.txt",form="formatted")
   write(4,*) "MAE ALL = ",sum(mod_vec)/float(mod_len)
   write(4,*) "MSE ALL = ",dot_product(mod_vec,mod_vec)/float(mod_len)
+  write(4,*) "RMSE ALL = ",sqrt(dot_product(mod_vec,mod_vec)/float(mod_len))
+
   write(4,*) "MAE 200 = ",sum(mod_vec(1:mod_len/3))/float(mod_len/3)
   write(4,*) "MSE 200 = ",dot_product(mod_vec,mod_vec)/float(mod_len/3)
+  write(4,*) "RMSE 200 = ",sqrt(dot_product(mod_vec,mod_vec)/float(mod_len/3))
+
   write(4,*) "MAE 500 = ",sum(mod_vec(mod_len/3+1:2*mod_len/3))/float(mod_len/3)
   write(4,*) "MSE 500 = ",dot_product(mod_vec(mod_len/3+1:2*mod_len/3),mod_vec(mod_len/3+1:2*mod_len/3))/float(mod_len/3)
+  write(4,*) "RMSE 500 = ",sqrt(dot_product(mod_vec(mod_len/3+1:2*mod_len/3),mod_vec(mod_len/3+1:2*mod_len/3))/float(mod_len/3))
+
   write(4,*) "MAE 800 = ",sum(mod_vec(2*mod_len/3+1:mod_len))/float(mod_len/3)
   write(4,*) "MSE 800 = ",dot_product(mod_vec(2*mod_len/3+1:mod_len),mod_vec(2*mod_len/3+1:mod_len))/float(mod_len/3)
+  write(4,*) "RMSE 800 = ",sqrt(dot_product(mod_vec(2*mod_len/3+1:mod_len),mod_vec(2*mod_len/3+1:mod_len))/float(mod_len/3))
+
   close (4)
 
   ! BJE

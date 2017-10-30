@@ -3,6 +3,7 @@ module L96_ADJ
   use kind,           only : r8kind
   use Abstract_Model, only : abstract_model_type
   use L96_Config,     only : l96_config_type
+  use L96_TL,         only : l96_tl_type
 
   implicit none
 
@@ -218,6 +219,9 @@ contains
     real(r8kind), dimension(this%config%get_nx()) :: result1
     real(r8kind), dimension(this%config%get_nx()) :: result1b
     real(r8kind), dimension(this%config%get_nx()) :: save_trajectory
+
+    type(l96_tl_type) :: l96_tl
+
     integer :: step
 
     real(r8kind), dimension(this%config%get_nx(),this%config%get_nx()) :: mprime
@@ -227,8 +231,17 @@ contains
 
     do step = 1, nsteps
 
+      ! Initialize a L96 TL model with the current state and trajectory
+      l96_tl = l96_tl_type(this%get_config(), state=this%state, trajectory=this%trajectory)
+
+      ! Advance the L96 TL model one step
+      call l96_tl%adv_nsteps(1)
+
       ! Save the current trajectory
       save_trajectory = this%trajectory
+
+      ! Set the adjoint trajectory to the initial perturbation
+      this%trajectory = l96_tl%get_trajectory() - this%trajectory
 
       ! Compute the first intermediate step
       result1 = this%comp_dt(this%state)
@@ -280,8 +293,11 @@ contains
       result1b = time_step * x1b
       call this%comp_dt_b(this%state, this%trajectory, result1b)
 
+      ! Update the trajectory
+      this%trajectory = save_trajectory - this%trajectory
+
       ! Update state with original trajectory
-      this%state = this%state + save_trajectory
+      this%state = this%state - this%trajectory
 
 ! Lidia's MATRIX formulation with compensation for an incorrect input trajectory
 !44    FORMAT (A8,6F10.6)

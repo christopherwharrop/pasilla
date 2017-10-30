@@ -18,12 +18,12 @@
 /
 
 &method3
- alph = 0.0385,
- sigma = 1.65,
+! alph = 0.0385,
+! sigma = 1.65,
 ! alph = 0.0005,
 ! sigma = 3.25,
-! alph = 0.0245,
-! sigma = 1.30,
+ alph = 0.007
+ sigma = 1.30,
 /
 
 &method4

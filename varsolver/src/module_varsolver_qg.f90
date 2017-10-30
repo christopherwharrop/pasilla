@@ -180,9 +180,19 @@ contains
     call dgbsv(bkg_len,bkg_off,bkg_off,1,bkg_cpy,bkg_bnd,ipiv,con_vec,bkg_len,info)
     non_vec(:)=con_vec(:)
 
-    deallocate(bkg_cpy)
-    deallocate(con_vec)
-    deallocate(ipiv)
+!    Use Old full dense B
+!    deallocate(bkg_cpy)
+!    deallocate(con_vec)
+!    deallocate(ipiv)
+!
+!    allocate (ipiv(bkg_len))
+!    allocate (con_vec(bkg_len))
+!    allocate (bkg_cpy(bkg_len,bkg_len))
+!    con_vec(:)=non_vec(:)
+!    bkg_cpy(:,:)=bkg_cov(:,:)
+!
+!    call dgesv(bkg_len,1,bkg_cpy,bkg_len,ipiv,con_vec,bkg_len,info)
+!    non_vec(:)=con_vec(:)
 
     print *,"PRE_CON_DIF COMPLETE"
 

@@ -838,7 +838,7 @@ contains
 !       call POPREAL8ARRAY(tmp, nlat*nlon)
         call this%DQDT_B(y, yb, dydt, dydtb)
 
-       call this%fmtofs_B(this%qprime, this%qprimeb, yb)
+        call this%fmtofs_B(this%qprime, this%qprimeb, yb)
 !       this%qprimeb = this%fstofm(yb, this%nm)
 !       yb = 0.0_r8kind
 

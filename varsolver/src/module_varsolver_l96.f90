@@ -670,9 +670,9 @@ contains
              print *, "BACKWARD_MODEL"
              model = l96_model_type(bkg_config, state=mdl_vec(:), step=t)
              call model%adv_nsteps(1)
-!             model_ADJ = l96_adj_type(bkg_config, state=mdl_vec(:), trajectory=-(model%get_state() - mdl_vec(:)), step = t)
+!             model_ADJ = l96_adj_type(bkg_config, state=mdl_vec(:), trajectory=(model%get_state() - mdl_vec(:)), step = t)
 !             call model_ADJ%adv_nsteps(10)
-             model_ADJ = l96_adj_type(bkg_config, state=model%get_state(), trajectory=mdl_vec(:) - model%get_state(), step = t + 1)
+             model_ADJ = l96_adj_type(bkg_config, state=model%get_state(), trajectory=model%get_state() - mdl_vec(:), step = t + 1)
              call model_ADJ%adv_nsteps(11)
              mdl_vec(:) = model_ADJ%get_state()
              print *, "END BACKWARD_MODEL"

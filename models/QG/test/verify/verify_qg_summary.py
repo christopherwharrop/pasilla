@@ -21,7 +21,7 @@ for h in range(0,361,36):
     for f in von:
 	on=on+float(f.split('=')[1]) 
     on=on/float(len(von))
-    toton.append(str("%8.3f" % round(float(on),3)))
+    toton.append(str("%12.3f" % round(float(on),3)))
 
     fof=open("vx"+hh+"_"+mm+"_off.txt",'r')
     vof=fof.readlines()
@@ -30,7 +30,7 @@ for h in range(0,361,36):
     for f in vof:
 	off=off+float(f.split('=')[1]) 
     off=off/float(len(vof))
-    totof.append(str("%8.3f" % round(float(off),3)))
+    totof.append(str("%12.3f" % round(float(off),3)))
 
   print str(h)+","+(",".join(totof))+","+(",".join(toton))
   vx.write(str(h)+","+(",".join(totof))+","+(",".join(toton))+"\n")

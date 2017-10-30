@@ -519,6 +519,9 @@ contains
 !  subroutine var_solver(bkg_cov,hrh_cov,brh_cov,htr_ino,bht_ino,jvc_for,bkg_vec,anl_vec,fwmod_vec,bwmod_vec)
   subroutine var_solver(bkg_cov,hrh_cov,brh_cov,htr_ino,bht_ino,jvc_for,bkg_vec,anl_vec)
 
+    use QGTL_Writer
+    use QGADJ_Writer
+
     implicit none
 
     real(KIND=8), intent(in)    :: htr_ino(:,:)
@@ -561,6 +564,10 @@ contains
     type(qg_tl_type)           :: model_TL
     type(qg_adj_type)          :: model_ADJ
 
+    character(len=128)      :: filename
+    type(qgtl_writer_type)  :: writer_tl
+    type(qgadj_writer_type) :: writer_adj
+
     allocate (jtim(tim_len)) 
     allocate (tim_htr(bkg_len))
     allocate (tim_bkc(bkg_len,bkg_len))
@@ -579,6 +586,10 @@ contains
     allocate (tmp_mat(bkg_len))
     allocate (tmp_vec(bkg_len))
     allocate (grd_jvc(bkg_len))
+
+
+    writer_tl = qgtl_writer_type('NETCDF')
+    writer_adj = qgadj_writer_type('NETCDF')
 
 
 !   PARAMETERS FOR VAR - SHOULD BE FROM NAMELIST
@@ -629,6 +640,13 @@ contains
              call model%adv_nsteps(1)
              model_TL = qg_tl_type(bkg_config, state_vector=mdl_vec(:), trajectory_vector=model%get_state_vector() - mdl_vec(:), step = t)
              call model_TL%adv_nsteps(3)
+
+             if (nitr == 0) then
+               write(filename,'(A,I0.7)') 'tlout_', t
+               call writer_tl%write(model_TL, filename)
+             end if
+
+
              mdl_vec(:) = model_TL%get_state_vector()
              print *, "END FORWARD_MODEL"
 
@@ -687,10 +705,16 @@ contains
              print *, "BACKWARD_MODEL"
              model = qg_model_type(bkg_config, state_vector=mdl_vec(:), step=t)
              call model%adv_nsteps(1)
-!            model_ADJ = qg_adj_type(bkg_config, state_vector=mdl_vec(:), trajectory_vector=-(model%get_state_vector() - mdl_vec(:)), step = t)
+!            model_ADJ = qg_adj_type(bkg_config, state_vector=mdl_vec(:), trajectory_vector=(model%get_state_vector() - mdl_vec(:)), step = t)
 !            call model_ADJ%adv_nsteps(3)
-             model_ADJ = qg_adj_type(bkg_config, state_vector=model%get_state_vector(), trajectory_vector=mdl_vec(:) - model%get_state_vector(), step = t + 1)
+             model_ADJ = qg_adj_type(bkg_config, state_vector=model%get_state_vector(), trajectory_vector=model%get_state_vector() - mdl_vec(:), step = t + 1)
              call model_ADJ%adv_nsteps(4)
+
+             if (nitr == 0) then
+               write(filename,'(A,I0.7)') 'adjout_', t
+               call writer_adj%write(model_ADJ, filename)
+             end if
+
              mdl_vec(:) = model_ADJ%get_state_vector()
              print *, "END BACKWARD_MODEL"
           end if

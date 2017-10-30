@@ -7,8 +7,7 @@ one_hour=3                        # There are 3 steps in one "hour"
 (( fcst_length=120*$one_hour ))   # Forecast lead time = 120 "hours"
 (( fcst_interval=12*$one_hour ))  # Make a forecast every 12 "hours"
 start_fcst=0                      # Starting forecast step
-#(( end_fcst=$start_fcst+100*24*$one_hour ))  # Perform forecasts for 100 days
-(( end_fcst=$start_fcst+20*24*$one_hour ))  # Perform forecasts for 100 days
+(( end_fcst=$start_fcst+20*24*$one_hour ))  # Verify forecasts until 20th day
 
 # Link to the input for QG model instantiation
 ln -sf /scratch4/BMC/gsd-hpcs/QG/inputdata/qgbergT106.dat
@@ -23,6 +22,7 @@ ln -sf /scratch4/BMC/gsd-hpcs/QG/inputdata/qginitT21.nc
 
 h=$1
 
+# Start verifying after 10 days
 (( i=$start_fcst + 20*$fcst_interval ))
 while [ $i -le $end_fcst ]; do
 

@@ -17,10 +17,16 @@
 /
 
 &method3
+! alph = 0.040,
+! alph = 0.030,
+! alph = 0.025,
+! alph = 0.020,
+! alph = 0.015,
 ! alph = 0.010,
- alph = 0.00001,
-! alph = 0.1000,
-! alph = 0.0050,
+ alph = 0.007,
+! alph = 0.005,
+! alph = 0.003,
+! alph = 0.001,
  sigma = 1.30,
 /
 

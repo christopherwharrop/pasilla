@@ -96,6 +96,7 @@ module QG_Model_TL
     procedure :: get_nvl
     procedure :: get_psi
     procedure :: get_trajectory
+    procedure :: get_qprimed
     procedure :: get_psig
     procedure :: get_lat_lon_grid
     procedure :: get_for
@@ -2210,6 +2211,19 @@ contains
     trajectory = this%trajectory
 
   end function get_trajectory
+
+
+  !-------------------------------------------------------------------------------
+  ! get_qprimed
+  !-------------------------------------------------------------------------------
+  function get_qprimed(this) result(qprimed)
+
+    class(qg_tl_type),            intent(in) :: this
+    real(r8kind), dimension(this%nsh2,this%nvl) :: qprimed
+
+    qprimed = this%qprimed
+
+  end function get_qprimed
 
 
   !-------------------------------------------------------------------------------

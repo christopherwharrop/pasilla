@@ -2,6 +2,7 @@ module QG_Model_ADJ
 
   use kind
   use Abstract_Model, only : abstract_model_type
+  use QG_Model_TL
   use QG_Config
   use QG_GGSP
   use QG_Util
@@ -717,6 +718,7 @@ contains
     real(r8kind) :: qprimeb_save(this%nsh2, this%nvl)
     real(r8kind) :: tempb
     type(qg_config_type) :: config
+    type(qg_tl_type) :: qg_tl
 
     config = this%config
 
@@ -729,13 +731,19 @@ contains
       ! Advance the model forward in time n steps
       do step = 1, nsteps
 
+        ! Initialize a QG TL model with the current state and trajectory
+        qg_tl = qg_tl_type(this%config, state=this%psi, trajectory=this%trajectory)
+
+        ! Advance the QG TL model one step
+        call qg_tl%adv_nsteps(1)
+
+        ! Save the current trajectory
         qprimeb_save = this%qprimeb
-!write(*,*) 'qprimeb before'
-!write(*,'(F20.15)') (qprimeb_save(i,1), i=1,10)
-!write(*,*)
 
-!        this%qprime = this%qprime + qprimeb_save
+        ! Set the adjoint trajectory to the initial perturbation
+        this%qprimeb = qg_tl%get_qprimed() - this%qprimeb
 
+        ! Move the perturbation backward
         y = this%fmtofs(this%qprime)
 !       call PUSHREAL8ARRAY(tmp, nlat*nlon)
         call this%DQDT(y, dydt)
@@ -834,38 +842,20 @@ contains
 !       this%qprimeb = this%fstofm(yb, this%nm)
 !       yb = 0.0_r8kind
 
-!write(*,*) 'qprimeb after'
-!write(*,'(F20.15)') (this%qprimeb(i,1), i=1,10)
-!write(*,*)
-
-        ! Update trajectory
-!        this%qprimeb = qprimeb_save + this%fstofm(yb, this%nm)
-!        this%qprimeb = this%qprimeb ! + qprimeb_save
-
-!write(*,*) 'qprime before'
-!write(*,'(F20.15)') (this%qprime(i,1), i=1,10)
-!write(*,*)
-
+        ! Update the trajectory
+        this%qprimeb = qprimeb_save - this%qprimeb
 
         ! Update model state with original trajectory plus its increment
-        this%qprime = this%qprime + qprimeb_save
-!        this%qprime = this%qprime + this%qprimeb
-!        this%qprime = this%qprime + this%qprimeb
-!write(*,*) 'qprime after'
-!write(*,'(F20.15)') (this%qprime(i,1), i=1,10)
-!write(*,*)
+        this%qprime = this%qprime - this%qprimeb
 
+        ! Make stream function consistent with potential vorticity
+        call this%qtopsi(this%qprimeb, this%trajectory, this%psitb)
+        call this%qtopsi(this%qprime, this%psi, this%psit)
 
         ! Inrement the step count
         this%step = this%step - 1
 
       end do
-
-      this%qprime = this%qprime + this%qprimeb
-
-      ! Make stream function consistent with potential vorticity
-      call this%qtopsi(this%qprimeb, this%trajectory, this%psitb)
-      call this%qtopsi(this%qprime, this%psi, this%psit)
 
     end if
 

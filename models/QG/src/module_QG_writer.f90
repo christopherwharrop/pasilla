@@ -416,7 +416,7 @@ contains
     call nc_check(nf90_put_var(ncFileID, PsigVarID, psig, count=(/nlon, nlat, nvl/), map=(/nlat, 1, nlat*nlon/) ))
 
     ! Fill the spectral forcing variable
-    call nc_check(nf90_put_var(ncFileID, ForVarID, model%get_for()))
+    call nc_check(nf90_put_var(ncFileID, ForVarID, config%get_for()))
 
     ! Fill the gaussian grid forcing variable
     call nc_check(nf90_put_var(ncFileID, ForgVarID, forg, count=(/nlon, nlat, nvl/), map=(/nlat, 1, nlat*nlon/) ))

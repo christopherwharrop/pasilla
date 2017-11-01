@@ -44,7 +44,7 @@ module_QG_tl.o: module_QG_tl.f90 module_QG_config.o module_QG_ggsp.o module_QG_u
 module_QG_adj.o: module_QG_adj.f90 module_QG_config.o module_QG_ggsp.o module_QG_util.o nag.o 
 	$(FC) $(FFLAGS) -convert native -c module_QG_adj.f90 $(INCLUDES)
 
-module_QG_config.o: module_QG_config.f90
+module_QG_config.o: module_QG_config.f90 module_QG_ggsp.o nag.o
 	$(FC) $(FFLAGS) -c module_QG_config.f90 $(INCLUDES)
 
 module_QG_writer.o: module_QG_writer.f90 module_QG_model.o

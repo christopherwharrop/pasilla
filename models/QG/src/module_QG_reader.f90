@@ -283,10 +283,10 @@ contains
     call nc_check(nf90_close(ncFileID))
 
     ! Create the model configuration
-    config = qg_config_type(resolution, time_step, obsfile, .false., .false., tdis, addisl, addish, trel, tdif, idif, h0, rrdef1, rrdef2)
+    config = qg_config_type(resolution, time_step, obsfile, .false., .false., tdis, addisl, addish, trel, tdif, idif, h0, rrdef1, rrdef2, for)
 
     ! Instantiate a model from the configuration
-    model = qg_model_type(config, state=psi, for=for, step=step)
+    model = qg_model_type(config, state=psi, step=step)
 
   end subroutine netcdf_read
 

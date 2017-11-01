@@ -41,24 +41,14 @@ module QG_Model
     ! Model Forcing
     real(r8kind), allocatable :: for(:,:)    ! Constant potential vorticity forcing at the nvl levels
 
-    ! Spectral Coefficients
-    integer,      allocatable :: nshm(:)     ! Contains numbers 22 down to 1 for index 0 to 21
-    integer,      allocatable :: ll(:)       ! Contains total wavenumber n of each spherical harmonic of the corresponding index
-    real(r8kind), allocatable :: pp(:,:)     ! Legendre polynomials defined at Gausian latitudes
-    real(r8kind), allocatable :: pd(:,:)     ! Mu derivative of Legendre polynomials
-    real(r8kind), allocatable :: pw(:,:)     ! Weights for Legendre integrals
-!    real(r8kind), allocatable :: trigd(:,:)  ! Trigonometric coefficients used by the nag version of the fft
-!    real(r8kind), allocatable :: trigi(:,:)  ! Trigonometric coefficients used by the nag version of the fft
-!    real(r8kind), allocatable :: rm(:)       ! contains zonal wavenumber m of each spherical harmonic of the corresponding index for zonal derivative operator
-
     ! Grid conversion object
     type(qg_ggsp_type) :: ggsp
 
     ! Laplace/Helmholtz direct and inverse operators
     real(r8kind), allocatable :: rinhel(:,:) ! Laplace and Helmholtz operator for Q-PSI inversion
     real(r8kind), allocatable :: diss(:,:)   ! Dissipation coefficients for each spherical harmonic
-                                             !   diss(k,1) : Hyperviscosity at the three levels (tdif sets timescale)
-                                             !   diss(k,2) : Ekman friction at lower level (tdis sets timescale)
+!                                             !   diss(k,1) : Hyperviscosity at the three levels (tdif sets timescale)
+!                                             !   diss(k,2) : Ekman friction at lower level (tdis sets timescale)
     real(r8kind)              :: rl1         ! One over Rossby rad. of def. squared of 200-500 thickness
     real(r8kind)              :: rl2         ! One over Rossby rad. of def. squared of 500-800 thickness
     real(r8kind)              :: relt1       ! Nondimensional relaxation coefficient of 200-500 thickness
@@ -93,13 +83,7 @@ module QG_Model
     procedure :: get_state_vector
     procedure :: get_location_vector
     procedure :: get_interpolation_weights
-    procedure, private :: allocate_comqg
-    procedure, private :: init_spectral_coeff
-    procedure, private :: init_laplace_helmholtz
-    procedure, private :: init_orography
-    procedure, private :: init_forcing
     procedure, private :: init_state
-    procedure, private :: artiforc
     procedure, private :: dqdt
     procedure, private :: ddt
     procedure, private :: jacob
@@ -126,12 +110,11 @@ contains
   !-------------------------------------------------------------------------------
   ! constructor_qg_model
   !-------------------------------------------------------------------------------
-  function constructor_qg_model(config, state, state_vector, for, step) result (qg_model)
+  function constructor_qg_model(config, state, state_vector, step) result (qg_model)
 
     type(qg_config_type),   intent(in) :: config
     real(r8kind), optional, intent(in) :: state(:,:)
     real(r8kind), optional, intent(in) :: state_vector(:)
-    real(r8kind), optional, intent(in) :: for(:,:)
     integer,      optional, intent(in) :: step
 
     type(qg_model_type)                :: qg_model
@@ -147,6 +130,54 @@ contains
     ! Set the model config
     qg_model%config = config
 
+    ! Get model grid dimensions
+    qg_model%ft = config%get_ft()
+    qg_model%nm = config%get_nm()
+    qg_model%nlon = config%get_nlon()
+    qg_model%nlat = config%get_nlat()
+    qg_model%nvl = config%get_nvl()
+    qg_model%ntl = config%get_ntl()
+    qg_model%nsh = config%get_nsh()
+    qg_model%nsh2 = config%get_nsh2()
+
+    ! Get model grid converter
+    qg_model%ggsp = config%get_ggsp()
+
+    ! Get model forcing from configuration
+    allocate(qg_model%for, source = config%get_for())
+
+    ! Get Nondimensional relaxation coefficients
+    qg_model%relt1 = config%get_relt1()
+    qg_model%relt2 = config%get_relt2()
+
+    ! Get dissipation coefficients for each spherical harmonic
+    allocate(qg_model%diss, source = config%get_diss())
+
+    ! Get gauss points in radians and sine and cosine of it
+    allocate(qg_model%phi, source = config%get_phi())
+    allocate(qg_model%sinfi, source = config%get_sinfi())
+    allocate(qg_model%cosfi, source = config%get_cosfi())
+
+    ! Get derivatives of orog
+    allocate(qg_model%dorodl, source = config%get_dorodl())
+    allocate(qg_model%dorodm, source = config%get_dorodm())
+
+    ! Get orography and land-sea mask dependent friction option
+    qg_model%lgdiss = config%get_lgdiss()
+
+    ! Get landsea-mask/orography dependent friction
+    allocate(qg_model%rdiss, source = config%get_rdiss())
+    allocate(qg_model%ddisdx, source = config%get_ddisdx())
+    allocate(qg_model%ddisdy, source = config%get_ddisdy())
+
+    ! Get Laplace and Helmholtz operator for Q-PSI inversion
+    allocate(qg_model%rinhel(qg_model%nsh2,0:5))
+    qg_model%rinhel = config%get_rinhel()
+
+    ! Get one over Rossby rad. of def. squared of 200-500, and 500-800 thicknesses
+    qg_model%rl1 = config%get_rl1()
+    qg_model%rl2 = config%get_rl2()
+
     ! Initialize model step and clock
     if (present(step)) then
       qg_model%step = step
@@ -158,28 +189,6 @@ contains
     ! Initialize time step of the model:
     nsteps_per_day = 24.0d0 * 3600.0d0 / real(config%get_time_step())
     qg_model%dtt = (1d0 / nsteps_per_day) * pi * 4d0
-
-    ! Set model resolution dependent parameters and allocate model state variables
-    call qg_model%allocate_comqg(config%get_resolution())
-
-    ! Read model input from qgcoefT*
-    call qg_model%init_spectral_coeff()
-
-    ! Instantiate a ggsp grid conversion object
-    qg_model%ggsp = qg_ggsp_type(qg_model%nm, qg_model%nlat, qg_model%nlon, qg_model%nshm, qg_model%pp, qg_model%pd, qg_model%pw)
-
-    ! Initialize laplace and helmholtz operators
-    call qg_model%init_laplace_helmholtz(config%get_rrdef1(), config%get_rrdef2(), config%get_trel(), config%get_tdis(), config%get_tdif(), config%get_idif())
-
-    ! Initialize orography
-    call qg_model%init_orography(config%get_h0(), config%get_addisl(), config%get_addish())
-
-    ! Initialize model forcing
-    if (present(for)) then
-      call qg_model%init_forcing(config%get_obsf(), for=for)
-    else
-      call qg_model%init_forcing(config%get_obsf())
-    end if
 
     ! Initialize streamfunction
     if (present(state)) then
@@ -217,358 +226,6 @@ contains
 
 
   !-------------------------------------------------------------------------------
-  ! allocate_comqg
-  !-------------------------------------------------------------------------------
-  subroutine allocate_comqg(this, resolution)
-
-    class(qg_model_type) :: this
-    integer, intent(in) :: resolution
-
-    select case (resolution)
-
-      case(106)
-        this%nm = 106
-        this%nlon = 320
-        this%nlat = 160
-        this%ft = "106"
-
-      case(63)
-        this%nm = 63
-        this%nlon = 192
-        this%nlat = 96
-        this%ft = "63"
-
-      case(42)
-        this%nm = 42
-        this%nlon = 128
-        this%nlat = 64
-        this%ft = "42"
-
-      case(21)
-        this%nm = 21
-        this%nlon = 64
-        this%nlat = 32
-        this%ft = "21"
-
-      case DEFAULT
-        stop 'ERROR: Unsupported resolution'
-
-    end select
-
-    this%nvl = 3
-    this%ntl = this%nvl - 1
-    this%nsh = ((this%nm + 1) * (this%nm + 2)) / 2
-    this%nsh2 = 2 * this%nsh
-
-  end subroutine allocate_comqg
-
-
-  !-------------------------------------------------------------------------------
-  ! init_spectral_coeff
-  !-------------------------------------------------------------------------------
-  subroutine init_spectral_coeff(this)
-
-    class(qg_model_type), intent(inout) :: this
-
-    integer      :: i, j, k
-    real(r8kind) :: sqn, rsqn
-
-    ! Allocate spectral coefficient arrays
-    allocate(this%nshm(0:this%nm))
-    allocate(this%ll(this%nsh))
-    allocate(this%pp(this%nlat,this%nsh))
-    allocate(this%pd(this%nlat,this%nsh))
-    allocate(this%pw(this%nlat,this%nsh))
-
-    ! Read spectral coefficients from qgcoefT*
-    open(11, file = './qgcoefT' // trim(this%ft) // '.dat', form = 'formatted')
-    do i = 0, this%nm
-      read(11, *) this%nshm(i)
-    enddo
-    do i = 1, this%nsh
-      read(11, *) this%ll(i)
-    enddo
-    do k = 1, this%nsh
-      do j = 1, this%nlat
-        read(11, *) this%pp(j, k)
-      enddo
-    enddo
-    do k = 1, this%nsh
-      do j = 1, this%nlat
-        read(11, *) this%pd(j, k)
-      enddo
-    enddo
-    do k = 1, this%nsh
-      do j = 1, this%nlat
-        read(11, *) this%pw(j, k)
-      enddo
-    enddo
-    close(11)
-
-    ! compensation for normalization in nag fft routines
-    sqn = sqrt(dble(this%nlon))
-    rsqn = 1d0 / sqn
-    do k = 1, this%nsh
-      do i = 1, this%nlat
-        this%pp(i, k) = this%pp(i, k) * sqn
-        this%pd(i, k) = this%pd(i, k) * sqn
-        this%pw(i, k) = this%pw(i, k) * rsqn
-      enddo
-    enddo
-
-  end subroutine init_spectral_coeff
-
-
-  !-------------------------------------------------------------------------------
-  ! init_laplace_helmholtz
-  !-------------------------------------------------------------------------------
-  subroutine init_laplace_helmholtz(this, rrdef1, rrdef2, trel, tdis, tdif, idif)
-
-    class(qg_model_type), intent(inout) :: this
-    real(r8kind) :: rrdef1
-    real(r8kind) :: rrdef2
-    real(r8kind) :: trel
-    real(r8kind) :: tdis
-    real(r8kind) :: tdif
-    integer      :: idif
-
-    real(r8kind) :: pigr4, dis, rll, dif
-    real(r8kind) :: r1, a, b, c, d, e
-    integer      :: j, k
-
-    pigr4 = 4.d0 * pi
-    this%rl1 = 1.0d0 / rrdef1**2
-    this%rl2 = 1.0d0 / rrdef2**2
-    this%relt1 = max(0.0d0, this%rl1 / (trel * pigr4))
-    this%relt2 = max(0.0d0, this%rl2 / (trel * pigr4))
-    dis = max(0.0d0, 1.0d0 / (tdis * pigr4))
-    rll = dble(this%ll(this%nsh))
-    dif = max(0.0d0, 1.0d0 / (tdif * pigr4 * (rll * (rll + 1))**idif))
-
-    ! Allocate laplace helmholtz arrays
-    allocate(this%rinhel(this%nsh2,0:5))
-    allocate(this%diss(this%nsh2,2))
-
-    ! laplace/helmholtz direct and inverse operators
-    do j = 0, 5
-      this%rinhel(1, j) = 0.0d0
-    enddo
-    this%diss(1, 1) = 0.0d0
-    this%diss(1, 2) = 0.0d0
-    do k = 2, this%nsh
-      r1 = dble(this%ll(k) * (this%ll(k) + 1))
-      a = -r1 - 3.0d0 * this%rl1
-      b = -r1 - 3.0d0 * this%rl2
-      c = -r1 - this%rl1
-      d = -r1 - this%rl2
-      e = a * d + b * c
-      this%rinhel(k, 0) = -r1
-      this%rinhel(k, 1) = -1.0d0 / r1
-      this%rinhel(k, 2) =  d / e
-      this%rinhel(k, 3) =  b / e
-      this%rinhel(k, 4) = -c / e
-      this%rinhel(k, 5) =  a / e
-      this%diss(k, 2) = dis * r1
-      this%diss(k, 1) = -dif * r1**idif
-    enddo
-    do j = 0, 5
-      do k = 1, this%nsh
-        this%rinhel(k + this%nsh, j) = this%rinhel(k, j)
-      enddo
-    enddo
-    do j = 1, 2
-      do k = 1, this%nsh
-        this%diss(k + this%nsh, j) = this%diss(k, j)
-      enddo
-    enddo
-
-  end subroutine init_laplace_helmholtz
-
-
-  !-------------------------------------------------------------------------------
-  ! init_orography
-  !-------------------------------------------------------------------------------
-  subroutine init_orography(this, h0, addisl, addish)
-
-    class(qg_model_type), intent(inout) :: this
-    real(r8kind),         intent(   in) :: h0
-    real(r8kind),         intent(   in) :: addisl
-    real(r8kind),         intent(   in) :: addish
-
-    real(r8kind), allocatable :: fmu(:,:)
-    real(r8kind), allocatable :: agg(:,:), agg1(:,:), agg2(:,:)
-    real(r8kind), allocatable :: orog(:)
-    real(r8kind), allocatable :: ws(:), wsx(:)
-    real(r8kind)              :: rnorm, dlon, rh0, dd
-    integer                   :: i, j
-
-    ! orography and dissipation terms
-    ! fmu(i, 1): sin(phi(i))
-    ! fmu(i, 2): 1 - sin**2(phi(i))      
-    allocate(fmu(this%nlat, 2))
-    allocate(this%phi(this%nlat))
-    allocate(this%sinfi(this%nlat))
-    allocate(this%cosfi(this%nlat))
-    rnorm = 1.0d0 / sqrt(3.0d0 * this%nlon)
-    do i = 1, this%nlat
-      fmu(i, 1) = rnorm * this%pp(i, 2)
-      fmu(i, 2) = 1.d0 - fmu(i, 1)**2
-      this%sinfi(i) = fmu(i, 1)
-      this%phi(i) = asin(this%sinfi(i))
-      this%cosfi(i) = cos(this%phi(i))
-      this%phi(i) = 180d0 * this%phi(i) / pi
-    enddo
-    dlon = 360d0 / real(this%nlon)
-
-    ! height of orography in meters
-    allocate(agg(this%nlat, this%nlon))
-    allocate(agg1(this%nlat, this%nlon))
-    open(13, file = './qgbergT' // trim(this%ft) // '.dat', form = 'formatted')
-    do i = 1, this%nlon
-      do j = 1, this%nlat
-        read(13, *) agg1(j, i)
-      enddo
-    enddo
-    rh0 = max(0.0d0, 0.001d0 / h0)
-    do j = 1, this%nlon
-      do i = 1, this%nlat
-        agg(i, j) = fmu(i, 1) * agg1(i, j) * rh0
-    !      agg(i, j) = agg1(i, j) * rh0
-      enddo
-    enddo
-
-    ! surface dependent friction
-    allocate(orog(this%nsh2))
-    allocate(ws(this%nsh2))
-    allocate(this%dorodl(this%nlat,this%nlon))
-    allocate(this%dorodm(this%nlat,this%nlon))
-    allocate(agg2(this%nlat, this%nlon))
-    this%lgdiss = ((addisl .gt. 0.0) .or. (addish .gt. 0.0))
-    orog = reshape(this%ggsp%ggtosp (agg), (/this%nsh2/))
-    ws = reshape(this%ggsp%ddl (orog), (/this%nsh2/))
-    this%dorodl = this%ggsp%sptogg_pp (ws)
-    this%dorodm = this%ggsp%sptogg_pd (orog)
-    if (this%lgdiss) then
-      do i = 1, this%nlon
-        do j = 1, this%nlat
-          read(13, *) agg2(j, i)
-        enddo
-      enddo
-      do j = 1, this%nlon
-        do i = 1, this%nlat
-          agg(i, j) = 1.0d0 + addisl * agg2(i, j) + addish * (1.0d0 - exp(-0.001d0 * agg1(i, j)))
-        enddo
-      enddo
-
-      allocate(wsx(this%nsh2))
-      allocate(this%rdiss(this%nlat,this%nlon))
-      allocate(this%ddisdx(this%nlat,this%nlon))
-      allocate(this%ddisdy(this%nlat,this%nlon))
-      ws = reshape(this%ggsp%ggtosp (agg), (/this%nsh2/))
-      wsx = reshape(this%ggsp%ddl (ws), (/this%nsh2/))
-      this%rdiss = this%ggsp%sptogg_pp (ws)
-      this%ddisdx = this%ggsp%sptogg_pp (wsx)
-      this%ddisdy = this%ggsp%sptogg_pd (ws)
-      dd = 0.5d0 * this%diss(2, 2)
-      do j = 1, this%nlon
-        do i = 1, this%nlat
-          this%ddisdx(i, j) = dd * this%ddisdx(i, j) / fmu(i, 2)
-          this%ddisdy(i, j) = dd * this%ddisdy(i, j) * fmu(i, 2)
-        enddo
-      enddo
-
-    endif
-    close(13)
-
-    open(13, file = 'qgbergT' // trim(this%ft) // '.grads', form = 'unformatted')
-    write(13) ((real(agg1(j, i)), i = 1, this%nlon), j = 1, this%nlat)
-    write(13) ((real(agg2(j, i)), i = 1, this%nlon), j = 1, this%nlat)
-    close(13)
-
-    open(50, file = 'qgbergT' // trim(this%ft) // '.ctl', form = 'formatted')
-    write(50, '(A)') 'dset ^qgbergT' // trim(this%ft) // '.grads'
-    write(50, '(A)') 'undef 9.99e+10'
-    write(50, '(A)') 'options sequential big_endian'
-    write(50, '(A)') 'title three level QG model'
-    write(50, '(A)') '*'
-    write(50, '(A, i4, A, F19.14)') 'xdef ', this%nlon, ' linear  0.000 ', dlon
-    write(50, '(A)') '*'
-    write(50, '(A, I4, A, 1F19.14)') 'ydef ', this%nlat, ' levels ', this%phi(1)
-    write(50, '(F19.14)') (this%phi(j), j = 2, this%nlat)
-    write(50, '(A)') '*'
-    write(50, '(A)') 'zdef  1 levels 1000'
-    write(50, '(A)') '*'
-    write(50, '(A)') 'tdef 1 linear 1jan0001 1dy'
-    write(50, '(A)') '*'
-    write(50, '(A)') 'vars  2'
-    write(50, '(A)') 'oro    1  99 orography [m]'
-    write(50, '(A)') 'friction    1  99 friction mask'
-    write(50, '(A)') 'endvars'
-    close(50)
-
-  end subroutine init_orography
-
-
-  !-------------------------------------------------------------------------------
-  ! init_forcing
-  !-------------------------------------------------------------------------------
-  subroutine init_forcing(this, obsf, for)
-
-    use netcdf
-    use netcdf_utilities
-
-    class(qg_model_type),   intent(inout) :: this
-    logical,                intent(   in) :: obsf
-    real(r8kind), optional, intent(   in) :: for(:,:)
-
-    ! General netCDF variables
-    integer :: ncFileID      ! netCDF file identifier
-    integer :: nDimensions, nVariables, nAttributes, unlimitedDimID
-    integer :: ForVarID
-
-    ! Initialize forcing
-    if (present(for)) then
-
-      ! Initialize forcing to optional input
-      allocate(this%for(this%nsh2,this%nvl), source=for)
-
-    elseif (obsf) then
-      ! Calculate an artificial forcing from observations if requested
-      allocate(this%for(this%nsh2,this%nvl))
-      this%for = this%artiforc()
-    else
-
-      ! Initialize the forcing from a bootstrap file
-      allocate(this%for(this%nsh2,this%nvl))
-
-      ! Open file for read only
-      call nc_check(nf90_open('qgforcingT' // trim(this%ft) // '.nc', NF90_NOWRITE, ncFileID))
-      call nc_check(nf90_Inquire(ncFileID, nDimensions, nVariables, nAttributes, unlimitedDimID))
-
-      ! Get the streamfunction ID
-      call nc_check(nf90_inq_varid(ncFileID, "For", ForVarID))
-
-      ! Get the streamfunction variable
-      call nc_check(nf90_get_var(ncFileID, ForVarID, this%for))
-
-      ! Flush buffers
-      call nc_check(nf90_sync(ncFileID))
-
-      ! Close the NetCDF file
-      call nc_check(nf90_close(ncFileID))
-
-!      do l = 1, this%nvl
-!        do k = 1, this%nsh2
-!          this%for(k, l) = 0d0
-!        enddo
-!      enddo
-
-   endif
-
-  end subroutine init_forcing
-
-
-  !-------------------------------------------------------------------------------
   ! init_state
   !-------------------------------------------------------------------------------
   subroutine init_state(this, psi)
@@ -595,26 +252,20 @@ contains
       allocate(this%psi(this%nsh2,this%nvl))
 
       ! Open file for read only
-      call nc_check(nf90_open('qginitT' // trim(this%ft) // '.nc', NF90_NOWRITE, ncFileID))
-      call nc_check(nf90_Inquire(ncFileID, nDimensions, nVariables, nAttributes, unlimitedDimID))
+!      call nc_check(nf90_open('qginitT' // trim(this%ft) // '.nc', NF90_NOWRITE, ncFileID))
+!      call nc_check(nf90_Inquire(ncFileID, nDimensions, nVariables, nAttributes, unlimitedDimID))
 
       ! Get the streamfunction ID
-      call nc_check(nf90_inq_varid(ncFileID, "Psi", PsiVarID))
+!      call nc_check(nf90_inq_varid(ncFileID, "Psi", PsiVarID))
 
       ! Get the streamfunction variable
-      call nc_check(nf90_get_var(ncFileID, PsiVarID, this%psi))
+!      call nc_check(nf90_get_var(ncFileID, PsiVarID, this%psi))
 
       ! Flush buffers
-      call nc_check(nf90_sync(ncFileID))
+!      call nc_check(nf90_sync(ncFileID))
 
       ! Close the NetCDF file
-      call nc_check(nf90_close(ncFileID))
-
-!      do l = 1, this%nvl
-!        do k = 1, this%nsh2
-!          this%psi(k, l) = 0d0
-!        enddo
-!      enddo
+!      call nc_check(nf90_close(ncFileID))
 
     endif
 
@@ -1319,81 +970,6 @@ contains
     return
 
   end function lapinv
-
-
-  !-----------------------------------------------------------------------
-  ! computation of artifical forcing according to roads(1987)
-  ! the forcing is computed from file obsfile
-  !------------------------------------------------------------------------
-  function artiforc(this) result(for)
-
-    class(qg_model_type), intent(in) :: this
-
-    integer :: i, j, k, l, iday, nvar
-    real(r4kind) :: psi4(this%nsh2, 3)
-    real(r8kind) :: sum(this%nsh2, 3), forg(this%nlat, this%nlon), dlon, psifs(this%nsh2, 3)
-    real(r8kind) :: psi(this%nsh2,this%nvl)    ! stream function at the nvl levels
-    real(r8kind) :: psit(this%nsh2,this%ntl)   ! thickness at the ntl levels
-    real(r8kind) :: qprime(this%nsh2,this%nvl) ! potential vorticity
-    real(r8kind) :: for(this%nsh2,this%nvl)    ! constant potential vorticity forcing at the nvl levels
-    real(r8kind) :: dqprdt(this%nsh2,this%nvl) ! time derivative of qprime
-
-    ! Only used in artiforc
-    character(len=32)  :: obsfile  ! Name of observation file
-    type(qg_ggsp_type) :: ggsp
-
-    ! Get grid conversion object
-    ggsp = this%ggsp
-
-    obsfile = this%config%get_obsfile()
-
-    nvar = (this%nm + 2) * this%nm
-    dlon = 360d0 / real(this%nlon)
-
-    write(*, '(A, A)') "Calculating forcing from ", obsfile
-
-    do l = 1, this%nvl
-      do k = 1, this%nsh2
-        sum(k, l) = 0.
-        for(k, l) = 0d0
-      enddo
-    enddo
-
-    ! calculate the mean tendency
-    open(unit = 46, file = './' // obsfile, status = 'old', form = 'unformatted')
-    iday = 0
- 10 continue
-    do l = 1, this%nvl
-      read(46, end = 20) (psi4(k, this%nvl - l + 1), k = 1, nvar)
-    enddo
-
-    iday = iday + 1
-    do l = this%nvl, 1, -1
-      do k = 1, nvar
-        psifs(k, l) = psi4(k, l)
-      enddo
-    enddo
-    psi = this%fstofm(psifs, this%nm)
-    call this%psitoq(psi, psit, qprime)
-    dqprdt = this%ddt(psi, psit, qprime, for)
-    do l = 1, this%nvl
-      do k = 1, this%nsh2
-        sum(k, l) = sum(k, l) + dqprdt(k, l)
-      enddo
-    enddo
-    goto 10
- 20 continue
-    close(46)
-
-    do l = 1, this%nvl
-      do k = 1, this%nsh2
-        for(k, l) = -sum(k, l) / real(iday)
-      enddo
-    enddo
-
-    write(*, '(A, I6)') "Number of states used to calculate forcing: ", iday
-
-  end function artiforc
 
 
   !-------------------------------------------------------------------------------

@@ -61,7 +61,8 @@ while [ $f -le $end_fcst ]; do
 
   # Loop over methods
 # for method in 1 2 3 4 5; do
-  for method in 1 3; do
+#  for method in 1 3; do
+  for method in 3 5; do
 
     OBS_DIR=${PASILLA_DIR}/models/QG/obs_$method
 
@@ -69,7 +70,9 @@ while [ $f -le $end_fcst ]; do
     method_dir=$method
     export OMP_NUM_THREADS=4
     if [ $method -eq 5 ]; then
-      export OMP_NUM_THREADS=12
+      export OMP_NUM_THREADS=3
+    else
+      export OMP_NUM_THREADS=1
     fi
 
     # If this is not the first forecast, do the DA

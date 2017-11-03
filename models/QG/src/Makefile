@@ -5,6 +5,8 @@ UTILITIES=../../../utilities
 INCLUDES=-I$(GPTL)/include -I$(UTILITIES)/include $(NETCDF_INCLUDES) -I../../abstract/include -I.
 LIBS=-L$(GPTL)/lib -lgptl -L$(UTILITIES)/lib -lpasilla_util $(NETCDF_LIBS) -L tapenade/ADFirstAidKit -lstack
 
+
+FFLAGS+=$(OPENMP)
 FFLAGS+=$(GPTLFLAGS)
 FFLAGS+=$(ENDIAN_FLAG)
 FFLAGS+=-g -traceback -O0

@@ -631,7 +631,8 @@ contains
  
        new_vec(:,:)=0.0
        tlm_vec=anl_vec
-!$OMP PARALLEL DO SHARED (bkg_len,bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,bkg_config), DEFAULT(PRIVATE), IF (mthd .eq. 5)
+!!!$OMP PARALLEL DO SHARED (bkg_len,bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,bkg_config), DEFAULT(PRIVATE), IF (mthd .eq. 5)
+!$OMP PARALLEL DO SHARED (bkg_len,bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,bkg_config) DEFAULT(PRIVATE)
        do t=1,tim_len
           tid=OMP_GET_THREAD_NUM()
           tim_bkc(:,:)=bkg_cov(t,:,:)
@@ -695,8 +696,8 @@ contains
        jnew=jnew+jvc_for
        new_vec(:,:)=0.0
 
-!$OMP PARALLEL DO SHARED (bkg_len,bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q,bkg_config), DEFAULT(PRIVATE), IF (mthd .eq. 5)
        !   CALCULATE GRAD-J IN REVERSE TEMPORAL ORDER 
+!$OMP PARALLEL DO SHARED (bkg_len,bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q,bkg_config) DEFAULT(PRIVATE)
        do t=tim_len,1,-1
           tim_bkc(:,:)=bkg_cov(t,:,:)
           tim_hrh(:,:)=brh_cov(t,:,:)

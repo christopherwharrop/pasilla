@@ -2,8 +2,8 @@
 
 !FC=gfortran -g
 !CC=gcc -g
-FC=ifort -g
-CC=icc -g
+FC=ifort -g -qopenmp
+CC=icc -g -qopenmp
 
 #all : testMemSize adStack.o adBuffer.o profile.o dpStack.o dpTest.o ddTest.o validityTest.o
 all : testMemSize adStack.o adBuffer.o profile.o validityTest.o libstack.a

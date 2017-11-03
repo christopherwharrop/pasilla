@@ -4,6 +4,8 @@ UTILITIES=../../../utilities
 
 INCLUDES=-I$(UTILITIES)/include
 
+FFLAGS+=$(OPENMP)
+
 all: module_model.o module_config.o
 
 module_model.o: module_model.f90

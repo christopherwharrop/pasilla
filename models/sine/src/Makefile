@@ -5,6 +5,8 @@ UTILITIES=../../../utilities
 INCLUDES=-I$(UTILITIES)/include $(NETCDF_INCLUDES) -I../../abstract/include
 LIBS=-L$(UTILITIES)/lib -lpasilla_util $(NETCDF_LIBS)
 
+FFLAGS+=$(OPENMP)
+
 all: sine.exe sineTL_test.exe sineADJ_test.exe libsine.a
 
 libsine.a: $(OBJS)

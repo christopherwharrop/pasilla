@@ -2,6 +2,8 @@ include ../../macros.mk
 
 OBJS=module_kind.o module_constants.o module_netcdf_utilities.o
 
+FFLAGS+=$(OPENMP)
+
 libpasilla_util.a: $(OBJS)
 	ar rcs libpasilla_util.a $(OBJS)
 

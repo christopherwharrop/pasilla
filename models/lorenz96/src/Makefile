@@ -8,7 +8,7 @@ LIBS=-L$(GPTL)/lib -lgptl -L$(UTILITIES)/lib -lpasilla_util $(NETCDF_LIBS)
 #OBJS=module_L96_model.o module_L96_tl.o module_L96_adj.o module_L96_config.o module_L96_reader.o module_L96_writer.o module_L96TL_writer.o module_L96ADJ_writer.o module_netcdf_writer.o ../../abstract/src/module_model.o
 OBJS=module_L96_model.o module_L96_tl.o module_L96_adj.o module_L96_config.o module_L96_reader.o module_L96_writer.o module_netcdf_writer.o ../../abstract/src/module_model.o
 
-
+FFLAGS+=$(OPENMP)
 FFLAGS+=$(GPTLFLAGS)
 
 #all: lorenz96.exe lorenz96TL_test.exe lorenz96ADJ_test.exe harvest_lorenz96_obs.exe liblorenz96.a

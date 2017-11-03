@@ -646,20 +646,19 @@ contains
           else
 !            RUN THE FORWARD MODEL FOR ALL STEPS AFTER THE FIRST
              mdl_vec(:) = tlm_vec(t-1,:)
-             print *, "FORWARD MODEL"
+!             print *, "FORWARD MODEL"
              model = qg_model_type(bkg_config, state_vector=mdl_vec(:), step=t)
              call model%adv_nsteps(1)
              model_TL = qg_tl_type(bkg_config, state_vector=mdl_vec(:), trajectory_vector=model%get_state_vector() - mdl_vec(:), step = t)
              call model_TL%adv_nsteps(3)
 
-             if (nitr == 0) then
-               write(filename,'(A,I0.7)') 'tlout_', t
-               call writer_tl%write(model_TL, filename)
-             end if
-
+!             if (nitr == 0) then
+!               write(filename,'(A,I0.7)') 'tlout_', t
+!               call writer_tl%write(model_TL, filename)
+!             end if
 
              mdl_vec(:) = model_TL%get_state_vector()
-             print *, "END FORWARD_MODEL"
+!             print *, "END FORWARD_MODEL"
 
              if (mthd > 3) new_vec(t,:) = mdl_vec(:)
              if (mthd < 4) tlm_vec(t,:) = mdl_vec(:)
@@ -685,7 +684,7 @@ contains
           jvc_the=dot_product(dif_tra,tim_htr)
           !   COST FUNCTION
           jtim(t) = 0.5*(jvc_one+jvc_two-2.0*jvc_the)
-          WRITE (*,'(A10,3F16.4)') "COST: ",jvc_one,jvc_two,-2.0*jvc_the
+!          WRITE (*,'(A10,3F16.4)') "COST: ",jvc_one,jvc_two,-2.0*jvc_the
        end do
 !$OMP END PARALLEL DO
 
@@ -713,7 +712,7 @@ contains
              !     FOR ALL OTHER TIME STEPS - ADJOINT NEEDED
              if (mthd.eq.3) mdl_vec(:)=tlm_vec(t+1,:)
              if (mthd > 3) mdl_vec(:)=anl_vec(t+1,:)
-             print *, "BACKWARD_MODEL"
+!             print *, "BACKWARD_MODEL"
              model = qg_model_type(bkg_config, state_vector=mdl_vec(:), step=t)
              call model%adv_nsteps(1)
 !            model_ADJ = qg_adj_type(bkg_config, state_vector=mdl_vec(:), trajectory_vector=(model%get_state_vector() - mdl_vec(:)), step = t)
@@ -721,13 +720,13 @@ contains
              model_ADJ = qg_adj_type(bkg_config, state_vector=model%get_state_vector(), trajectory_vector=model%get_state_vector() - mdl_vec(:), step = t + 1)
              call model_ADJ%adv_nsteps(4)
 
-             if (nitr == 0) then
-               write(filename,'(A,I0.7)') 'adjout_', t
-               call writer_adj%write(model_ADJ, filename)
-             end if
+!             if (nitr == 0) then
+!               write(filename,'(A,I0.7)') 'adjout_', t
+!               call writer_adj%write(model_ADJ, filename)
+!             end if
 
              mdl_vec(:) = model_ADJ%get_state_vector()
-             print *, "END BACKWARD_MODEL"
+!             print *, "END BACKWARD_MODEL"
           end if
 
 !         CHOOSE THE FIRST GUESS FIELD

@@ -9,5 +9,5 @@ GPTLFLAGS=-finstrument-functions
 GPTL=/contrib/gptl/gptl-v5.5_nompi_omp/
 NETCDF_INCLUDES=-I$(NETCDF)/include
 NETCDF_LIBS=-L$(NETCDF)/lib -lnetcdf -lnetcdff
-OPENMP=-qopenmp -qopt-report-stdout -qopt-report=5 -openmp-report  -override_limits
+OPENMP=-qopenmp -opt-report-file=stdout -opt-report-phase:openmp
 ENDIAN_FLAG=-convert big_endian

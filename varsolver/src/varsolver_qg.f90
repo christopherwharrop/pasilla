@@ -45,15 +45,15 @@ program adept
 
   ! BJE
   ! KNOWING THE NUMBERS, ALLOCATE VECTORS/MATRICIES (ARRAYS) ACCORTINGLY
-  allocate (obs_opr(tim_len,obs_len,bkg_len))
+  allocate (obs_opr(obs_len,bkg_len,tim_len))
   allocate (bkg_interp(obs_len))
-  allocate (obs_cov(tim_len,obs_len,obs_len))
-  allocate (bkg_cov(tim_len,bkg_len,bkg_len))
-  allocate (hrh_cov(tim_len,bkg_len,bkg_len))
-  allocate (brh_cov(tim_len,bkg_len,bkg_len))
-  allocate (anl_vec(tim_len,bkg_len))
-  allocate (htr_ino(tim_len,bkg_len))
-  allocate (bht_ino(tim_len,bkg_len,1))
+  allocate (obs_cov(obs_len,obs_len,tim_len))
+  allocate (bkg_cov(bkg_len,bkg_len,tim_len))
+  allocate (hrh_cov(bkg_len,bkg_len,tim_len))
+  allocate (brh_cov(bkg_len,bkg_len,tim_len))
+  allocate (anl_vec(bkg_len,tim_len))
+  allocate (htr_ino(bkg_len,tim_len))
+  allocate (bht_ino(bkg_len,1,tim_len))
 
   ! CWH
   ! INITIALIZE THE ALLOCATED VECTORS/MATRICES

@@ -94,7 +94,7 @@ contains
 
     ! IN THIS CASE, R=I, THE IDENTITY MATRIX
     do i=1,obs_len
-       obs_cov(obs_tim(i),i,i)=1.0/400000.0
+       obs_cov(i,i,obs_tim(i))=1.0/400000.0
     end do
 
     print *,"GET_OBS_COV_MAT COMPLETE"
@@ -128,7 +128,7 @@ contains
     call nc_check(nf90_inq_varid(ncFileID, "B", BVarID))
 
     ! Get the B variable
-    call nc_check(nf90_get_var(ncFileID, BVarID, bkg_cov(1,:,:)))
+    call nc_check(nf90_get_var(ncFileID, BVarID, bkg_cov(:,:,1)))
 
     ! Flush buffers
     call nc_check(nf90_sync(ncFileID))
@@ -138,7 +138,7 @@ contains
 
     ! Use same B for each time (only needed for moving nests)
     do t = 2, tim_len
-      bkg_cov(t,:,:) = bkg_cov(1,:,:)
+      bkg_cov(:,:,t) = bkg_cov(:,:,1)
     end do
 
     print *,"GET_BKG_COV_MAT COMPLETE"
@@ -264,14 +264,14 @@ contains
 
     do i=1,obs_len
        call model%get_interpolation_weights(obs_pos(i,1), obs_pos(i,2), obs_pos(i,3), NW_index, NE_index, SW_index, SE_index, NW_weight, NE_weight, SW_weight, SE_weight)
-       obs_opr(obs_tim(i),i,NW_index)=NW_weight
-       obs_opr(obs_tim(i),i,NE_index)=NE_weight
-       obs_opr(obs_tim(i),i,SW_index)=SW_weight
-       obs_opr(obs_tim(i),i,SE_index)=SE_weight
-       bkg_interp(i) = bkg_vec(obs_tim(i),NW_index) * NW_weight + &
-                     & bkg_vec(obs_tim(i),NE_index) * NE_weight + &
-                     & bkg_vec(obs_tim(i),SW_index) * SW_weight + &
-                     & bkg_vec(obs_tim(i),SE_index) * SE_weight
+       obs_opr(i,NW_index,obs_tim(i))=NW_weight
+       obs_opr(i,NE_index,obs_tim(i))=NE_weight
+       obs_opr(i,SW_index,obs_tim(i))=SW_weight
+       obs_opr(i,SE_index,obs_tim(i))=SE_weight
+       bkg_interp(i) = bkg_vec(NW_index,obs_tim(i)) * NW_weight + &
+                     & bkg_vec(NE_index,obs_tim(i)) * NE_weight + &
+                     & bkg_vec(SW_index,obs_tim(i)) * SW_weight + &
+                     & bkg_vec(SE_index,obs_tim(i)) * SE_weight
     end do
 
     print *,"GET_OBS_OPR COMPLETE"
@@ -310,12 +310,12 @@ contains
          bkg_ny = model%get_nlat()
          bkg_nz = model%get_nvl()
          bkg_len = bkg_nx * bkg_ny * bkg_nz
-         allocate (bkg_vec(tim_len, bkg_len))
-         allocate (bkg_pos(tim_len, bkg_len, 3))
+         allocate (bkg_vec(bkg_len, tim_len))
+         allocate (bkg_pos(bkg_len, 3, tim_len))
        end if
        if (tt == 2) bkg_step = model%get_step()
-       bkg_pos(t,:,:) = model%get_location_vector()
-       bkg_vec(t,:) = model%get_state_vector()
+       bkg_pos(:,:,t) = model%get_location_vector()
+       bkg_vec(:,t) = model%get_state_vector()
     end do
 
     print *,"GET_BKG_VEC COMPLETE"
@@ -347,7 +347,7 @@ contains
 
     ! Calculate the innovation vector, overwriting obs_vec with the result
     do t=1,tim_len
-      call dgemv("N", obs_len, bkg_len, 1.d0, obs_opr(t,:,:), obs_len, bkg_vec(t,:), 1, 0.d0, Hxb, 1)
+      call dgemv("N", obs_len, bkg_len, 1.d0, obs_opr(:,:,t), obs_len, bkg_vec(:,t), 1, 0.d0, Hxb, 1)
       obs_vec(:)=obs_vec(:) - Hxb(:)
     end do
 
@@ -433,9 +433,9 @@ contains
 
     do t=1,tim_len
        ! ASSUME THAT OBS_OPR=H, OBS_COV=R(-1/2), BKG_COV=B(1/2), OBS_VEC=(Y-HXb)
-       tim_opr(:,:)=obs_opr(t,:,:)
-       tim_obc(:,:)=obs_cov(t,:,:) 
-       tim_bkc(:,:)=bkg_cov(t,:,:)
+       tim_opr(:,:)=obs_opr(:,:,t)
+       tim_obc(:,:)=obs_cov(:,:,t)
+       tim_bkc(:,:)=bkg_cov(:,:,t)
        obs_vvc(:)=obs_vec(:)
 
        ! CREATE THE OBS BASED MATRICES, FOR USE IN CALCULATING THE COST FUNCTION
@@ -446,7 +446,7 @@ contains
 
 !      H(T)R(-1)H 
        call dgemm("N","N",bkg_len,bkg_len,obs_len,1.d0,obs_opt,bkg_len,tmp_rhh,obs_len,0.d0,tim_hrh,bkg_len)
-       hrh_cov(t,:,:)=tim_hrh(:,:)
+       hrh_cov(:,:,t)=tim_hrh(:,:)
 
 !      CREATE COST FUNCTION TERM (Y-HXb)R(-1)(Y-HXb), A CONSTANT
        call dgemv("N",obs_len,obs_len,1.d0,tim_obc,obs_len,obs_vvc,1,0.d0,tmp_jfo,1)
@@ -465,7 +465,7 @@ contains
 
 !      H(T)R(-1)(Y-HXb)
        call dgemv("N",bkg_len,obs_len,1.d0,tmp_hrr,bkg_len,obs_vvc,1,0.d0,tim_htr,1)
-       htr_ino(t,:)=tim_htr(:)
+       htr_ino(:,t)=tim_htr(:)
  
        ! CREATE THE UNPRECONDITIONED MATRICES, FOR THE GRADIENT OF J
 !      B(1/2)*H(T)R(-1) 
@@ -473,8 +473,8 @@ contains
 
 !      B(1/2)*H(T)R(-1)H
        call dgemm("N","N",bkg_len,bkg_len,bkg_len,1.d0,tim_bkc,bkg_len,tim_hrh,bkg_len,0.d0,tmp_mat,bkg_len)
-       bht_ino(t,:,1)=tmp_vec(:)
-       brh_cov(t,:,:)=tmp_mat(:,:)
+       bht_ino(:,1,t)=tmp_vec(:)
+       brh_cov(:,:,t)=tmp_mat(:,:)
     end do
 
     print *,"PRE_SOLVER COMPLETE"
@@ -584,8 +584,8 @@ contains
     allocate (tim_hrh(bkg_len,bkg_len))
     allocate (tim_bkv(bkg_len))
 
-    allocate (new_vec(tim_len,bkg_len))
-    allocate (tlm_vec(tim_len,bkg_len))
+    allocate (new_vec(bkg_len,tim_len))
+    allocate (tlm_vec(bkg_len,tim_len))
     allocate (mdl_vec(bkg_len))
     allocate (ges_vec(bkg_len))
     allocate (dif_vec(bkg_len))
@@ -631,21 +631,21 @@ contains
  
        new_vec(:,:)=0.0
        tlm_vec=anl_vec
-!!!$OMP PARALLEL DO SHARED (bkg_len,bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,bkg_config), DEFAULT(PRIVATE), IF (mthd .eq. 5)
-!$OMP PARALLEL DO SHARED (bkg_len,bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,bkg_config) DEFAULT(PRIVATE)
+!!$OMP PARALLEL DO SHARED (bkg_len,bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,bkg_config) DEFAULT(PRIVATE)
+!$OMP PARALLEL DO SHARED (bkg_len,bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,bkg_config) DEFAULT(PRIVATE) IF (mthd .eq. 5)
        do t=1,tim_len
           tid=OMP_GET_THREAD_NUM()
-          tim_bkc(:,:)=bkg_cov(t,:,:)
-          tim_hrh(:,:)=hrh_cov(t,:,:)
-          tim_htr(:)=htr_ino(t,:)
-          tim_bkv(:)=bkg_vec(t,:)
+          tim_bkc(:,:)=bkg_cov(:,:,t)
+          tim_hrh(:,:)=hrh_cov(:,:,t)
+          tim_htr(:)=htr_ino(:,t)
+          tim_bkv(:)=bkg_vec(:,t)
           if(t.eq.1) then
 !            FOR THE FIRST TIME STEP, THERE IS NO PRIOR FIELD TO PROPAGATE
-             mdl_vec(:)=tlm_vec(t,:)
-             if (mthd > 3) new_vec(t,:)=mdl_vec(:)
+             mdl_vec(:)=tlm_vec(:,t)
+             if (mthd > 3) new_vec(:,t)=mdl_vec(:)
           else
 !            RUN THE FORWARD MODEL FOR ALL STEPS AFTER THE FIRST
-             mdl_vec(:) = tlm_vec(t-1,:)
+             mdl_vec(:) = tlm_vec(:,t-1)
 !             print *, "FORWARD MODEL"
              model = qg_model_type(bkg_config, state_vector=mdl_vec(:), step=t)
              call model%adv_nsteps(1)
@@ -660,8 +660,8 @@ contains
              mdl_vec(:) = model_TL%get_state_vector()
 !             print *, "END FORWARD_MODEL"
 
-             if (mthd > 3) new_vec(t,:) = mdl_vec(:)
-             if (mthd < 4) tlm_vec(t,:) = mdl_vec(:)
+             if (mthd > 3) new_vec(:,t) = mdl_vec(:)
+             if (mthd < 4) tlm_vec(:,t) = mdl_vec(:)
           end if
 
           !   CARRY ON WITH THE MINIMIZATION 
@@ -696,22 +696,22 @@ contains
        new_vec(:,:)=0.0
 
        !   CALCULATE GRAD-J IN REVERSE TEMPORAL ORDER 
-!$OMP PARALLEL DO SHARED (bkg_len,bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q,bkg_config) DEFAULT(PRIVATE)
+!$OMP PARALLEL DO SHARED (bkg_len,bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q,bkg_config) DEFAULT(PRIVATE) IF (mthd .eq. 5)
        do t=tim_len,1,-1
-          tim_bkc(:,:)=bkg_cov(t,:,:)
-          tim_hrh(:,:)=brh_cov(t,:,:)
-          tim_htr(:)=bht_ino(t,:,1)
-          tim_bkv(:)=bkg_vec(t,:)
+          tim_bkc(:,:)=bkg_cov(:,:,t)
+          tim_hrh(:,:)=brh_cov(:,:,t)
+          tim_htr(:)=bht_ino(:,1,t)
+          tim_bkv(:)=bkg_vec(:,t)
          
           if(t.eq.tim_len) then 
 !            FOR THE LAST (OR ONLY) TIME STEP - NO ADJOINT TO RUN
-             mdl_vec(:)=tlm_vec(t,:)
-             if(mthd > 3) mdl_vec(:)=0.5*(tlm_vec(t,:)+anl_vec(t,:))
+             mdl_vec(:)=tlm_vec(:,t)
+             if(mthd > 3) mdl_vec(:)=0.5*(tlm_vec(:,t)+anl_vec(:,t))
           else
 !            THIS ONLY RUNS FOR 4DVAR
              !     FOR ALL OTHER TIME STEPS - ADJOINT NEEDED
-             if (mthd.eq.3) mdl_vec(:)=tlm_vec(t+1,:)
-             if (mthd > 3) mdl_vec(:)=anl_vec(t+1,:)
+             if (mthd.eq.3) mdl_vec(:)=tlm_vec(:,t+1)
+             if (mthd > 3) mdl_vec(:)=anl_vec(:,t+1)
 !             print *, "BACKWARD_MODEL"
              model = qg_model_type(bkg_config, state_vector=mdl_vec(:), step=t)
              call model%adv_nsteps(1)
@@ -731,7 +731,7 @@ contains
 
 !         CHOOSE THE FIRST GUESS FIELD
           if(mthd < 4) ges_vec(:)=mdl_vec(:)
-          if(mthd > 3) ges_vec(:)=0.5*(tlm_vec(t,:)+mdl_vec(:))
+          if(mthd > 3) ges_vec(:)=0.5*(tlm_vec(:,t)+mdl_vec(:))
 
 !         CALCULATE THE GRADIENT OF THE COST FUNCTION
 !         FIRST - DIFFERENCE BETWEEN FIRST GUESS AND BACKGROUND
@@ -746,9 +746,9 @@ contains
 
           tmp_vec(:)=pre_dif(:)+tmp_vec(:)-tim_htr(:)
           call dgemv("N", bkg_len, bkg_len, 1.d0, tim_bkc, bkg_len, tmp_vec, 1, 0.d0, grd_jvc, 1)
-          new_vec(t,:)=ges_vec(:)-grd_jvc(:)*alph
+          new_vec(:,t)=ges_vec(:)-grd_jvc(:)*alph
 
-          if(mthd < 4) tlm_vec(t,:)=new_vec(t,:)
+          if(mthd < 4) tlm_vec(:,t)=new_vec(:,t)
        end do
 !$OMP END PARALLEL DO
        
@@ -787,11 +787,11 @@ contains
     ! Write new analysis to model output file
     if (mthd.le.2) then
       write(filename,'(A,I0.7)') 'bkgout_', 1
-       model = qg_model_type(bkg_config, state_vector=anl_vec(1,:), step=bkg_step)
+       model = qg_model_type(bkg_config, state_vector=anl_vec(:,1), step=bkg_step)
       call writer%write(model, filename)
     else
       write(filename,'(A,I0.7)') 'bkgout_', 2
-       model = qg_model_type(bkg_config, state_vector=anl_vec(2,:), step=bkg_step)
+       model = qg_model_type(bkg_config, state_vector=anl_vec(:,2), step=bkg_step)
       call writer%write(model, filename)
     end if
 
@@ -800,9 +800,9 @@ contains
        do i=1,min(12,bkg_len)
 !         FOR 3DVAR
           if(mthd.le.2) then
-	     write(*,40) "FIN",2,i,anl_vec(t,i),bkg_vec(t,i)
+	     write(*,40) "FIN",2,i,anl_vec(i,t),bkg_vec(i,t)
 	  else
-             write(*,40) "FIN",t,i,anl_vec(t,i),bkg_vec(t,i)
+             write(*,40) "FIN",t,i,anl_vec(i,t),bkg_vec(i,t)
 	  end if
        end do
     end do

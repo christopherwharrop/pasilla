@@ -68,11 +68,13 @@ while [ $f -le $end_fcst ]; do
 
     # Set OMP options for this method
     method_dir=$method
-    export OMP_NUM_THREADS=4
     if [ $method -eq 5 ]; then
+      export MKL_DYNAMIC=false
+      export OMP_NESTED=true
       export OMP_NUM_THREADS=3
+      export MKL_NUM_THREADS=4
     else
-      export OMP_NUM_THREADS=1
+      export OMP_NUM_THREADS=4
     fi
 
     # If this is not the first forecast, do the DA

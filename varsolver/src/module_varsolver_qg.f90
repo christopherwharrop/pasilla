@@ -545,8 +545,13 @@ contains
 
     integer                     :: t,nitr,mxit
     real(KIND=8)                :: jold,jnew,jthr,B,Q 
-    integer                     :: nthreads, tid
-    integer                     :: OMP_GET_NUM_THREADS, OMP_GET_THREAD_NUM
+    integer                     :: nthreads, tid, ret
+    integer                     :: OMP_GET_NUM_THREADS, OMP_GET_THREAD_NUM, omp_set_max_active_levels
+
+    ! In parallel 4DVar, only spawn one level of MKL threading.
+    if (mthd .eq. 5) then
+      ret = omp_set_max_active_levels(2)
+    end if
 
     allocate (jtim(tim_len)) 
     allocate (new_vec(bkg_len,tim_len))

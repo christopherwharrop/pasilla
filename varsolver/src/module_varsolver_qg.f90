@@ -526,103 +526,53 @@ contains
   ! X2 = X1 - alpha  *  D      *  GRADJ
   !    = X1 - alpha  *{ D(1/2) * [V + BRH*(X-Xb) - BHT ] }  
   !
-!  subroutine var_solver(bkg_cov,hrh_cov,brh_cov,htr_ino,bht_ino,jvc_for,bkg_vec,anl_vec,fwmod_vec,bwmod_vec)
   subroutine var_solver(bkg_cov,hrh_cov,brh_cov,htr_ino,bht_ino,jvc_for,bkg_vec,anl_vec)
-
-    use QGTL_Writer
-    use QGADJ_Writer
 
     implicit none
 
-    real(KIND=8), intent(in)    :: htr_ino(:,:)
-    real(KIND=8), intent(in)    :: bht_ino(:,:,:)
     real(KIND=8), intent(in)    :: bkg_cov(:,:,:)
     real(KIND=8), intent(in)    :: hrh_cov(:,:,:)
     real(KIND=8), intent(in)    :: brh_cov(:,:,:)
+    real(KIND=8), intent(in)    :: htr_ino(:,:)
+    real(KIND=8), intent(in)    :: bht_ino(:,:,:)
+    real(KIND=8), intent(in)    :: jvc_for
     real(KIND=8), intent(in)    :: bkg_vec(:,:)
     real(KIND=8), intent(inout) :: anl_vec(:,:)
-    real(KIND=8), intent(in)    :: jvc_for
-
-    real(KIND=8), allocatable   :: tim_htr(:)
-    real(KIND=8), allocatable   :: tim_bkc(:,:)
-    real(KIND=8), allocatable   :: tim_hrh(:,:)
-    real(KIND=8), allocatable   :: tim_bkv(:)
 
     real(KIND=8), allocatable   :: new_vec(:,:)
     real(KIND=8), allocatable   :: tlm_vec(:,:)
-    real(KIND=8), allocatable   :: mdl_vec(:)
-    real(KIND=8), allocatable   :: ges_vec(:)
-    real(KIND=8), allocatable   :: dif_vec(:)
-    real(KIND=8), allocatable   :: dif_tra(:)
-
-    real(KIND=8), allocatable   :: pre_tra(:)
-    real(KIND=8), allocatable   :: pre_dif(:)
-    real(KIND=8), allocatable   :: tmp_mat(:)
-    real(KIND=8), allocatable   :: tmp_vec(:)
-
-    real(KIND=8), allocatable   :: grd_jvc(:)
-    real(KIND=8)                :: jvc_one
-    real(KIND=8)                :: jvc_two
-    real(KIND=8)                :: jvc_the
-    integer                     :: i,j,t,nitr,mxit
-    real(KIND=8)                :: jold,jnew,jthr,B,Q 
     real(KIND=8), allocatable   :: jtim(:) 
+
+    integer                     :: t,nitr,mxit
+    real(KIND=8)                :: jold,jnew,jthr,B,Q 
     integer                     :: nthreads, tid
     integer                     :: OMP_GET_NUM_THREADS, OMP_GET_THREAD_NUM
 
-    type(qg_model_type)        :: model
-    type(qg_tl_type)           :: model_TL
-    type(qg_adj_type)          :: model_ADJ
-
-    character(len=128)      :: filename
-    type(qgtl_writer_type)  :: writer_tl
-    type(qgadj_writer_type) :: writer_adj
-
     allocate (jtim(tim_len)) 
-    allocate (tim_htr(bkg_len))
-    allocate (tim_bkc(bkg_len,bkg_len))
-    allocate (tim_hrh(bkg_len,bkg_len))
-    allocate (tim_bkv(bkg_len))
-
     allocate (new_vec(bkg_len,tim_len))
     allocate (tlm_vec(bkg_len,tim_len))
-    allocate (mdl_vec(bkg_len))
-    allocate (ges_vec(bkg_len))
-    allocate (dif_vec(bkg_len))
-    allocate (dif_tra(bkg_len))
 
-    allocate (pre_dif(bkg_len))
-    allocate (pre_tra(bkg_len))
-    allocate (tmp_mat(bkg_len))
-    allocate (tmp_vec(bkg_len))
-    allocate (grd_jvc(bkg_len))
-
-
-    writer_tl = qgtl_writer_type('NETCDF')
-    writer_adj = qgadj_writer_type('NETCDF')
-
-
-!   PARAMETERS FOR VAR - SHOULD BE FROM NAMELIST
+    ! PARAMETERS FOR VAR - SHOULD BE FROM NAMELIST
     nitr = 0
     mxit = 50
     jold = 100.0 
     jnew = 0.0
     jthr = 0.01 
 
-!   PARAMETERS FOR MODEL ERROR - ALSO SHOULD BE FROM NAMELIST
-!   B = RATIO OF B/B = 1.0  
-!   Q = RATIO OF Q/B = 0.2 (OR, PERFECT TL/AD MODEL, Q=0.0) 
+    ! PARAMETERS FOR MODEL ERROR - ALSO SHOULD BE FROM NAMELIST
+    ! B = RATIO OF B/B = 1.0  
+    ! Q = RATIO OF Q/B = 0.2 (OR, PERFECT TL/AD MODEL, Q=0.0) 
     B    = 1.0 
     Q    = 0.0
     print *,"SOLVER"
 
-! IF 3DVAR - NO Q TERM
+    ! IF 3DVAR - NO Q TERM
     if(mthd.le.2) Q = 0.0
 
-! FIRST GUESS IS THE BACKGROUND
+    ! FIRST GUESS IS THE BACKGROUND
     anl_vec=bkg_vec
 
-! ITERATE TO SOLVE THE COST FUNCTION
+    ! ITERATE TO SOLVE THE COST FUNCTION
     do while ( abs(jold-jnew) > jthr)
        if (nitr.gt.mxit) exit
        if (jnew.lt.0.0) exit
@@ -631,62 +581,13 @@ contains
  
        new_vec(:,:)=0.0
        tlm_vec=anl_vec
-!!$OMP PARALLEL DO SHARED (bkg_len,bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,bkg_config) DEFAULT(PRIVATE)
-!$OMP PARALLEL DO SHARED (bkg_len,bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,bkg_config) DEFAULT(PRIVATE) IF (mthd .eq. 5)
+
+       !$OMP PARALLEL DO SHARED (bkg_len,bkg_cov,htr_ino,hrh_cov,bkg_vec,tlm_vec,jtim,new_vec,tim_len,mthd,B,Q,bkg_config) IF (mthd .eq. 5)
        do t=1,tim_len
-          tid=OMP_GET_THREAD_NUM()
-          tim_bkc(:,:)=bkg_cov(:,:,t)
-          tim_hrh(:,:)=hrh_cov(:,:,t)
-          tim_htr(:)=htr_ino(:,t)
-          tim_bkv(:)=bkg_vec(:,t)
-          if(t.eq.1) then
-!            FOR THE FIRST TIME STEP, THERE IS NO PRIOR FIELD TO PROPAGATE
-             mdl_vec(:)=tlm_vec(:,t)
-             if (mthd > 3) new_vec(:,t)=mdl_vec(:)
-          else
-!            RUN THE FORWARD MODEL FOR ALL STEPS AFTER THE FIRST
-             mdl_vec(:) = tlm_vec(:,t-1)
-!             print *, "FORWARD MODEL"
-             model = qg_model_type(bkg_config, state_vector=mdl_vec(:), step=t)
-             call model%adv_nsteps(1)
-             model_TL = qg_tl_type(bkg_config, state_vector=mdl_vec(:), trajectory_vector=model%get_state_vector() - mdl_vec(:), step = t)
-             call model_TL%adv_nsteps(3)
-
-!             if (nitr == 0) then
-!               write(filename,'(A,I0.7)') 'tlout_', t
-!               call writer_tl%write(model_TL, filename)
-!             end if
-
-             mdl_vec(:) = model_TL%get_state_vector()
-!             print *, "END FORWARD_MODEL"
-
-             if (mthd > 3) new_vec(:,t) = mdl_vec(:)
-             if (mthd < 4) tlm_vec(:,t) = mdl_vec(:)
-          end if
-
-          !   CARRY ON WITH THE MINIMIZATION 
-          tmp_vec(:)=(mdl_vec(:)-tim_bkv(:))*B
-          dif_vec(:)=(mdl_vec(:)-tim_bkv(:))*B
-          dif_tra(:)=dif_vec(:)
-          call pre_con_dif(tim_bkc,tmp_vec)
-          pre_tra(:)=tmp_vec(:)
-          pre_dif(:)=tmp_vec(:)
- 
-          !   SOLVE FOR COST FUNCTION J
-          !   FIRST TERM
-          jvc_one=dot_product(pre_tra,pre_dif)
-          !   SECOND TERM
-          call dgemm("N", "N", 1, bkg_len, bkg_len, 1.d0, dif_tra, 1, tim_hrh, bkg_len, 0.d0, tmp_mat, 1)
-          ! The following is equivalent, but may be slower due to the need to transpose the matrix?
-          !  call dgemv("T", bkg_len, bkg_len, 1.d0, tim_hrh, bkg_len, dif_tra, 1, 0.d0, tmp_mat, 1)
-          jvc_two=dot_product(tmp_mat,dif_vec)
-          !   THIRD TERM
-          jvc_the=dot_product(dif_tra,tim_htr)
-          !   COST FUNCTION
-          jtim(t) = 0.5*(jvc_one+jvc_two-2.0*jvc_the)
-!          WRITE (*,'(A10,3F16.4)') "COST: ",jvc_one,jvc_two,-2.0*jvc_the
+         tid=OMP_GET_THREAD_NUM()
+         call forward(t)
        end do
-!$OMP END PARALLEL DO
+       !$OMP END PARALLEL DO
 
        if(mthd > 3) tlm_vec=new_vec
        do t=1,tim_len
@@ -695,62 +596,13 @@ contains
        jnew=jnew+jvc_for
        new_vec(:,:)=0.0
 
-       !   CALCULATE GRAD-J IN REVERSE TEMPORAL ORDER 
-!$OMP PARALLEL DO SHARED (bkg_len,bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q,bkg_config) DEFAULT(PRIVATE) IF (mthd .eq. 5)
+       ! CALCULATE GRAD-J IN REVERSE TEMPORAL ORDER 
+       !$OMP PARALLEL DO SHARED (bkg_len,bht_ino,bkg_cov,brh_cov,bkg_vec,anl_vec,tlm_vec,new_vec,tim_len,alph,mthd,B,Q,bkg_config) IF (mthd .eq. 5)
        do t=tim_len,1,-1
-          tim_bkc(:,:)=bkg_cov(:,:,t)
-          tim_hrh(:,:)=brh_cov(:,:,t)
-          tim_htr(:)=bht_ino(:,1,t)
-          tim_bkv(:)=bkg_vec(:,t)
-         
-          if(t.eq.tim_len) then 
-!            FOR THE LAST (OR ONLY) TIME STEP - NO ADJOINT TO RUN
-             mdl_vec(:)=tlm_vec(:,t)
-             if(mthd > 3) mdl_vec(:)=0.5*(tlm_vec(:,t)+anl_vec(:,t))
-          else
-!            THIS ONLY RUNS FOR 4DVAR
-             !     FOR ALL OTHER TIME STEPS - ADJOINT NEEDED
-             if (mthd.eq.3) mdl_vec(:)=tlm_vec(:,t+1)
-             if (mthd > 3) mdl_vec(:)=anl_vec(:,t+1)
-!             print *, "BACKWARD_MODEL"
-             model = qg_model_type(bkg_config, state_vector=mdl_vec(:), step=t)
-             call model%adv_nsteps(1)
-!            model_ADJ = qg_adj_type(bkg_config, state_vector=mdl_vec(:), trajectory_vector=(model%get_state_vector() - mdl_vec(:)), step = t)
-!            call model_ADJ%adv_nsteps(3)
-             model_ADJ = qg_adj_type(bkg_config, state_vector=model%get_state_vector(), trajectory_vector=model%get_state_vector() - mdl_vec(:), step = t + 1)
-             call model_ADJ%adv_nsteps(4)
-
-!             if (nitr == 0) then
-!               write(filename,'(A,I0.7)') 'adjout_', t
-!               call writer_adj%write(model_ADJ, filename)
-!             end if
-
-             mdl_vec(:) = model_ADJ%get_state_vector()
-!             print *, "END BACKWARD_MODEL"
-          end if
-
-!         CHOOSE THE FIRST GUESS FIELD
-          if(mthd < 4) ges_vec(:)=mdl_vec(:)
-          if(mthd > 3) ges_vec(:)=0.5*(tlm_vec(:,t)+mdl_vec(:))
-
-!         CALCULATE THE GRADIENT OF THE COST FUNCTION
-!         FIRST - DIFFERENCE BETWEEN FIRST GUESS AND BACKGROUND
-          tmp_vec(:)=(ges_vec(:)-tim_bkv(:))*(B+Q)
-          dif_vec(:)=(ges_vec(:)-tim_bkv(:))*(B+Q)
-
-!         OBTAIN THE PRE-CONDITIONED DIFFERENCE BETWEEN THE BACKGROUND AND 
-!         THE FIRST GUESS
-          call pre_con_dif(tim_bkc,tmp_vec)
-          pre_dif(:)=tmp_vec(:)
-          call dgemv("N", bkg_len, bkg_len, 1.d0, tim_hrh, bkg_len, dif_vec, 1, 0.d0, tmp_vec, 1)
-
-          tmp_vec(:)=pre_dif(:)+tmp_vec(:)-tim_htr(:)
-          call dgemv("N", bkg_len, bkg_len, 1.d0, tim_bkc, bkg_len, tmp_vec, 1, 0.d0, grd_jvc, 1)
-          new_vec(:,t)=ges_vec(:)-grd_jvc(:)*alph
-
-          if(mthd < 4) tlm_vec(:,t)=new_vec(:,t)
+         tid=OMP_GET_THREAD_NUM()
+         call backward(t)
        end do
-!$OMP END PARALLEL DO
+       !$OMP END PARALLEL DO
        
        if(mthd > 3) tlm_vec=new_vec
        anl_vec=tlm_vec
@@ -762,6 +614,195 @@ contains
 
     write(*,'(A,E25.12,A,I,A)') 'final cost = ', jnew, ' after ', nitr, ' iterations'
     print *,"SOLVER COMPLETE"
+
+  contains
+
+    !
+    ! Forward
+    !
+    subroutine forward(t)
+
+      use QGTL_Writer
+
+      integer :: t
+
+      real(KIND=8), allocatable   :: tim_bkc(:,:)
+      real(KIND=8), allocatable   :: tim_hrh(:,:)
+      real(KIND=8), allocatable   :: tim_htr(:)
+      real(KIND=8), allocatable   :: tim_bkv(:)
+      real(KIND=8), allocatable   :: mdl_vec(:)
+      real(KIND=8), allocatable   :: tmp_vec(:)
+      real(KIND=8), allocatable   :: dif_vec(:)
+      real(KIND=8), allocatable   :: dif_tra(:)
+      real(KIND=8), allocatable   :: pre_tra(:)
+      real(KIND=8), allocatable   :: pre_dif(:)
+      real(KIND=8), allocatable   :: tmp_mat(:)
+      real(KIND=8)                :: jvc_one
+      real(KIND=8)                :: jvc_two
+      real(KIND=8)                :: jvc_the
+      type(qg_model_type)         :: model
+      type(qg_tl_type)            :: model_TL
+      character(len=128)          :: filename
+      type(qgtl_writer_type)      :: writer_tl
+
+      allocate (tim_bkc(bkg_len,bkg_len))
+      allocate (tim_hrh(bkg_len,bkg_len))
+      allocate (tim_htr(bkg_len))
+      allocate (tim_bkv(bkg_len))
+      allocate (mdl_vec(bkg_len))
+      allocate (tmp_vec(bkg_len))
+      allocate (dif_vec(bkg_len))
+      allocate (dif_tra(bkg_len))
+      allocate (pre_tra(bkg_len))
+      allocate (pre_dif(bkg_len))
+      allocate (tmp_mat(bkg_len))
+
+      ! writer_tl = qgtl_writer_type('NETCDF')
+
+      tim_bkc(:,:)=bkg_cov(:,:,t)
+      tim_hrh(:,:)=hrh_cov(:,:,t)
+      tim_htr(:)=htr_ino(:,t)
+      tim_bkv(:)=bkg_vec(:,t)
+
+      if(t.eq.1) then
+        ! FOR THE FIRST TIME STEP, THERE IS NO PRIOR FIELD TO PROPAGATE
+        mdl_vec(:)=tlm_vec(:,t)
+        if (mthd > 3) new_vec(:,t)=mdl_vec(:)
+      else
+        ! RUN THE FORWARD MODEL FOR ALL STEPS AFTER THE FIRST
+        mdl_vec(:) = tlm_vec(:,t-1)
+        ! print *, "FORWARD MODEL"
+        model = qg_model_type(bkg_config, state_vector=mdl_vec(:), step=t)
+        call model%adv_nsteps(1)
+        model_TL = qg_tl_type(bkg_config, state_vector=mdl_vec(:), trajectory_vector=model%get_state_vector() - mdl_vec(:), step = t)
+        call model_TL%adv_nsteps(3)
+
+        ! if (nitr == 0) then
+        !   write(filename,'(A,I0.7)') 'tlout_', t
+        !   call writer_tl%write(model_TL, filename)
+        ! end if
+
+        mdl_vec(:) = model_TL%get_state_vector()
+        ! print *, "END FORWARD_MODEL"
+
+        if (mthd > 3) new_vec(:,t) = mdl_vec(:)
+        if (mthd < 4) tlm_vec(:,t) = mdl_vec(:)
+      end if
+
+      ! CARRY ON WITH THE MINIMIZATION 
+      tmp_vec(:)=(mdl_vec(:)-tim_bkv(:))*B
+      dif_vec(:)=(mdl_vec(:)-tim_bkv(:))*B
+      dif_tra(:)=dif_vec(:)
+      call pre_con_dif(tim_bkc,tmp_vec)
+      pre_tra(:)=tmp_vec(:)
+      pre_dif(:)=tmp_vec(:)
+
+      ! SOLVE FOR COST FUNCTION J
+      ! FIRST TERM
+      jvc_one=dot_product(pre_tra,pre_dif)
+      ! SECOND TERM
+      call dgemm("N", "N", 1, bkg_len, bkg_len, 1.d0, dif_tra, 1, tim_hrh, bkg_len, 0.d0, tmp_mat, 1)
+      ! The following is equivalent, but may be slower due to the need to transpose the matrix?
+      ! call dgemv("T", bkg_len, bkg_len, 1.d0, tim_hrh, bkg_len, dif_tra, 1, 0.d0, tmp_mat, 1)
+      jvc_two=dot_product(tmp_mat,dif_vec)
+      ! THIRD TERM
+      jvc_the=dot_product(dif_tra,tim_htr)
+      ! COST FUNCTION
+      jtim(t) = 0.5*(jvc_one+jvc_two-2.0*jvc_the)
+      ! WRITE (*,'(A10,3F16.4)') "COST: ",jvc_one,jvc_two,-2.0*jvc_the
+
+    end subroutine forward
+
+    !
+    ! Backward
+    !
+    subroutine backward(t)
+
+      use QGADJ_Writer
+
+      integer :: t
+
+      real(KIND=8), allocatable   :: tim_bkc(:,:)
+      real(KIND=8), allocatable   :: tim_hrh(:,:)
+      real(KIND=8), allocatable   :: tim_htr(:)
+      real(KIND=8), allocatable   :: tim_bkv(:)
+      real(KIND=8), allocatable   :: mdl_vec(:)
+      real(KIND=8), allocatable   :: tmp_vec(:)
+      real(KIND=8), allocatable   :: dif_vec(:)
+      real(KIND=8), allocatable   :: pre_dif(:)
+      real(KIND=8), allocatable   :: ges_vec(:)
+      real(KIND=8), allocatable   :: grd_jvc(:)
+      type(qg_model_type)         :: model
+      type(qg_adj_type)           :: model_ADJ
+      character(len=128)          :: filename
+      type(qgadj_writer_type)     :: writer_adj
+
+      allocate (tim_bkc(bkg_len,bkg_len))
+      allocate (tim_hrh(bkg_len,bkg_len))
+      allocate (tim_htr(bkg_len))
+      allocate (tim_bkv(bkg_len))
+      allocate (mdl_vec(bkg_len))
+      allocate (tmp_vec(bkg_len))
+      allocate (dif_vec(bkg_len))
+      allocate (pre_dif(bkg_len))
+      allocate (ges_vec(bkg_len))
+      allocate (grd_jvc(bkg_len))
+
+      ! writer_adj = qgadj_writer_type('NETCDF')
+
+      tim_bkc(:,:)=bkg_cov(:,:,t)
+      tim_hrh(:,:)=brh_cov(:,:,t)
+      tim_htr(:)=bht_ino(:,1,t)
+      tim_bkv(:)=bkg_vec(:,t)
+
+      if(t.eq.tim_len) then 
+        ! FOR THE LAST (OR ONLY) TIME STEP - NO ADJOINT TO RUN
+        mdl_vec(:)=tlm_vec(:,t)
+        if(mthd > 3) mdl_vec(:)=0.5*(tlm_vec(:,t)+anl_vec(:,t))
+      else
+        ! THIS ONLY RUNS FOR 4DVAR
+        ! FOR ALL OTHER TIME STEPS - ADJOINT NEEDED
+        if (mthd.eq.3) mdl_vec(:)=tlm_vec(:,t+1)
+        if (mthd > 3) mdl_vec(:)=anl_vec(:,t+1)
+          ! print *, "BACKWARD_MODEL"
+          model = qg_model_type(bkg_config, state_vector=mdl_vec(:), step=t)
+          call model%adv_nsteps(1)
+          ! model_ADJ = qg_adj_type(bkg_config, state_vector=mdl_vec(:), trajectory_vector=(model%get_state_vector() - mdl_vec(:)), step = t)
+          ! call model_ADJ%adv_nsteps(3)
+          model_ADJ = qg_adj_type(bkg_config, state_vector=model%get_state_vector(), trajectory_vector=model%get_state_vector() - mdl_vec(:), step = t + 1)
+          call model_ADJ%adv_nsteps(4)
+
+          ! if (nitr == 0) then
+          !   write(filename,'(A,I0.7)') 'adjout_', t
+          !   call writer_adj%write(model_ADJ, filename)
+          ! end if
+
+          mdl_vec(:) = model_ADJ%get_state_vector()
+          ! print *, "END BACKWARD_MODEL"
+      end if
+
+      ! CHOOSE THE FIRST GUESS FIELD
+      if(mthd < 4) ges_vec(:)=mdl_vec(:)
+      if(mthd > 3) ges_vec(:)=0.5*(tlm_vec(:,t)+mdl_vec(:))
+
+      ! CALCULATE THE GRADIENT OF THE COST FUNCTION
+      ! FIRST - DIFFERENCE BETWEEN FIRST GUESS AND BACKGROUND
+      tmp_vec(:)=(ges_vec(:)-tim_bkv(:))*(B+Q)
+      dif_vec(:)=(ges_vec(:)-tim_bkv(:))*(B+Q)
+
+      ! OBTAIN THE PRE-CONDITIONED DIFFERENCE BETWEEN THE BACKGROUND AND 
+      ! THE FIRST GUESS
+      call pre_con_dif(tim_bkc,tmp_vec)
+      pre_dif(:)=tmp_vec(:)
+      call dgemv("N", bkg_len, bkg_len, 1.d0, tim_hrh, bkg_len, dif_vec, 1, 0.d0, tmp_vec, 1)
+
+      tmp_vec(:)=pre_dif(:)+tmp_vec(:)-tim_htr(:)
+      call dgemv("N", bkg_len, bkg_len, 1.d0, tim_bkc, bkg_len, tmp_vec, 1, 0.d0, grd_jvc, 1)
+      new_vec(:,t)=ges_vec(:)-grd_jvc(:)*alph
+
+      if(mthd < 4) tlm_vec(:,t)=new_vec(:,t)
+
+    end subroutine backward
 
   end subroutine var_solver
 

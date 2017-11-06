@@ -361,6 +361,7 @@ contains
     integer :: step, k, l, nvar, i
     real(r8kind) :: dt2, dt6
     real(r8kind) :: y(this%nsh2, this%nvl), dydt(this%nsh2, this%nvl), yt(this%nsh2, this%nvl)
+    real(r8kind) :: yt1(this%nsh2, this%nvl), yt2(this%nsh2, this%nvl), y1(this%nsh2, this%nvl)
     real(r8kind) :: dyt(this%nsh2, this%nvl), dym(this%nsh2, this%nvl)
     real(r8kind) :: yb(this%nsh2, this%nvl), dydtb(this%nsh2, this%nvl), ytb(this%nsh2, this%nvl)
     real(r8kind) :: dytb(this%nsh2, this%nvl), dymb(this%nsh2, this%nvl)
@@ -394,35 +395,31 @@ contains
 
         ! Move the perturbation backward
         y = this%fmtofs(this%qprime)
-!       call PUSHREAL8ARRAY(tmp, nlat*nlon)
         call this%DQDT(y, dydt)
         do l = 1, this%nvl
           do k = 1, nvar
             yt(k, l) = y(k, l) + dt2 * dydt(k, l)
           end do
         end do
-!       call PUSHREAL8ARRAY(tmp, nlat*nlon)
         call this%DQDT(yt, dyt)
+        yt1 = yt
         do l = 1, this%nvl
           do k = 1, nvar
-            call PUSHREAL8(yt(k, l))
             yt(k, l) = y(k, l) + dt2 * dyt(k, l)
           end do
         end do
-!       call PUSHREAL8ARRAY(tmp, nlat*nlon)
         call this%DQDT(yt, dym)
+        yt2 = yt
         do l = 1, this%nvl
           do k = 1, nvar
-            call PUSHREAL8(yt(k, l))
             yt(k, l) = y(k, l) + this%dtt * dym(k, l)
             dym(k, l) = dyt(k, l) + dym(k, l)
           end do
         end do
-!       call PUSHREAL8ARRAY(tmp, nlat*nlon)
         call this%DQDT(yt, dyt)
+        y1 = y
         do l = 1, this%nvl
           do k = 1, nvar
-            call PUSHREAL8(y(k, l))
             y(k, l) = y(k, l) + dt6 * (dydt(k, l) + dyt(k, l) + 2. * dym(k, l))
           end do
         end do
@@ -437,40 +434,33 @@ contains
         dydtb = 0.0_8
         do l = this%nvl, 1, -1
           do k = nvar, 1, -1
-            call POPREAL8(y(k, l))
             tempb = dt6 * yb(k, l)
             dydtb(k, l) = dydtb(k, l) + tempb
             dytb(k, l) = dytb(k, l) + tempb
             dymb(k, l) = dymb(k, l) + 2. * tempb
           end do
         end do
-!       call POPREAL8ARRAY(tmp, nlat*nlon)
         ytb = 0.0_8
 
-!        tmpb = 0.0_8
         call this%DQDT_B(yt, ytb, dyt, dytb)
         dytb = 0.0_8
         do l = this%nvl, 1, -1
           do k = nvar, 1, -1
             dytb(k, l) = dytb(k, l) + dymb(k, l)
-            call POPREAL8(yt(k, l))
             yb(k, l) = yb(k, l) + ytb(k, l)
             dymb(k, l) = dymb(k, l) + this%dtt * ytb(k, l)
             ytb(k, l) = 0.0_8
           end do
         end do
-!       call POPREAL8ARRAY(tmp, nlat*nlon)
-        call this%DQDT_B(yt, ytb, dym, dymb)
+        call this%DQDT_B(yt2, ytb, dym, dymb)
         do l = this%nvl, 1, -1
           do k = nvar, 1, -1
-            call POPREAL8(yt(k, l))
             yb(k, l) = yb(k, l) + ytb(k, l)
             dytb(k, l) = dytb(k, l) + dt2 * ytb(k, l)
             ytb(k, l) = 0.0_8
           end do
         end do
-!       call POPREAL8ARRAY(tmp, nlat*nlon)
-        call this%DQDT_B(yt, ytb, dyt, dytb)
+        call this%DQDT_B(yt1, ytb, dyt, dytb)
         do l = this%nvl, 1, -1
           do k = nvar, 1, -1
             yb(k, l) = yb(k, l) + ytb(k, l)
@@ -478,8 +468,7 @@ contains
             ytb(k, l) = 0.0_8
           end do
         end do
-!       call POPREAL8ARRAY(tmp, nlat*nlon)
-        call this%DQDT_B(y, yb, dydt, dydtb)
+        call this%DQDT_B(y1, yb, dydt, dydtb)
 
         call this%fmtofs_B(this%qprime, this%qprimeb, yb)
 !       this%qprimeb = this%fstofm(yb, this%nm)
@@ -606,37 +595,23 @@ contains
     real(r8kind) :: dqprdt(this%nsh2, this%nvl)
     real(r8kind) :: dqprdtb(this%nsh2, this%nvl)
 
-!    local_psi = 0.0_r8kind
-!    local_psit = 0.0_r8kind
+    local_psi = 0.0_r8kind
+    local_psit = 0.0_r8kind
     local_qprime = this%fstofm(y, this%nm)
 
-    call PUSHREAL8ARRAY(local_psit, this%nsh2*this%ntl)
-    call PUSHREAL8ARRAY(local_psi, this%nsh2*this%nvl)
-
     call this%qtopsi(local_qprime, local_psi, local_psit)
-! psi, psit, qprime, for, diss --> dqprdt
-
-!   call PUSHREAL8ARRAY(tmp, nlat*nlon)
 
     dqprdt = this%ddt(local_psi, local_psit, local_qprime, this%for)
 
-   call this%fmtofs_b(dqprdt, dqprdtb, dydtb)
-!    dqprdtb = this%fstofm(dydtb, this%nm)
-!    dydtb = 0.0_r8kind
-
-!   call POPREAL8ARRAY(tmp, nlat*nlon)
+    call this%fmtofs_b(dqprdt, dqprdtb, dydtb)
 
     call this%ddt_b(local_psi, local_psib, local_psit, local_psitb, local_qprime, local_qprimeb, this%for, dqprdtb)
 
-    call POPREAL8ARRAY(local_psi, this%nsh2*this%nvl)
-    call POPREAL8ARRAY(local_psit, this%nsh2*this%ntl)
-
+    local_psi = 0.0_r8kind
+    local_psit = 0.0_r8kind
     call this%QTOPSI_B(local_qprime, local_qprimeb, local_psi, local_psib, local_psit, local_psitb)
-!    call this%psitoq(local_psi, local_psit, local_qprime)
-!    call this%psitoq(local_psib, local_psitb, local_qprimeb)
 
-   call this%fstofm_B(y, yb, this%nm, local_qprimeb)
-!    yb = this%fmtofs(local_qprimeb)
+    call this%fstofm_B(y, yb, this%nm, local_qprimeb)
 
   end subroutine DQDT_B
 
@@ -726,10 +701,10 @@ contains
     real(r8kind), DIMENSION(this%nsh2) :: res0
     real(r8kind), DIMENSION(this%nsh2) :: resb0
 ! advection of potential vorticity at upper level
-!    call PUSHREAL8ARRAY(tmp, nlat*nlon)
+
     res = this%JACOB(psi(:, 1), qprime(:, 1))
 ! advection of potential vorticity at middle level
-!    call PUSHREAL8ARRAY(tmp, nlat*nlon)
+
     res0 = this%JACOB(psi(:, 2), qprime(:, 2))
 ! advection of potential vorticity and dissipation at lower level
     qprimeb = 0.0_8
@@ -749,10 +724,10 @@ contains
     dqprdtb(:, 3) = 0.0_8
     resb0 = dqprdtb(:, 2)
     dqprdtb(:, 2) = 0.0_8
-!    call POPREAL8ARRAY(tmp, nlat*nlon)
+
     call this%JACOB_B(psi(:, 2), psib(:, 2), qprime(:, 2), qprimeb(:, 2), resb0)
     resb = dqprdtb(:, 1)
-!    call POPREAL8ARRAY(tmp, nlat*nlon)
+
     call this%JACOB_B(psi(:, 1), psib(:, 1), qprime(:, 1), qprimeb(:, 1), resb)
   end subroutine DDT_B
 
@@ -1214,27 +1189,24 @@ contains
     integer :: ad_to
     integer :: ad_to0
     integer :: ad_to1
+
     do k=1,SIZE(psi, 1)
       ws(k) = qprime(k, 1) + qprime(k, 3)
       psi(k, 1) = this%rinhel(k, 1)*(ws(k)+qprime(k, 2))
       psi(k, 2) = ws(k) - 2.d0*qprime(k, 2)
       psi(k, 3) = qprime(k, 1) - qprime(k, 3)
     end do
-    call PUSHINTEGER4(k - 1)
     do k=1,SIZE(psit, 1)
       psit(k, 1) = this%rinhel(k, 2)*psi(k, 2) + this%rinhel(k, 3)*psi(k, 3)
       psit(k, 2) = this%rinhel(k, 4)*psi(k, 2) + this%rinhel(k, 5)*psi(k, 3)
     end do
-    call PUSHINTEGER4(k - 1)
     r3 = 1./3.
     do k=1,SIZE(psi, 1)
       psi(k, 2) = r3*(psi(k, 1)-psit(k, 1)+psit(k, 2))
       psi(k, 1) = psi(k, 2) + psit(k, 1)
       psi(k, 3) = psi(k, 2) - psit(k, 2)
     end do
-    call PUSHINTEGER4(k - 1)
-    call POPINTEGER4(ad_to1)
-    do k=ad_to1,1,-1
+    do k=SIZE(psi, 1),1,-1
       psib(k, 2) = psib(k, 2) + psib(k, 3)
       psitb(k, 2) = psitb(k, 2) - psib(k, 3)
       psib(k, 3) = 0.0_r8kind
@@ -1247,8 +1219,7 @@ contains
       psitb(k, 2) = psitb(k, 2) + tempb0
       psib(k, 2) = 0.0_r8kind
     end do
-    call POPINTEGER4(ad_to0)
-    do k=ad_to0,1,-1
+    do k=SIZE(psit, 1),1,-1
       psib(k, 2) = psib(k, 2) + this%rinhel(k, 4)*psitb(k, 2)
       psib(k, 3) = psib(k, 3) + this%rinhel(k, 5)*psitb(k, 2)
       psitb(k, 2) = 0.0_r8kind
@@ -1257,8 +1228,7 @@ contains
       psitb(k, 1) = 0.0_r8kind
     end do
     wsb = 0.0_r8kind
-    call POPINTEGER4(ad_to)
-    do k=ad_to,1,-1
+    do k=SIZE(psi, 1),1,-1
       qprimeb(k, 1) = qprimeb(k, 1) + psib(k, 3)
       qprimeb(k, 3) = qprimeb(k, 3) - psib(k, 3)
       psib(k, 3) = 0.0_r8kind
@@ -1481,6 +1451,7 @@ contains
     real(r8kind), DIMENSION(SIZE(y, 1), SIZE(y, 2)) :: zb
 
     integer :: m, n, k, indx, l
+    integer, DIMENSION(SIZE(y, 2)) :: k2
 
     integer :: max1
     integer :: branch
@@ -1488,7 +1459,7 @@ contains
     integer :: ad_to
 
     do l=1,SIZE(y, 2)
-      call PUSHINTEGER4(k)
+      k2(l) = k
       k = 1
       do m=0,this%nm
         IF (m .LT. 1) THEN
@@ -1498,50 +1469,40 @@ contains
         end IF
         ad_from = max1
         do n=ad_from, this%nm
-          call PUSHINTEGER4(k)
           k = k + 1
           IF (m .EQ. 0) THEN
-            call PUSHINTEGER4(indx)
             indx = n**2
-            call PUSHCONTROL1B(0)
           ELSE
-            call PUSHINTEGER4(indx)
             indx = n**2 + 2*m - 1
-            call PUSHCONTROL1B(1)
-          end IF
-          IF (m .NE. 0) THEN
-            call PUSHCONTROL1B(0)
-          ELSE
-            call PUSHCONTROL1B(1)
           end IF
         end do
-        call PUSHINTEGER4(ad_from)
       end do
     end do
-    call PUSHINTEGER4(l - 1)
     yb = 0.0_r8kind
-    call POPINTEGER4(ad_to)
-    do l=ad_to,1,-1
+    do l=SIZE(y, 2),1,-1
       do m= this%nm,0,-1
-        call POPINTEGER4(ad_from)
+        IF (m .LT. 1) THEN
+          max1 = 1
+        ELSE
+          max1 = m
+        end IF
+        ad_from = max1
         do n= this%nm,ad_from,-1
-          call POPCONTROL1B(branch)
-          IF (branch .EQ. 0) THEN
+          IF (m .EQ. 0) THEN
+            indx = n**2
+          ELSE
+            indx = n**2 + 2*m - 1
+          end IF
+          IF (m .NE. 0) THEN
             yb(k+this%nsh, l) = yb(k+this%nsh, l) + zb(indx+1, l)
             zb(indx+1, l) = 0.0_r8kind
           end IF
           yb(k, l) = yb(k, l) + zb(indx, l)
           zb(indx, l) = 0.0_r8kind
-          call POPCONTROL1B(branch)
-          IF (branch .EQ. 0) THEN
-            call POPINTEGER4(indx)
-          ELSE
-            call POPINTEGER4(indx)
-          end IF
-          call POPINTEGER4(k)
+          k = k - 1
         end do
       end do
-      call POPINTEGER4(k)
+      k = k2(l)
     end do
 
   end subroutine fmtofs_b
@@ -1661,6 +1622,8 @@ contains
     real(r8kind), DIMENSION(SIZE(y, 1), SIZE(y, 2)) :: zb
 
     integer :: m, n, k, indx, i, l
+    integer, DIMENSION(SIZE(y, 2)) :: k2
+
     integer :: max1
     integer :: ad_to
     integer :: branch
@@ -1668,11 +1631,8 @@ contains
     integer :: ad_to0
 
     do l=1,SIZE(y, 2)
-      do i=1,SIZE(y, 1)
 
-      end do
-      call PUSHINTEGER4(i - 1)
-      call PUSHINTEGER4(k)
+      k2(l) = k
       k = 1
       do m=0,this%nm
         IF (m .LT. 1) THEN
@@ -1682,59 +1642,46 @@ contains
         end IF
         ad_from = max1
         do n=ad_from,this%nm
-          call PUSHINTEGER4(k)
           k = k + 1
           IF (m .LE. ntr .AND. n .LE. ntr) THEN
             IF (m .EQ. 0) THEN
-              call PUSHINTEGER4(indx)
               indx = n**2
-              call PUSHCONTROL1B(0)
             ELSE
-              call PUSHINTEGER4(indx)
               indx = n**2 + 2*m - 1
-              call PUSHCONTROL1B(1)
             end IF
-            IF (m .NE. 0) THEN
-              call PUSHCONTROL2B(0)
-            ELSE
-              call PUSHCONTROL2B(1)
-            end IF
-          ELSE
-            call PUSHCONTROL2B(2)
           end IF
         end do
-        call PUSHINTEGER4(ad_from)
       end do
     end do
-    call PUSHINTEGER4(l - 1)
-    call POPINTEGER4(ad_to0)
+    ad_to0 = l - 1
     do l=ad_to0,1,-1
       do m=this%nm,0,-1
-        call POPINTEGER4(ad_from)
+        IF (m .LT. 1) THEN
+          max1 = 1
+        ELSE
+          max1 = m
+        end IF
+        ad_from = max1
         do n=this%nm,ad_from,-1
-          call POPCONTROL2B(branch)
-          IF (branch .EQ. 0) THEN
-            yb(indx+1, l) = yb(indx+1, l) + zb(k+this%nsh, l)
-            zb(k+this%nsh, l) = 0.0_r8kind
-          ELSE IF (branch .NE. 1) THEN
-            GOTO 100
-          end IF
-          yb(indx, l) = yb(indx, l) + zb(k, l)
-          zb(k, l) = 0.0_r8kind
-          call POPCONTROL1B(branch)
-          IF (branch .EQ. 0) THEN
-            call POPINTEGER4(indx)
-          ELSE
-            call POPINTEGER4(indx)
-          end IF
- 100      call POPINTEGER4(k)
+          IF (m .LE. ntr .AND. n .LE. ntr) THEN
+            IF (m .EQ. 0) THEN
+              indx = n**2
+            ELSE
+              indx = n**2 + 2*m - 1
+            end IF
+            IF (m .NE. 0) THEN
+              yb(indx+1, l) = yb(indx+1, l) + zb(k+this%nsh, l)
+              zb(k+this%nsh, l) = 0.0_r8kind
+            end IF
+            yb(indx, l) = yb(indx, l) + zb(k, l)
+            zb(k, l) = 0.0_r8kind
+          end if
+          k = k - 1
         end do
       end do
-      call POPINTEGER4(k)
-      call POPINTEGER4(ad_to)
-      do i=ad_to,1,-1
-        zb(i, l) = 0.0_r8kind
-      end do
+
+      k = k2(l)
+
     end do
 
   end subroutine fstofm_b

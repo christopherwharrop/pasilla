@@ -3,8 +3,7 @@ include ../../../macros.mk
 UTILITIES=../../../utilities
 
 INCLUDES=-I$(GPTL)/include -I$(UTILITIES)/include $(NETCDF_INCLUDES) -I../../abstract/include -I.
-LIBS=-L$(GPTL)/lib -lgptl -L$(UTILITIES)/lib -lpasilla_util $(NETCDF_LIBS) -L tapenade/ADFirstAidKit -lstack
-
+LIBS=-L$(GPTL)/lib -lgptl -L$(UTILITIES)/lib -lpasilla_util $(NETCDF_LIBS)
 
 FFLAGS+=$(OPENMP)
 FFLAGS+=$(GPTLFLAGS)
@@ -61,7 +60,6 @@ module_QGADJ_writer.o: module_QGADJ_writer.f90 module_QG_adj.o
 module_QG_reader.o: module_QG_reader.f90 module_QG_model.o
 	$(FC) $(FFLAGS) -c module_QG_reader.f90 $(INCLUDES)
 
-#module_QG_ggsp.o: module_QG_ggsp.f90 nag.o nagb.o
 module_QG_ggsp.o: module_QG_ggsp.f90 nag.o
 	$(FC) $(FFLAGS) -c module_QG_ggsp.f90 $(INCLUDES)
 

@@ -14,8 +14,7 @@ LIBS=-L$(GPTL)/lib -lgptl                   \
      -L../../models/sine/lib -lsine         \
      -L../../models/lorenz96/lib -llorenz96 \
      -L../../models/QG/lib -lqg             \
-     -L$(UTILITIES)/lib -lpasilla_util      \
-     -L../../models/QG/src/tapenade/ADFirstAidKit -lstack
+     -L$(UTILITIES)/lib -lpasilla_util
 
 
 FFLAGS+=$(OPENMP)

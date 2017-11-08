@@ -14,6 +14,7 @@ module QG_Model_TL
 
   type, extends(abstract_model_type) :: qg_tl_type
     private
+
     ! Model configuration
     type(qg_config_type) :: config
 
@@ -52,9 +53,6 @@ module QG_Model_TL
     real(r8kind), allocatable :: pp(:,:)     ! Legendre polynomials defined at Gausian latitudes
     real(r8kind), allocatable :: pd(:,:)     ! Mu derivative of Legendre polynomials
     real(r8kind), allocatable :: pw(:,:)     ! Weights for Legendre integrals
-!    real(r8kind), allocatable :: trigd(:,:)  ! Trigonometric coefficients used by the nag version of the fft
-!    real(r8kind), allocatable :: trigi(:,:)  ! Trigonometric coefficients used by the nag version of the fft
-!    real(r8kind), allocatable :: rm(:)       ! contains zonal wavenumber m of each spherical harmonic of the corresponding index for zonal derivative operator
 
     ! Grid conversion object
     type(qg_ggsp_type) :: ggsp
@@ -84,8 +82,6 @@ module QG_Model_TL
   contains
     final :: destructor_qg_tl
     procedure :: adv_nsteps
-    procedure :: tang
-    procedure :: tang_reverse
     procedure :: gridfields
     procedure :: get_config
     procedure :: get_step
@@ -108,16 +104,11 @@ module QG_Model_TL
     procedure, private :: dqdt_d
     procedure, private :: ddt
     procedure, private :: ddt_d
-    procedure, private :: ddtl
-    procedure, private :: timinp
     procedure, private :: jacob
     procedure, private :: jacob_d
     procedure, private :: jacobd
     procedure, private :: jacobd_d
-    procedure, private :: jacobp
     procedure, private :: psitoq
-    procedure, private :: psiq
-    procedure, private :: qpsi
     procedure, private :: qtopsi
     procedure, private :: lap
     procedure, private :: lapinv
@@ -883,62 +874,6 @@ contains
   end function jacobd
 
 
-  !----------------------------------------------------------------------
-  ! Advection of potential vorticity and dissipation on gaussian grid
-  ! Adapted version of JACOBD for testing the tangent linear equations
-  !----------------------------------------------------------------------
-  function jacobp(this, psiloc, pvor) result(sjacob)
-
-    class(qg_tl_type), intent(inout) :: this
-    real(r8kind),      intent(   in) :: psiloc(this%nsh2)
-    real(r8kind),      intent(   in) :: pvor(this%nsh2)
-
-    real(r8kind) :: sjacob(this%nsh2)
-
-    real(r8kind) :: vv(this%nsh2)
-    real(r8kind) :: ininag(this%nlat, this%nlon)
-    real(r8kind) :: dpsidl(this%nlat, this%nlon)
-    real(r8kind) :: dvordl(this%nlat, this%nlon)
-    real(r8kind) :: dvordm(this%nlat, this%nlon)
-    real(r8kind) :: dpsidm(this%nlat, this%nlon)
-
-    integer      :: i, j, k
-
-    ! Isotropic dissipation term
-    do k = 1, this%nsh2
-      vv(k) = this%diss(k, 2) * psiloc(k)
-    end do
-
-    ininag = this%ggsp%sptogg_pp(vv)
-
-    ! Space derivatives of potential vorticity
-    vv = reshape(this%ggsp%ddl(pvor), (/this%nsh2/))
-    dvordl = this%ggsp%sptogg_pp(vv)
-    dvordm = this%ggsp%sptogg_pd(pvor)
-
-    ! Space derivatives of streamfunction
-    vv = reshape(this%ggsp%ddl(psiloc), (/this%nsh2/))
-    dpsidl = this%ggsp%sptogg_pp(vv)
-    dpsidm = this%ggsp%sptogg_pd(psiloc)
-
-    ! Jacobian and unisotropic dissipation terms
-    do i = 1, this%nlat
-      do j = 1, this%nlon
-        ininag(i, j) = -dpsidm(i, j) * this%ddisdy(i, j) - dpsidl(i, j) * this%ddisdx(i, j) + this%rdiss(i, j) * ininag(i, j)
-        ininag(i, j) =  dpsidm(i, j) * dvordl(i, j)      - dpsidl(i, j) * dvordm(i, j)      + ininag(i, j)
-      end do
-    end do
-
-    sjacob = reshape(this%ggsp%ggtosp(ininag), (/this%nsh2/))
-
-    ! Planetary vorticity advection
-    do k = 1, this%nsh2
-      sjacob(k) = sjacob(k) - vv(k)
-    end do
-
-  end function
-
-
   !-----------------------------------------------------------------------
   ! computation of streamfunction from potential vorticity
   ! input  qprime which is potential vorticity field
@@ -1004,76 +939,6 @@ contains
     return
 
   end subroutine psitoq
-
-
-  !-----------------------------------------------------------------------
-  ! Computation of potential vorticity qout from stream function sfin
-  !-----------------------------------------------------------------------
-  pure function psiq(this, sfin) result(qout)
-
-    class(qg_tl_type), intent( in) :: this
-    real(r8kind),      intent( in) :: sfin(this%nsh2, this%nvl)
-
-    real(r8kind) :: qout(this%nsh2, this%nvl)
-
-    real(r8kind) :: tus(this%nsh2)
-    integer      :: k
-
-    do k = 1, this%nsh2
-      tus(k) = this%rl1 * sfin(k, 1) - this%rl1 * sfin(k, 2)
-    enddo
-
-    do k = 1, this%nsh2
-      qout(k, 1) = this%rinhel(k, 0) * sfin(k, 1) - tus(k)
-      qout(k, 2) = this%rinhel(k, 0) * sfin(k, 2) + tus(k)
-    enddo
-
-    do k = 1, this%nsh2
-      tus(k) = this%rl2 * sfin(k, 2) - this%rl2 * sfin(k, 3)
-    enddo
-
-    do k = 1, this%nsh2
-      qout(k, 2) = qout(k, 2) - tus(k)
-      qout(k, 3) = this%rinhel(k, 0) * sfin(k, 3) + tus(k)
-    enddo
-
-  end function psiq
-
-
-  !-----------------------------------------------------------------------
-  ! Computation of streamfunction bb from potential vorticity qin
-  !-----------------------------------------------------------------------
-  pure function qpsi(this, qin) result(sfout)
-
-    class(qg_tl_type), intent( in) :: this
-    real(r8kind),      intent( in) :: qin(this%nsh2, this%nvl)
-
-    real(r8kind) :: sfout(this%nsh2, this%nvl)
-
-    real(r8kind) :: ws(this%nsh2)
-    real(r8kind) :: tus(this%nsh2, this%ntl), r3
-    integer      :: k
-
-    do k = 1, this%nsh2
-      ws(k) = qin(k, 1) + qin(k, 3)
-      sfout(k, 1) = this%rinhel(k, 1) * (ws(k) + qin(k, 2))
-      sfout(k, 2) = ws(k) - 2. * qin(k, 2)
-      sfout(k, 3) = qin(k, 1) - qin(k, 3)
-    enddo
-
-    do k = 1, this%nsh2
-      tus(k, 1) = this%rinhel(k, 2) * sfout(k, 2) + this%rinhel(k, 3) * sfout(k, 3)
-      tus(k, 2) = this%rinhel(k, 4) * sfout(k, 2) + this%rinhel(k, 5) * sfout(k, 3)
-    enddo
-
-    r3 = 1. / 3
-    do k = 1, this%nsh2
-      sfout(k, 2) =r3 * (sfout(k, 1) - tus(k, 1) + tus(k, 2))
-      sfout(k, 1) = sfout(k, 2) + tus(k, 1)
-      sfout(k, 3) = sfout(k, 2) - tus(k, 2)
-    enddo
-    
-  end function qpsi
 
 
   !-----------------------------------------------------------------------
@@ -1423,270 +1288,6 @@ contains
     return
 
   end function lapinv
-
-
-  !------------------------------------------------------------------
-  ! timinp
-  !
-  ! VERSION OF TIMINT WITH ARGUMENTS
-  !
-  ! *** JTSTEP = 0 : Forward integration, half time step
-  ! *** JTSTEP = 1 : Leapfrog integration, half time step
-  ! *** JTSTEP > 1 : Leapfrog integration + implicit diffusion
-  ! ***              and time filter, full time step
-  !
-  !------------------------------------------------------------------
-  subroutine timinp (this, jtstep, xold, xnew, dxnew)
-
-    class(qg_tl_type), intent( in) :: this
-    integer,           intent( in) :: jtstep
-    real(r8kind),      intent(out) :: xold(this%nsh2, 3), xnew(this%nsh2, 3)
-    real(r8kind),      intent( in) :: dxnew(this%nsh2, 3)
-
-    integer      :: jstep
-    integer      :: i, j, k, l, m, n
-    real(r8kind) :: as(this%nsh2, 3)
-    real(r8kind) :: ws(this%nsh2)
-    real(r8kind) :: eps1, eps2
-
-    eps2 = 0.03
-    eps1 = 1.0D0-2.0D0 * eps2 
-
-    if (jtstep > 1) then
-      do l = 1, 3
-        do k = 1, this%nsh2
-          ws(k) = xnew(k, l)
-          xnew(k, l) = this%diss(k, 1) * (xold(k, l) + this%dtt * dxnew(k, l))
-          xold(k, l) = eps1 * ws(k) + eps2 * (xnew(k, l) + xold(k, l))
-        end do
-      end do
-    else
-      if (jtstep==0) then
-        do l = 1, 3
-          do k = 1, this%nsh2
-            xold(k, l) = xnew(k, l)
-          end do
-        end do
-      endif
-      do l = 1, 3
-        do k = 1, this%nsh2
-          xnew(k, l) = xold(k, l) + this%dtt * dxnew(k, l)
-        end do
-      end do
-
-!     this%dtt = 2. * this%dtt
-
-    endif
-
-  end subroutine timinp
-
- 
-  !------------------------------------------------------------------
-  ! COMPUTES THE TANGENT LINEAR EQUATIONS
-  !------------------------------------------------------------------
-  subroutine ddtl(this, ds, depsdt, jstep)
-
-    class(qg_tl_type), intent(inout) :: this
-    real(r8kind),      intent(   in) :: ds(this%nsh2, 3)
-    real(r8kind),      intent(  out) :: depsdt(this%nsh2, 3)
-    integer,           intent(   in) :: jstep
-
-    integer      :: nnnstep
-    real(r8kind) :: cp(this%nsh2), wspace(this%nsh2), as(this%nsh2, 3), bs(this%nsh2, 3)
-    real(r8kind) :: dummy, dfeps(this%nsh2, 3), delpst(this%nsh2, 2)
-    real(r8kind) :: delpsi(this%nsh2, 3), lpsi(this%nsh2, 3)
-
-    integer i, j, k, l, m, n
-
-    real(r8kind) :: xs(this%nsh2, 3), fac
-!    integer      :: nstop, janstep
-!    common /ntime/ nstop
-
-    ! *** Initializations needed for the computation of c1, c2 and c3
-    do l = 1, 3
-      do k = 1, this%nsh2
-        dfeps(k, l) = 0.0D0
-      end do
-    end do
-    do k = 1, this%nsh2
-      cp(k) = 0.0D0
-    end do
-    cp(2) = 1.0D0 / sqrt(3.0D0)
-
-    call copy(ds, delpsi)
-
-    ! MATRIX L TOEPASSEN:
-    as = this%psiq(delpsi)
-    lpsi = this%psiq(this%psi)
-    do k = 1, this%nsh2
-      delpst(k, 1) = this%relt1 * (delpsi(k, 1) - delpsi(k, 2))
-      delpst(k, 2) = this%relt2 * (delpsi(k, 2) - delpsi(k, 3))
-    end do
-
-    call sub (as(:, 1), cp, bs(:, 1))
-    wspace(:) = this%jacob(this%psi(:,1), bs(:,1))
-    call addab (dfeps(:, 1), wspace(:))
-
-    bs(:,1) = this%jacob(delpsi(:,1), lpsi(:,1))
-    call addab (dfeps(:, 1), bs(:, 1))
-
-    call addab (dfeps(:, 1), delpst(:, 1))
-
-    call sub (as(:, 2), cp, bs(:, 2))
-    wspace(:) = this%jacob(this%psi(:, 2), bs(:, 2))
-    call addab (dfeps(:, 2), wspace(:))
-
-    bs(:,2) = this%jacob(delpsi(:, 2), lpsi(:, 2))
-    call addab (dfeps(:, 2), bs(:, 2))
-
-    call subab (dfeps(:, 2), delpst(:, 1))
-    call addab (dfeps(:, 2), delpst(:, 2))
-
-    call sub (as(:, 3), cp, bs(:, 3))  
-    wspace(:) = this%jacob(this%psi(:, 3), bs(:, 3))
-    call addab (dfeps(:, 3), wspace(:))
-
-    call add(lpsi(:, 3), this%orog, wspace(:))
-    bs(:,3) = this%jacobp(delpsi(:, 3), wspace(:))
-    call addab (dfeps(:, 3), bs(:, 3))
-
-    call subab (dfeps(:, 3), delpst(:, 2))
-
-    depsdt = this%qpsi(dfeps)
-
-  end subroutine ddtl
-
-
-  !-------------------------------------------------------------------------------
-  ! This subroutine integrates the tangent linear equation with initial condition
-  ! AS(NSH2,3) and integration time NUUR. It uses the orbit stored by STOREP.
-  ! The result is BS(NSH2,3).
-  !-------------------------------------------------------------------------------
-!  subroutine tang(this, as, bs, nuur)
-  function tang(this, as, nuur) result(bs)
-
-    class(qg_tl_type), intent(inout) :: this
-    real(r8kind),      intent(   in) :: as(this%nsh2, 3)
-    integer,           intent(   in) :: nuur
-
-    real(r8kind) :: bs(this%nsh2, 3)
-    real(r8kind) :: dum(this%nsh23), dumold(this%nsh23), dumnew(this%nsh23)
-    real(r8kind) :: etraj(this%nsh2, 3, 0:100)
-!    real(r8kind) :: e, fac
-
-!    integer      :: janstep
-    integer      :: k, n, index
-!    integer      :: nstop
-!    common /stap/ janstep
-!    common /ntime/ nstop
-
-    real(r8kind) :: zt(this%nlat, this%nlon), dummy, sum
-    integer      :: ix, iy, ilevel
-    integer      :: ntstep, jtstep, i
-
-    ntstep = (nuur * 3) / 2
-!    nstop=ntstep
-
-!    dumnew = reshape(this%trajectory, (/this%nsh23/))
-    dumnew = reshape(as, (/this%nsh23/))
-
-    do i = 1, this%nsh23
-      dumold(i) = 0.0D0
-    end do
-
-    write(*,*) 'TANGENT MODEL'
-    print *, "IN TANGENT, DTT=", this%dtt, ntstep
-
-    do jtstep = 0, ntstep
-      ! call retrie(jtstep)
-!CWH      call retrie(0)
-      
-      call this%ddtl(dumnew, dum, jtstep)
-      call this%timinp(jtstep, dumold, dumnew, dum)
-
-      if (0 == 1) then
-        k = jtstep
-        if( mod(k,9) == 0) then
-          write(*,*) 'write-out linear evo', k
-          if (k == 0) then
-            write(66) as
-!            write(66) this%trajectory
-          else
-            write(66) dumnew
-          endif
-        endif
-      endif
-
-      if (0 == 1) then
-        k = jtstep
-        if (k == 0) then
-          write(*,*) 'write LIN TRAJ to 51 !!!'
-        endif
-        if (mod(k, 9) == 0) then
-          k = (jtstep / 3) * 2
-          write(66) dumnew
-        endif
-      endif
-
-      if (0 == 1) then 
-        ! fill array ETRAJ to determine costfunction
-        k = jtstep
-        if (0 == 1) then
-          call copy(reshape(dumnew, (/this%nsh2, 3/)), etraj(:, :, index))
-
-          ! one gridpoint (vorticity)  --------------------------------
-          if (0 == 1) then
-            etraj(:, 3, index) = this%lap(etraj(:, 3, index))
-            zt = this%ggsp%sptogg_pp(etraj(:, 3, index))
-            dummy = zt(24, 30)
-            write(*,*) 'etraj(index)', dummy
-            if (jtstep == 0) sum = 0
-            sum = sum + dummy**2
-            if (jtstep == ntstep) write(*,*) 'costf = ', sum
-            do iy = 1, this%nlat
-              do ix = 1, this%nlon
-                zt(iy, ix) = 0.0
-              enddo
-            enddo
-            zt(24, 30) = dummy
-            etraj(:, 3, index) = reshape(this%ggsp%ggtosp(zt), (/this%nsh2/))
-            etraj(:, 3, index) = this%lap(etraj(:, 3, index))
-            do ilevel = 1, 2
-              do n = 1, this%nsh2
-                etraj(n, ilevel, index) = 0.0
-              enddo
-            enddo
-          endif
-        endif
-      endif
-
-    end do
-
-!    call copy(reshape(dumnew, (/this%nsh2, 3/)), this%trajectory)
-    call copy(reshape(dumnew, (/this%nsh2, 3/)), bs)
-
-  end function
-
-
-  !-------------------------------------------------------------------------------
-  ! tang_reverse
-  !-------------------------------------------------------------------------------
-!  subroutine tang_reverse(this, as, bs, nuur)
-  subroutine tang_reverse(this, nuur)
-
-    class(qg_tl_type), intent(inout) :: this
-!    real(r8kind),      intent(   in) :: as(this%nsh2, 3)
-!    real(r8kind),      intent(  out) :: bs(this%nsh2, 3)
-    integer,           intent(   in) :: nuur
-    
-!    this%dtt = -1.0D0 * this%dtt
-
-!    call this%tang(as, bs, nuur)
-!    call this%tang(nuur)
-
-!    this%dtt = -1.0D0 * this%dtt
-
-  end subroutine tang_reverse
 
 
   !-------------------------------------------------------------------------------

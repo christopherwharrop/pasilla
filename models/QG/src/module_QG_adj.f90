@@ -15,6 +15,7 @@ module QG_Model_ADJ
 
   type, extends(abstract_model_type) :: qg_adj_type
     private
+
     ! Model configuration
     type(qg_config_type) :: config
 
@@ -55,9 +56,6 @@ module QG_Model_ADJ
     real(r8kind), allocatable :: pd(:,:)     ! Mu derivative of Legendre polynomials
     real(r8kind), allocatable :: pw(:,:)     ! Weights for Legendre integrals
     real(r8kind), allocatable :: derimu(:,:) ! Mu operator needed for adjoint
-!    real(r8kind), allocatable :: trigd(:,:)  ! Trigonometric coefficients used by the nag version of the fft
-!    real(r8kind), allocatable :: trigi(:,:)  ! Trigonometric coefficients used by the nag version of the fft
-!    real(r8kind), allocatable :: rm(:)       ! contains zonal wavenumber m of each spherical harmonic of the corresponding index for zonal derivative operator
 
     ! Grid conversion object
     type(qg_ggsp_type) :: ggsp
@@ -87,7 +85,6 @@ module QG_Model_ADJ
   contains
     final :: destructor_qg_adj
     procedure :: adv_nsteps
-    procedure :: adj
     procedure :: gridfields
     procedure :: get_config
     procedure :: get_step
@@ -109,29 +106,19 @@ module QG_Model_ADJ
     procedure, private :: dqdt_b
     procedure, private :: ddt
     procedure, private :: ddt_b
-    procedure, private :: ddtl
-    procedure, private :: ddtlad
-    procedure, private :: ddtad
     procedure, private :: jacob
     procedure, private :: jacob_b
     procedure, private :: jacobd
     procedure, private :: jacobd_b
-    procedure, private :: jacobp
     procedure, private :: psitoq
     procedure, private :: qtopsi
     procedure, private :: qtopsi_b
-    procedure, private :: psiq
-    procedure, private :: qpsi
     procedure, private :: lap
     procedure, private :: lapinv
     procedure, private :: fmtofs
     procedure, private :: fmtofs_b
     procedure, private :: fstofm
     procedure, private :: fstofm_b
-    procedure, private :: mudera
-    procedure, private :: timiad
-    procedure, private :: timinp
-    procedure, private :: tang
   end type qg_adj_type
 
   interface qg_adj_type
@@ -495,46 +482,6 @@ contains
 
 
   !-----------------------------------------------------------------------
-  ! performs a fourth order runge kutta time step at truncation nm
-  ! with time step dt
-  ! dqdt calculates the time derivative
-  ! input  qprime at current time
-  ! output qprime at current time plus dt
-  !-----------------------------------------------------------------------
-  subroutine adv_nsteps_orig(this, nsteps)
-
-    class(qg_adj_type) :: this
-    integer           :: nsteps
-
-    integer :: step
-    real(r8kind) :: x1(this%nsh2, 3), x2(this%nsh2, 3)
-    ! Advance the model forward in time n steps
-    do step = 1, nsteps
-
-!      call buildMprime(this%state, mprime)
-!      x2 = -this%config%get_time_step() * matmul(mprime,this%trajectory)
-!      x1 = -this%config%get_time_step() * matmul(transpose(mprime), x2)
-!      this%trajectory = this%trajectory + x2 + x1
-!      this%state = this%state + this%trajectory
-      x2 = this%tang(this%trajectory, 0)
-      x1 = this%adj((this%trajectory-x2), 0)
-      this%trajectory = this%trajectory + x1
-      this%psi = this%psi + this%trajectory
-      call this%psitoq(this%psi, this%psit, this%qprime)
-
-      ! Increment time step
-      this%clock = this%clock - this%config%get_time_step()
-      this%step = this%step - 1
-
-    end do
-
-    ! Make stream function consistent with potential vorticity
-    call this%qtopsi(this%qprime, this%psi, this%psit)
-
-  end subroutine adv_nsteps_orig
-
-
-  !-----------------------------------------------------------------------
   ! computation of time derivative of the potential vorticity field
   ! input  y potential vorticity in french format
   ! output dydt time derivative of y in french format
@@ -582,16 +529,17 @@ contains
     real(r8kind) :: yb(:, :)
     real(r8kind) :: dydt(:, :)
     real(r8kind) :: dydtb(:, :)
-! qprime
+
+    ! qprime
     real(r8kind) :: local_qprime(this%nsh2, this%nvl)
     real(r8kind) :: local_qprimeb(this%nsh2, this%nvl)
-! psi
+    ! psi
     real(r8kind) :: local_psi(this%nsh2, this%nvl)
     real(r8kind) :: local_psib(this%nsh2, this%nvl)
-! psit
+    ! psit
     real(r8kind) :: local_psit(this%nsh2, this%ntl)
     real(r8kind) :: local_psitb(this%nsh2, this%ntl)
-! time derivative of qprime
+    ! time derivative of qprime
     real(r8kind) :: dqprdt(this%nsh2, this%nvl)
     real(r8kind) :: dqprdtb(this%nsh2, this%nvl)
 
@@ -680,19 +628,20 @@ contains
   subroutine DDT_B(this, psi, psib, psit, psitb, qprime, qprimeb, for, dqprdtb)
 
     class(qg_adj_type), intent(inout) :: this
-! stream function at the nvl levels
+    ! stream function at the nvl levels
     real(r8kind), INTENT(IN) :: psi(this%nsh2, this%nvl)
     real(r8kind) :: psib(this%nsh2, this%nvl)
-! thickness at the ntl levels
+    ! thickness at the ntl levels
     real(r8kind), INTENT(IN) :: psit(this%nsh2, this%ntl)
     real(r8kind) :: psitb(this%nsh2, this%ntl)
-! potential vorticity
+    ! potential vorticity
     real(r8kind), INTENT(IN) :: qprime(this%nsh2, this%nvl)
     real(r8kind) :: qprimeb(this%nsh2, this%nvl)
-! constant potential vorticity forcing at the nvl levels
+    ! constant potential vorticity forcing at the nvl levels
     real(r8kind), INTENT(IN) :: for(this%nsh2, this%nvl)
     real(r8kind) :: dqprdt(this%nsh2, this%nvl)
     real(r8kind) :: dqprdtb(this%nsh2, this%nvl)
+
     integer :: k, l, i, j
     real(r8kind) :: dum1, dum2
     real(r8kind) :: dum1b, dum2b
@@ -700,13 +649,14 @@ contains
     real(r8kind), DIMENSION(this%nsh2) :: resb
     real(r8kind), DIMENSION(this%nsh2) :: res0
     real(r8kind), DIMENSION(this%nsh2) :: resb0
-! advection of potential vorticity at upper level
 
+    ! advection of potential vorticity at upper level
     res = this%JACOB(psi(:, 1), qprime(:, 1))
-! advection of potential vorticity at middle level
 
+    ! advection of potential vorticity at middle level
     res0 = this%JACOB(psi(:, 2), qprime(:, 2))
-! advection of potential vorticity and dissipation at lower level
+
+    ! advection of potential vorticity and dissipation at lower level
     qprimeb = 0.0_8
     do l=3,1,-1
       do k=this%nsh2,1,-1
@@ -828,10 +778,7 @@ contains
       dpsidlsb(k) = dpsidlsb(k) - sjacobb(k)
     end do
 
-!   call ggsp%GGTOSP_B(gjacob, gjacobb, sjacobb)
-!   Not 100% sure if this should be pp or pd
     gjacobb = ggsp%sptogg_pw(sjacobb)
-
 
     dpsidlb = 0.0_8
     dpsidmb = 0.0_8
@@ -847,18 +794,14 @@ contains
       end do
     end do
 
-!   call ggsp%sptogg_PD_B(psiloc, psilocb, dpsidmb)
-!   call ggsp%sptogg_PP_B(dpsidls, dpsidlsb, dpsidlb)
     psilocb = reshape(ggsp%ggtosp(dpsidmb), (/this%nsh2/))
     dpsidlsb = reshape(ggsp%ggtosp(dpsidlb), (/this%nsh2/))
 
     call ggsp%ddl_b(psiloc, psilocb, dpsidlsb)
 
-!   call ggsp%sptogg_PD_B(pvor, pvorb, dvordmb)
     pvorb = reshape(ggsp%ggtosp(dvordmb), (/this%nsh2/))
 
     vvb = 0.0_8
-!   call ggsp%sptogg_PP_B(vv, vvb, dvordlb)
     vvb = reshape(ggsp%ggtosp(dvordlb), (/this%nsh2/))
 
     call ggsp%ddl_b(pvor, pvorb, vvb)
@@ -996,8 +939,6 @@ contains
 
     if (this%lgdiss) then
 
-!     call ggsp%ggtosp_b(gjacob, gjacobb, sjacobb)
-!     Not 100% sure if this should be sptogg_pp or sptogg_pd
       gjacobb = ggsp%sptogg_pw(sjacobb)
       dpsidlb = 0.0_r8kind
       dpsidmb = 0.0_r8kind
@@ -1010,7 +951,6 @@ contains
         end do
       end do
       vvb = 0.0_r8kind
-!     call ggsp%sptogg_pp_b(vv, vvb, azetab)
       vvb = reshape(ggsp%ggtosp(azetab), (/this%nsh2/))
       psilocb = 0.0_r8kind
       do k = this%nsh2, 1, -1
@@ -1024,8 +964,6 @@ contains
       do k = this%nsh2, 1, -1
         psilocb(k) = psilocb(k) + this%diss(k, 2) * sjacobb(k)
       end do
-!     call ggsp%ggtosp_b(gjacob, gjacobb, sjacobb)
-!     Not 100% sure if this should be sptogg_pp or sptogg_pd
       gjacobb = ggsp%sptogg_pw(sjacobb)
       dpsidlb = 0.0_r8kind
       dpsidmb = 0.0_r8kind
@@ -1045,76 +983,17 @@ contains
       end do
     end do
 
-!   call ggsp%sptogg_pd_b(psiloc, psilocb, dpsidmb)
-!   call ggsp%sptogg_pp_b(dpsidls, dpsidlsb, dpsidlb)
     psilocb = reshape(ggsp%ggtosp(dpsidmb), (/this%nsh2/))
     dpsidlsb = reshape(ggsp%ggtosp(dpsidlb), (/this%nsh2/))
 
     call ggsp%ddl_b(psiloc, psilocb, dpsidlsb)
 
-!   call ggsp%sptogg_pd_b(pvor, pvorb, dvordmb)
-!   call ggsp%sptogg_pp_b(vv, vvb, dvordlb)
     pvorb = reshape(ggsp%ggtosp(dvordmb), (/this%nsh2/))
     vvb = reshape(ggsp%ggtosp(dvordlb), (/this%nsh2/))
 
     call ggsp%ddl_b(pvor, pvorb, vvb)
 
   end subroutine jacobd_b
-
-  !----------------------------------------------------------------------
-  ! Advection of potential vorticity and dissipation on gaussian grid
-  ! Adapted version of JACOBD for testing the tangent linear equations
-  !----------------------------------------------------------------------
-  function jacobp(this, psiloc, pvor) result(sjacob)
-
-    class(qg_adj_type), intent(inout) :: this
-    real(r8kind),      intent(   in) :: psiloc(this%nsh2)
-    real(r8kind),      intent(   in) :: pvor(this%nsh2)
-
-    real(r8kind) :: sjacob(this%nsh2)
-
-    real(r8kind) :: vv(this%nsh2)
-    real(r8kind) :: ininag(this%nlat, this%nlon)
-    real(r8kind) :: dpsidl(this%nlat, this%nlon)
-    real(r8kind) :: dvordl(this%nlat, this%nlon)
-    real(r8kind) :: dvordm(this%nlat, this%nlon)
-    real(r8kind) :: dpsidm(this%nlat, this%nlon)
-
-    integer      :: i, j, k
-
-    ! Isotropic dissipation term
-    do k = 1, this%nsh2
-      vv(k) = this%diss(k, 2) * psiloc(k)
-    end do
-
-    ininag = this%ggsp%sptogg_pp(vv)
-
-    ! Space derivatives of potential vorticity
-    vv = reshape(this%ggsp%ddl(pvor), (/this%nsh2/))
-    dvordl = this%ggsp%sptogg_pp(vv)
-    dvordm = this%ggsp%sptogg_pd(pvor)
-
-    ! Space derivatives of streamfunction
-    vv = reshape(this%ggsp%ddl(psiloc), (/this%nsh2/))
-    dpsidl = this%ggsp%sptogg_pp(vv)
-    dpsidm = this%ggsp%sptogg_pd(psiloc)
-
-    ! Jacobian and unisotropic dissipation terms
-    do i = 1, this%nlat
-      do j = 1, this%nlon
-        ininag(i, j) = -dpsidm(i, j) * this%ddisdy(i, j) - dpsidl(i, j) * this%ddisdx(i, j) + this%rdiss(i, j) * ininag(i, j)
-        ininag(i, j) =  dpsidm(i, j) * dvordl(i, j)      - dpsidl(i, j) * dvordm(i, j)      + ininag(i, j)
-      end do
-    end do
-
-    sjacob = reshape(this%ggsp%ggtosp(ininag), (/this%nsh2/))
-
-    ! Planetary vorticity advection
-    do k = 1, this%nsh2
-      sjacob(k) = sjacob(k) - vv(k)
-    end do
-
-  end function
 
 
   !-----------------------------------------------------------------------
@@ -1168,19 +1047,20 @@ contains
   !-----------------------------------------------------------------------
   subroutine QTOPSI_b(this, qprime, qprimeb, psi, psib, psit, psitb)
 
-! potential vorticity
+    ! potential vorticity
     class(qg_adj_type), intent( in) :: this
     real(r8kind), intent(IN) :: qprime(:, :)
     real(r8kind) :: qprimeb(:, :)
-! stream function at the nvl levels
+    ! stream function at the nvl levels
     real(r8kind) :: psi(:, :)
     real(r8kind) :: psib(:, :)
-! thickness at the ntl levels
+    ! thickness at the ntl levels
     real(r8kind) :: psit(:, :)
     real(r8kind) :: psitb(:, :)
+
     integer :: k
     real(r8kind) :: r3
-! only used as portable workspace
+    ! only used as portable workspace
     real(r8kind) :: ws(this%nsh2)
     real(r8kind) :: wsb(this%nsh2)
     INTRINSIC SIZE
@@ -1245,76 +1125,6 @@ contains
     end do
 
   end subroutine QTOPSI_b
-
-
-  !-----------------------------------------------------------------------
-  ! Computation of potential vorticity qout from stream function sfin
-  !-----------------------------------------------------------------------
-  pure function psiq(this, sfin) result(qout)
-
-    class(qg_adj_type), intent( in) :: this
-    real(r8kind),      intent( in) :: sfin(this%nsh2, this%nvl)
-
-    real(r8kind) :: qout(this%nsh2, this%nvl)
-
-    real(r8kind) :: tus(this%nsh2)
-    integer      :: k
-
-    do k = 1, this%nsh2
-      tus(k) = this%rl1 * sfin(k, 1) - this%rl1 * sfin(k, 2)
-    enddo
-
-    do k = 1, this%nsh2
-      qout(k, 1) = this%rinhel(k, 0) * sfin(k, 1) - tus(k)
-      qout(k, 2) = this%rinhel(k, 0) * sfin(k, 2) + tus(k)
-    enddo
-
-    do k = 1, this%nsh2
-      tus(k) = this%rl2 * sfin(k, 2) - this%rl2 * sfin(k, 3)
-    enddo
-
-    do k = 1, this%nsh2
-      qout(k, 2) = qout(k, 2) - tus(k)
-      qout(k, 3) = this%rinhel(k, 0) * sfin(k, 3) + tus(k)
-    enddo
-
-  end function psiq
-
-
-  !-----------------------------------------------------------------------
-  ! Computation of streamfunction bb from potential vorticity qin
-  !-----------------------------------------------------------------------
-  pure function qpsi(this, qin) result(sfout)
-
-    class(qg_adj_type), intent( in) :: this
-    real(r8kind),      intent( in) :: qin(this%nsh2, this%nvl)
-
-    real(r8kind) :: sfout(this%nsh2, this%nvl)
-
-    real(r8kind) :: ws(this%nsh2)
-    real(r8kind) :: tus(this%nsh2, this%ntl), r3
-    integer      :: k
-
-    do k = 1, this%nsh2
-      ws(k) = qin(k, 1) + qin(k, 3)
-      sfout(k, 1) = this%rinhel(k, 1) * (ws(k) + qin(k, 2))
-      sfout(k, 2) = ws(k) - 2. * qin(k, 2)
-      sfout(k, 3) = qin(k, 1) - qin(k, 3)
-    enddo
-
-    do k = 1, this%nsh2
-      tus(k, 1) = this%rinhel(k, 2) * sfout(k, 2) + this%rinhel(k, 3) * sfout(k, 3)
-      tus(k, 2) = this%rinhel(k, 4) * sfout(k, 2) + this%rinhel(k, 5) * sfout(k, 3)
-    enddo
-
-    r3 = 1. / 3
-    do k = 1, this%nsh2
-      sfout(k, 2) =r3 * (sfout(k, 1) - tus(k, 1) + tus(k, 2))
-      sfout(k, 1) = sfout(k, 2) + tus(k, 1)
-      sfout(k, 3) = sfout(k, 2) - tus(k, 2)
-    enddo
-
-  end function qpsi
 
 
   !-----------------------------------------------------------------------
@@ -1904,713 +1714,6 @@ contains
     return
 
   end function lapinv
-
-
-  !------------------------------------------------------------------
-  ! timinp
-  !
-  ! VERSION OF TIMINT WITH ARGUMENTS
-  !
-  ! *** JTSTEP = 0 : Forward integration, half time step
-  ! *** JTSTEP = 1 : Leapfrog integration, half time step
-  ! *** JTSTEP > 1 : Leapfrog integration + implicit diffusion
-  ! ***              and time filter, full time step
-  !
-  !------------------------------------------------------------------
-  subroutine timinp (this, jtstep, xold, xnew, dxnew)
-
-    class(qg_adj_type), intent( in) :: this
-    integer,           intent( in) :: jtstep
-    real(r8kind),      intent(out) :: xold(this%nsh2, 3), xnew(this%nsh2, 3)
-    real(r8kind),      intent( in) :: dxnew(this%nsh2, 3)
-
-    integer      :: jstep
-    integer      :: i, j, k, l, m, n
-    real(r8kind) :: as(this%nsh2, 3)
-    real(r8kind) :: ws(this%nsh2)
-    real(r8kind) :: eps1, eps2
-
-    eps2 = 0.03
-    eps1 = 1.0D0-2.0D0 * eps2 
-
-    if (jtstep > 1) then
-      do l = 1, 3
-        do k = 1, this%nsh2
-          ws(k) = xnew(k, l)
-          xnew(k, l) = this%diss(k, 1) * (xold(k, l) + this%dtt * dxnew(k, l))
-          xold(k, l) = eps1 * ws(k) + eps2 * (xnew(k, l) + xold(k, l))
-        end do
-      end do
-    else
-      if (jtstep==0) then
-        do l = 1, 3
-          do k = 1, this%nsh2
-            xold(k, l) = xnew(k, l)
-          end do
-        end do
-      endif
-      do l = 1, 3
-        do k = 1, this%nsh2
-          xnew(k, l) = xold(k, l) + this%dtt * dxnew(k, l)
-        end do
-      end do
-
-!     this%dtt = 2. * this%dtt
-
-    endif
-
-  end subroutine timinp
-
- 
-  !------------------------------------------------------------------
-  ! COMPUTES THE TANGENT LINEAR EQUATIONS
-  !------------------------------------------------------------------
-  subroutine ddtl(this, ds, depsdt, jstep)
-
-    class(qg_adj_type), intent(inout) :: this
-    real(r8kind),      intent(   in) :: ds(this%nsh2, 3)
-    real(r8kind),      intent(  out) :: depsdt(this%nsh2, 3)
-    integer,           intent(   in) :: jstep
-
-    integer      :: nnnstep
-    real(r8kind) :: cp(this%nsh2), wspace(this%nsh2), as(this%nsh2, 3), bs(this%nsh2, 3)
-    real(r8kind) :: dummy, dfeps(this%nsh2, 3), delpst(this%nsh2, 2)
-    real(r8kind) :: delpsi(this%nsh2, 3), lpsi(this%nsh2, 3)
-
-    integer i, j, k, l, m, n
-
-    real(r8kind) :: xs(this%nsh2, 3), fac
-!    integer      :: nstop, janstep
-!    common /ntime/ nstop
-
-    ! *** Initializations needed for the computation of c1, c2 and c3
-    do l = 1, 3
-      do k = 1, this%nsh2
-        dfeps(k, l) = 0.0D0
-      end do
-    end do
-    do k = 1, this%nsh2
-      cp(k) = 0.0D0
-    end do
-    cp(2) = 1.0D0 / sqrt(3.0D0)
-
-    call copy(ds, delpsi)
-
-    ! MATRIX L TOEPASSEN:
-    as = this%psiq(delpsi)
-    lpsi = this%psiq(this%psi)
-    do k = 1, this%nsh2
-      delpst(k, 1) = this%relt1 * (delpsi(k, 1) - delpsi(k, 2))
-      delpst(k, 2) = this%relt2 * (delpsi(k, 2) - delpsi(k, 3))
-    end do
-
-    call sub (as(:, 1), cp, bs(:, 1))
-    wspace(:) = this%jacob(this%psi(:,1), bs(:,1))
-    call addab (dfeps(:, 1), wspace(:))
-
-    bs(:,1) = this%jacob(delpsi(:,1), lpsi(:,1))
-    call addab (dfeps(:, 1), bs(:, 1))
-
-    call addab (dfeps(:, 1), delpst(:, 1))
-
-    call sub (as(:, 2), cp, bs(:, 2))
-    wspace(:) = this%jacob(this%psi(:, 2), bs(:, 2))
-    call addab (dfeps(:, 2), wspace(:))
-
-    bs(:,2) = this%jacob(delpsi(:, 2), lpsi(:, 2))
-    call addab (dfeps(:, 2), bs(:, 2))
-
-    call subab (dfeps(:, 2), delpst(:, 1))
-    call addab (dfeps(:, 2), delpst(:, 2))
-
-    call sub (as(:, 3), cp, bs(:, 3))  
-    wspace(:) = this%jacob(this%psi(:, 3), bs(:, 3))
-    call addab (dfeps(:, 3), wspace(:))
-
-    call add(lpsi(:, 3), this%orog, wspace(:))
-    bs(:,3) = this%jacobp(delpsi(:, 3), wspace(:))
-    call addab (dfeps(:, 3), bs(:, 3))
-
-    call subab (dfeps(:, 3), delpst(:, 2))
-
-    depsdt = this%qpsi(dfeps)
-
-  end subroutine ddtl
-
-
-  !-------------------------------------------------------------------------------
-  ! This subroutine integrates the tangent linear equation with initial condition
-  ! AS(NSH2,3) and integration time NUUR. It uses the orbit stored by STOREP.
-  ! The result is BS(NSH2,3).
-  !-------------------------------------------------------------------------------
-!  subroutine tang(this, as, bs, nuur)
-!  subroutine tang(this, nuur)
-  function tang(this, as, nuur) result(bs)
-
-    class(qg_adj_type), intent(inout) :: this
-    real(r8kind),      intent(   in) :: as(this%nsh2, 3)
-!    real(r8kind),      intent(  out) :: bs(this%nsh2, 3)
-    real(r8kind)                      :: bs(this%nsh2, 3)
-    integer,           intent(   in) :: nuur
-
-    real(r8kind) :: dum(this%nsh23), dumold(this%nsh23), dumnew(this%nsh23)
-    real(r8kind) :: etraj(this%nsh2, 3, 0:100)
-!    real(r8kind) :: e, fac
-
-!    integer      :: janstep
-    integer      :: k, n, index
-!    integer      :: nstop
-!    common /stap/ janstep
-!    common /ntime/ nstop
-
-    real(r8kind) :: zt(this%nlat, this%nlon), dummy, sum
-    integer      :: ix, iy, ilevel
-    integer      :: ntstep, jtstep, i
-
-    ntstep = (nuur * 3) / 2
-!    nstop=ntstep
-
-    dumnew = reshape(as, (/this%nsh23/))
-
-    do i = 1, this%nsh23
-      dumold(i) = 0.0D0
-    end do
-
-    write(*,*) 'TANGENT MODEL'
-    print *, "IN TANGENT, DTT=", this%dtt, ntstep
-
-    do jtstep = 0, ntstep
-      ! call retrie(jtstep)
-!CWH      call retrie(0)
-      
-      call this%ddtl(dumnew, dum, jtstep)
-      call this%timinp(jtstep, dumold, dumnew, dum)
-
-      if (0 == 1) then
-        k = jtstep
-        if( mod(k,9) == 0) then
-          write(*,*) 'write-out linear evo', k
-          if (k == 0) then
-            write(66) as
-          else
-            write(66) dumnew
-          endif
-        endif
-      endif
-
-      if (0 == 1) then
-        k = jtstep
-        if (k == 0) then
-          write(*,*) 'write LIN TRAJ to 51 !!!'
-        endif
-        if (mod(k, 9) == 0) then
-          k = (jtstep / 3) * 2
-          write(66) dumnew
-        endif
-      endif
-
-      if (0 == 1) then 
-        ! fill array ETRAJ to determine costfunction
-        k = jtstep
-        if (0 == 1) then
-          call copy(reshape(dumnew, (/this%nsh2, 3/)), etraj(:, :, index))
-
-          ! one gridpoint (vorticity)  --------------------------------
-          if (0 == 1) then
-            etraj(:, 3, index) = this%lap(etraj(:, 3, index))
-            zt = this%ggsp%sptogg_pp(etraj(:, 3, index))
-            dummy = zt(24, 30)
-            write(*,*) 'etraj(index)', dummy
-            if (jtstep == 0) sum = 0
-            sum = sum + dummy**2
-            if (jtstep == ntstep) write(*,*) 'costf = ', sum
-            do iy = 1, this%nlat
-              do ix = 1, this%nlon
-                zt(iy, ix) = 0.0
-              enddo
-            enddo
-            zt(24, 30) = dummy
-            etraj(:, 3, index) = reshape(this%ggsp%ggtosp(zt), (/this%nsh2/))
-            etraj(:, 3, index) = this%lap(etraj(:, 3, index))
-            do ilevel = 1, 2
-              do n = 1, this%nsh2
-                etraj(n, ilevel, index) = 0.0
-              enddo
-            enddo
-          endif
-        endif
-      endif
-
-    end do
-
-    call copy(reshape(dumnew, (/this%nsh2, 3/)), bs)
-
-  end function
-
-
-
-
-  !-------------------------------------------------------------------------------
-  ! Computes the adjoint of the tangent linear equations
-  ! stripped down efficient version
-  ! assumes a correct version of PSI   
-  !-------------------------------------------------------------------------------
-  subroutine ddtlad(this, ds, dsfm, jstep)
-
-    class(qg_adj_type), intent(inout) :: this
-    real(r8kind),       intent(   in) :: ds(this%nsh2,3)
-    real(r8kind),       intent(  out) :: dsfm(this%nsh2,3)
-    integer,            intent(   in) :: jstep
-
-    real(r8kind) :: cp(this%nsh2), wspace(this%nsh2), ws1(this%nsh2), dsmt(this%nsh2, 2)
-    real(r8kind) :: as(this%nsh2, 3), cs(this%nsh2, 3), dsm(this%nsh2, 3)
-    real(r8kind) :: dsmlap(this%nsh2, 3), lpsi(this%nsh2, 3), sjacob(this%nsh2)
-    real(r8kind) :: dsmlga(this%nlat, this%nlon)
-    real(r8kind) :: ininag(this%nlat, this%nlon)
-    real(r8kind) :: pigr4, e
-
-    integer :: nstep
-    integer :: i, j, k, l, m, n
-
-    !     if (lforc3) then
-    !
-    !       if (jstep.gt.ntadj) then
-    !        write(*, *) 'too many forcing steps'
-    !        stop
-    !       endif
-    !
-    !       call copy(forcingtraj(1, 1, jstep-1), forcingpsi)
-    !
-    !       pigr4=8.0D0*asIN(1.0D0)
-    ! DT=1./36.
-    !       fac=1.0
-    !
-    ! have a look in the QG paper:
-    ! the identity operator is only active during the application
-    ! time of the forcing (in which case fac=0)
-    !
-    !       do i=1, 3
-    !         do j=1, nsh2
-    !           do kforce=1, numforce
-    !             if (kforce.eq.nforce) then
-    !               if ( jstep.eq.(nforceswitch(kforce+1)+1)) then
-    !   if(i*j.eq.1) write(*, *) 'nullify', jstep
-    !                 dadnew(j, i)=0.0
-    !           dadold(j, i)=0.0
-    !               endif
-    ! if (  ( jstep.le.(nforceswitch(kforce+1))).and.
-    !    &              (jstep.gt.(nforceswitch(kforce))) ) then
-    !                 fac=0.0
-    ! endif
-    ! if ((kforce.eq.1).and.(jstep.eq.1)) fac=0.0  
-    ! forcingpsi(j, i)=(1.0-fac)*forcingpsi(j, i)
-    ! 
-    !             endif
-    !           enddo
-    ! 
-    !     dsfm(j, i)=forcingpsi(j, i)
-    !   enddo 
-    !       enddo
-    ! 
-    !     else
-    !
-    !       if(lforcwr) then
-    !         write(*, *) 'write', jstep-1
-    !         call copy(ds, forcingtraj(1, 1, jstep-1))
-    !       endif
-
-    do l = 1, 3
-      do k = 1, this%nsh2
-        dsfm(k, l) = 0.0D0
-      end do
-    end do
-    do k = 1, this%nsh2
-      cp(k) = 0.0D0
-    end do
-    cp(2) = 1.0D0 / SQRT(3.0D0)
-
-    lpsi = this%psiq(this%psi)
-
-    ! MATRIX M TOEPASSEN:
-    dsm = this%qpsi(ds)
-    do l = 1, 3
-      dsmlap(:, l) = this%lap(dsm(:, l))
-    end do
-    do k = 1, this%nsh2
-      dsmt(k, 1) = this%relt1 * (dsm(k, 1) - dsm(k, 2))
-      dsmt(k, 2) = this%relt2 * (dsm(k, 2) - dsm(k, 3))
-    end do
-
-    ! COMPUTE J(l1(eps), psi1) + J(l2(eps), psi2) + J(l3(eps, psi3))
-
-    ! M toepassen
-    do l = 1, 3
-      call sub(this%psi(:, l), cp, cs(:, l))
-      wspace(:) = this%jacob(dsmlap(:, l), cs(:, l))
-      as(:, l) = this%lapinv(wspace(:))
-    end do
-    ! l toepassen
-    cs = this%psiq(as)
-    do l = 1, 3
-      call addab(dsfm(:, l), cs(:, l))
-    end do
-
-    ! Compute J(l1(psi)+f, eps1) + J(l2(psi)+f, eps2)
-    do l = 1, 2
-      cs(:, l) = this%jacob(dsmlap(:, l), lpsi(:, l))
-      as(:, l) = this%lapinv(cs(:, l))
-      call subab(dsfm(:, l), as(:, l))
-    end do
-
-    ! Compute 1 / TuaR (Del2 eps,  Del4 eps -Del2 eps,  -Del4 eps
-    call addab(dsfm(:, 1), dsmt(:, 1))
-    call subab(dsfm(:, 2), dsmt(:, 1))
-    call addab(dsfm(:, 2), dsmt(:, 2))
-    call subab(dsfm(:, 3), dsmt(:, 2))
-
-    ! Compute J(l3(psi)+f(1+h / H0), eps3)
-    call add(lpsi(:, 3), this%orog, wspace(:))
-    ws1(:) = this%jacob(dsmlap(:, 3), wspace(:))
-    as(:, 3) = this%lapinv(ws1(:))
-    call subab(dsfm(:, 3), as(:, 3))
-
-    ! 1 / tau del eps
-
-    ! Adjoint of the isotropic dissipation term
-    dsmlga = this%ggsp%sptogg_pp(dsmlap(:, 3))
-    do i = 1, this%nlat
-      do j = 1, this%nlon
-        ininag(i, j) = this%rdiss(i, j) * dsmlga(i, j)
-      end do
-    end do
-    sjacob(:) = reshape(this%ggsp%ggtosp(ininag(:,:)), (/this%nsh2/))
-    do k = 1, this%nsh2
-      wspace(k) = this%diss(k, 2) * sjacob(k)
-    end do
-    sjacob(:) = this%lapinv(wspace(:))
-    call addab(dsfm(:, 3), sjacob)
-    ! Adjoint of the L-derivative
-    do i = 1, this%nlat
-      do j = 1, this%nlon
-        ininag(i, j) = this%ddisdx(i, j) * dsmlga(i, j)
-      end do
-    end do
-    wspace(:) = reshape(this%ggsp%ggtosp(ininag(:,:)), (/this%nsh2/))
-    sjacob(:) = reshape(this%ggsp%ddl(wspace(:)), (/this%nsh2/))
-    wspace(:) = this%lapinv(sjacob(:))
-    call addab(dsfm(:, 3), wspace)
-    ! Adjoint of the M-derivative
-    call this%mudera(dsm(:, 3), sjacob(:))
-    call addab(dsfm(:, 3), sjacob)
-
-  ! endif
-
-  end subroutine
-
-  !-------------------------------------------------------------------------------
-  ! THE ADJOINT OF TIMINT
-  ! AUTHOR PETER HOUTEKAMER
-  ! DATE 21-1-91
-  !    JTSTEP = 0 : Forward integration, half time step
-  !    JTSTEP = 1 : Leapfrog integration, half time step
-  !    JTSTEP > 1 : Leapfrog integration + implicit diffusion
-  !                 and time filter, full time step
-  ! 
-  !-------------------------------------------------------------------------------
-  subroutine timiad(this, jtstep, dadold, dadnew, ddadne)
-
-    class(qg_adj_type), intent(   in) :: this
-    integer,            intent(   in) :: jtstep
-    real(r8kind),       intent(inout) :: dadold(this%nsh2, 3)
-    real(r8kind),       intent(inout) :: dadnew(this%nsh2, 3)
-    real(r8kind),       intent(   in) :: ddadne(this%nsh2, 3)
-
-    real(r8kind) :: ws(this%nsh2)
-    real(r8kind) :: eps1, eps2 !, pigr4
-    integer      :: k, l
-  
-    eps2 = 0.03
-    eps1 = 1.0D0 - 2.0D0 * eps2
-
-    if (jtstep > 2) then
-
-      print *, "I AM NOT HERE"
-
-      do l = 1, 3
-        do k = 1, this%nsh2
-        ws(k) = dadold(k, l)
-        dadold(k, l) = eps2 * (1.0 + this%diss(k, 1)) * ws(k) +  this%diss(k, 1) * dadnew(k, l)
-        dadnew(k, l) = eps1 * ws(k) + this%dtt * ddadne(k, l)
-        end do
-      end do
-    else
-
-      !  to test with ntstep = 0
-      !  jan        this%dtt = 0.5 * this%dtt
-
-      !  pigr4 = 8.0D0 * ASIN(1.0D0)
-      !  DT = 1./36.
-      !  this%dtt = DT * pigr4 * 2.0D0
-      !  if (jtstep == 0) this%dtt = DT * pigr4 * 2.0D0/2. 
-      !  if (jtstep == 1) this%dtt = DT * pigr4 * 2.0D0/4.
-      !  if (jtstep == 2) this%dtt = DT * pigr4 * 2.0D0/2.
-
-      if (jtstep == 1) then
-        print *, "I AM HERE", this%dtt
-        ! this%dtt = this%dtt * 2.
-        do l = 1, 3
-          do k = 1, this%nsh2
-            dadnew(k, l) = dadold(k, l) + dadnew(k, l) + this%dtt * ddadne(k, l)
-          end do
-        end do
-      else if (jtstep == 2) then
-        ! this%dtt = 2. * this%dtt
-        print *, "I AM PERHAPS HERE", this%dtt 
-
-        do l = 1, 3
-          do k = 1, this%nsh2
-            dadold(k, l) = dadnew(k, l) + dadold(k, l)
-            dadnew(k, l) = this%dtt * ddadne(k, l)
-          end do
-        end do
-
-      endif
-
-    endif
-
-  end subroutine
-
-
-  !-------------------------------------------------------------------------------
-  ! THE ADJOINT OF DDT
-  !-------------------------------------------------------------------------------
-  subroutine ddtad(this, jtstep, dadold, dadnew, ddadne)
-
-    class(qg_adj_type), intent(inout) :: this
-    integer,            intent(   in) :: jtstep
-    real(r8kind),       intent(   in) :: dadold(this%nsh2, 3)
-    real(r8kind),       intent(   in) :: dadnew(this%nsh2, 3)
-    real(r8kind),       intent(inout) :: ddadne(this%nsh2, 3)
-
-    real(r8kind) :: qprim(this%nsh23), dqprim(this%nsh23)
-    real(r8kind) :: eps2
-    integer      :: i, j, ilong
-
-    eps2 = 0.04
-
-    do i = 1, 3
-      do j = 1, this%nsh2
-        ilong = j + (i - 1) * this%nsh2
-        if (jtstep > 2) then
-          qprim(ilong) = dadnew(j, i) * this%diss(j, 1) + dadold(j, i) * this%diss(j, 1) * eps2
-        else
-          qprim(ilong) = dadnew(j, i)
-        endif
-      end do
-    end do
-
-    !  call length(dadold, e)
-    !  write(*, *) 'dadold =',  e
-    !  write(*, *) 'ddtad,  jtstep =',  jtstep, nstop
-    !  call DDTLAD(qprim, dqprim)
-    call this%ddtlad(qprim, dqprim, jtstep)
-    do i = 1, 3
-      do j = 1, this%nsh2
-        ilong = j + (i-1) * this%nsh2
-        ddadne(j, i) = dqprim(ilong)
-      end do
-    end do
-
-  end subroutine
-
-
-  !-------------------------------------------------------------------------------
-  ! computes the 'adjoint' of the 'mu-derivative'. input is XS, output is YS.
-  !-------------------------------------------------------------------------------
-  subroutine mudera (this, xs, ys)
-
-    class(qg_adj_type), intent(in) :: this
-    real(r8kind), intent(inout)    :: xs(this%nsh2)
-    real(r8kind), intent(  out)    :: ys(this%nsh2)
-
-    real(r8kind) :: zs(this%nsh2)
-    integer      :: i, k
-
-    do k = 1, this%nsh2
-      ys(k) = 0.
-      zs(k) = 0.
-    end do
-
-    do k = 2, 22
-      xs(k) = xs(k) * this%ll(k) * (this%ll(k) +  1)
-    end do
-    do k = 23, this%nsh
-      xs(k) = xs(k) * this%ll(k) * (this%ll(k) + 1) * 2
-    end do
-    do k = this%nsh + 23, this%nsh2
-      xs(k) = xs(k) * this%ll(k - this%nsh) * (this%ll(k - this%nsh) + 1) * 2
-    end do
-
-    do k = this%nsh + 1, this%nmat 
-      xs(k) = xs(k + 22)
-    end do
-
-    ! Transpose of DERIMU is used.
-    ! CWH MAJOR BUG,  DERIMU BEING USED WITHOUT BEING DEFINED
-    ! This is confirmed to cause NaNs in the adjoint trajectory
-    do i = 2, this%nmat
-      do k = 2, this%nmat
-        zs(i) = this%derimu(k, i) * xs(k) + zs(i)
-      end do
-    end do
-
-    do k = 2, 22
-      ys(k) = zs(k) / (this%ll(k) * (this%ll(k) + 1))
-    end do
-    do k = 23, this%nsh
-      ys(k) = zs(k) / (this%ll(k) * (this%ll(k) + 1) * 2)
-    end do
-    do k = this%nsh + 23, this%nsh2
-      ys(k) = zs(k - 22) / (this%ll(k - this%nsh) * (this%ll(k - this%nsh) + 1) * 2)
-    end do
-
-  end subroutine
-
-
-  !-------------------------------------------------------------------------------
-  ! This subroutine integrates the adjoint equation with initial condition
-  ! AS(NSH2,3) and with integration time NUUR. It uses the orbit stored by STOREP.
-  ! The result is BS(NSH2,3). The adjoint is determined with respect to the
-  ! kinetic energy inner product.
-  ! BY PETER HOUTEKAMER (PH) AND JAN BARKMEIJER (JB)
-  !-------------------------------------------------------------------------------
-!  subroutine adj(this, as, bs, nuur)
-  function adj(this, as, nuur) result(bs)
-
-    class(qg_adj_type), intent(inout) :: this
-    real(r8kind),       intent(   in) :: as(this%nsh2, 3)
-!    real(r8kind),       intent(  out) :: bs(this%nsh2, 3)
-    real(r8kind)                      :: bs(this%nsh2, 3)
-    integer,            intent(   in) :: nuur
-
-    real(r8kind) :: dadold(this%nsh2, 3)
-    real(r8kind) :: dadnew(this%nsh2, 3)
-    real(r8kind) :: ddadne(this%nsh2, 3)
-    real(r8kind) :: save_dtt
-    integer      :: ntstep, jtstep, i, j, k
-
-    ! integer :: nstop, janstep, kforce, m, index
-    ! common /ntime/ nstop
-    ! common /stap/ janstep
-    ! real(r8kind) :: fac, cs(this%nsh2, 3)
-
-    ntstep = (nuur * 3) / 2
-
-    ! nstop = ntstep
-    !
-    ! if(lforc) then
-    ! write(*, *) 'ntstep', janstep
-    ! ntstep = janstep
-    ! nstop = ntstep
-    ! end if
-
-    ! if(lforcwr) then
-    !   do i = 1, this%nsh2
-    !     do j = 1, 3
-    !       do m = 0, 120
-    !         forcingtraj(i, j, m) = 0.0
-    !       enddo
-    !     enddo
-    !   enddo 
-    ! endif
-
-    ! Verify the adjoint of the integration scheme
-    ! INITIALIZE THE MODEL EQUATIONS
-
-    do i = 1, this%nsh2
-      do j = 1, 3
-        dadold(i, j) = 0.0D0
-      end do
-    end do
-
-    write(*, *) 'ADJOINT MODEL'
-
-    save_dtt = this%dtt
-    this%dtt = this%dtt / 2.0D0
-
-    print *, "IN ADJOINT,  this%dtt = ", this%dtt
-
-    call copy(as, dadnew)
-
-    ! PIGR4 = 8.0D0 * ASIN(1.0D0)
-    ! this%dtt = DT * PIGR4 * 2.0D0
-
-    ! dadnew is hier de foutenvektor op tijdstip T
-    ! het terugintegreren met de adjoint
-    ! iets anders bedenken voor ntstep <=1
-    write(*, *) 'START THE BACKWARD INTEGRATION'
-
-    do jtstep = ntstep + 1, 1, -1
-
-      ! QPRIME(=PSI-ORBIT) IS STORED
-      ! call RETRIE(jtstep-1)
-!      call RETRIE(0)
-      call this%ddtad(jtstep, dadold, dadnew, ddadne)
-      call this%timiad(jtstep, dadold, dadnew, ddadne)
-
-      ! if(ltrajcost) then
-      !   k = jtstep-1
-      !   if((mod(k, nsamplestep).eq.0).and.(k.ge.((ntrajstart * 3) / 2)).and.(k.lt.ntstep)) then
-      !     index = ( k-((ntrajstart * 3) / 2) ) / nsamplestep
-      !     index = 0    
-      !     fac = 1.
-      !     call mult3(etraj(1, 1, index), fac, bs)
-      !     call add3(dadnew, bs, dadnew)
-      !   endif
-      ! endif
-
-    end do
-
-    call copy(dadnew, bs)
-
-    this%dtt = save_dtt
-
-    ! write(*, *) 'lec=', lec
-    ! if (lec) then
-    !   see note in timeNL_forc_knmi.f
-    !   see also OPK
-    !
-    !   do i = 1, this%nsh2
-    !     do j = 1, 3
-    !       cs(i, j) = 0.0
-    !     enddo
-    !   enddo
-    !
-    !   do kforce = 1, numforce
-    !     call copy(cs, multiforcing(1, 1, kforce))
-    !   enddo
-    !
-    !   do jtstep = ntstep + 1, 1, -1
-    !     if (jtstep.eq.1) fac = dt * pigr4 * 2.0d0 / 4.
-    !     if (jtstep.eq.2) fac = dt * pigr4 * 2.0d0 / 2.
-    !     if (jtstep.gt.2) fac = dt * pigr4 * 2.0d0
-    !     
-    !     call mult3(forcingtraj(1, 1, jtstep-1), fac, forcingtraj(1, 1, jtstep-1))
-    !   enddo
-    !    
-    !   do jtstep = ntstep + 1, 1, -1 
-    !     do kforce = 1, numforce
-    !       if (  ( jtstep.le.(nforceswitch(kforce + 1))).and.(jtstep.gt.(nforceswitch(kforce))) ) then
-    !         call add3(multiforcing(1, 1, kforce), forcingtraj(1, 1, jtstep-1), multiforcing(1, 1, kforce))                    
-    !       endif
-    !     enddo
-    !   enddo 
-    !
-    !   call add3(multiforcing(1, 1, 1),  forcingtraj(1, 1, 0), multiforcing(1, 1, 1))
-    !
-    ! endif
-
-  end function
 
 
   !-------------------------------------------------------------------------------

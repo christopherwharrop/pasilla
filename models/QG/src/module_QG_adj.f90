@@ -1268,6 +1268,7 @@ contains
     integer :: ad_from
     integer :: ad_to
 
+    k = 0
     do l=1,SIZE(y, 2)
       k2(l) = k
       k = 1
@@ -1440,6 +1441,7 @@ contains
     integer :: ad_from
     integer :: ad_to0
 
+    k = 0
     do l=1,SIZE(y, 2)
 
       k2(l) = k

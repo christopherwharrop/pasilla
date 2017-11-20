@@ -83,6 +83,9 @@ module QG_Model
     procedure :: get_state_vector
     procedure :: get_location_vector
     procedure :: get_interpolation_weights
+    procedure :: ggvtoss
+    procedure :: sstoggv
+    procedure :: rebalance
     procedure, private :: init_state
     procedure, private :: dqdt
     procedure, private :: ddt
@@ -252,20 +255,20 @@ contains
       allocate(this%psi(this%nsh2,this%nvl))
 
       ! Open file for read only
-!      call nc_check(nf90_open('qginitT' // trim(this%ft) // '.nc', NF90_NOWRITE, ncFileID))
-!      call nc_check(nf90_Inquire(ncFileID, nDimensions, nVariables, nAttributes, unlimitedDimID))
+      call nc_check(nf90_open('qginitT' // trim(this%ft) // '.nc', NF90_NOWRITE, ncFileID))
+      call nc_check(nf90_Inquire(ncFileID, nDimensions, nVariables, nAttributes, unlimitedDimID))
 
       ! Get the streamfunction ID
-!      call nc_check(nf90_inq_varid(ncFileID, "Psi", PsiVarID))
+      call nc_check(nf90_inq_varid(ncFileID, "Psi", PsiVarID))
 
       ! Get the streamfunction variable
-!      call nc_check(nf90_get_var(ncFileID, PsiVarID, this%psi))
+      call nc_check(nf90_get_var(ncFileID, PsiVarID, this%psi))
 
       ! Flush buffers
-!      call nc_check(nf90_sync(ncFileID))
+      call nc_check(nf90_sync(ncFileID))
 
       ! Close the NetCDF file
-!      call nc_check(nf90_close(ncFileID))
+      call nc_check(nf90_close(ncFileID))
 
     endif
 
@@ -1173,6 +1176,9 @@ contains
   end subroutine get_interpolation_weights
 
 
+  !------------------------------------------------------------------
+  ! distance
+  !------------------------------------------------------------------
   function distance(lat, lon, latx, lonx) result(d)
 
     real(r8kind), intent(in) :: lat, lon, latx, lonx
@@ -1195,5 +1201,96 @@ contains
     d = erad * c
 
   end function distance
+
+
+  !------------------------------------------------------------------
+  ! ggvtoss
+  !------------------------------------------------------------------
+  function ggvtoss(this, ggv) result (ss)
+
+    class(qg_model_type), intent(inout) :: this
+    real(r8kind),         intent(   in) :: ggv(:)
+
+    real(r8kind), dimension(this%nsh2, this%nvl) :: ss
+
+    real(r8kind), allocatable :: gg3d(:,:,:)
+
+    ! Physical constants
+    real(r8kind), parameter :: radius = 6.37e+6
+    real(r8kind), parameter :: om = 4d0 * pi / (24d0 * 3600d0)
+    real(r8kind), parameter :: facsf = om * (radius)**2
+
+    allocate(gg3d(this%nlon, this%nlat, this%nvl))
+    gg3d = reshape(ggv,(/this%nlon, this%nlat, this%nvl/))
+    gg3d(:,:,:) = gg3d(:,:,:) / facsf
+    ss(:,1) = reshape(this%ggsp%ggtosp(transpose(gg3d(:,:,1))), (/this%nsh2/))
+    ss(:,2) = reshape(this%ggsp%ggtosp(transpose(gg3d(:,:,2))), (/this%nsh2/))
+    ss(:,3) = reshape(this%ggsp%ggtosp(transpose(gg3d(:,:,3))), (/this%nsh2/))
+print *, "ggvtoss: ss(1,:) = ", ss(1,:)
+!    ss(1,:) = 0.0_r8kind
+
+  end function
+
+
+  !------------------------------------------------------------------
+  ! sstoggv
+  !------------------------------------------------------------------
+  function sstoggv(this, ss) result (ggv)
+
+    class(qg_model_type), intent(inout) :: this
+    real(r8kind),         intent(   in) :: ss(:,:)
+
+    real(r8kind), dimension(this%nlon * this%nlat * this%nvl) :: ggv
+
+    real(r8kind), allocatable :: gg3d(:,:,:)
+
+    ! Physical constants
+    real(r8kind), parameter :: radius = 6.37e+6
+    real(r8kind), parameter :: om = 4d0 * pi / (24d0 * 3600d0)
+    real(r8kind), parameter :: facsf = om * (radius)**2
+
+    allocate(gg3d(this%nlon, this%nlat, this%nvl))
+    gg3d(:,:,1) = transpose(this%ggsp%sptogg_pp(ss(:, 1)))
+    gg3d(:,:,2) = transpose(this%ggsp%sptogg_pp(ss(:, 2)))
+    gg3d(:,:,3) = transpose(this%ggsp%sptogg_pp(ss(:, 3)))
+    gg3d(:,:,:) = gg3d(:,:,:) * facsf
+    ggv = reshape(gg3d,(/this%nlon * this%nlat * this%nvl/))
+
+  end function
+
+
+  !------------------------------------------------------------------
+  ! rebalance
+  !------------------------------------------------------------------
+  function rebalance(this, ggv) result (ggvnew)
+
+    class(qg_model_type), intent(inout) :: this
+    real(r8kind),         intent(   in) :: ggv(:)
+
+    real(r8kind), dimension(this%nlat * this%nlon * this%nvl) :: ggvnew
+
+    real(r8kind), allocatable :: ss(:,:)
+    real(r8kind), allocatable :: gg3d(:,:,:)
+
+    ! Physical constants
+    real(r8kind), parameter :: radius = 6.37e+6
+    real(r8kind), parameter :: om = 4d0 * pi / (24d0 * 3600d0)
+    real(r8kind), parameter :: facsf = om * (radius)**2
+
+    allocate(ss(this%nsh2, this%nvl))
+
+    ss = this%ggvtoss(ggv)
+print *, "rebalance: BEFORE ss(1,:) = ", ss(1,:)
+!    ss(:,1) = ss(:,1) - sum(ss(:,1)) / this%nsh2
+!    ss(:,2) = ss(:,2) - sum(ss(:,2)) / this%nsh2
+!    ss(:,3) = ss(:,3) - sum(ss(:,3)) / this%nsh2
+    ss(2:this%nsh2,1) = ss(2:this%nsh2,1) - sum(ss(2:this%nsh2,1)) / this%nsh2 - 1
+    ss(2:this%nsh2,2) = ss(2:this%nsh2,2) - sum(ss(2:this%nsh2,2)) / this%nsh2 - 1
+    ss(2:this%nsh2,3) = ss(2:this%nsh2,3) - sum(ss(2:this%nsh2,3)) / this%nsh2 - 1
+print *, "rebalance: AFTER ss(1,:) = ", ss(1,:)
+
+    ggvnew = this%sstoggv(ss)
+
+  end function
 
 end module QG_Model

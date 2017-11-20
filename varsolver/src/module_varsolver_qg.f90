@@ -94,7 +94,7 @@ contains
 
     ! IN THIS CASE, R=I, THE IDENTITY MATRIX
     do i=1,obs_len
-       obs_cov(i,i,obs_tim(i))=1.0/400000.0
+      obs_cov(i,i,obs_tim(i))=1.0/400000.0
     end do
 
     print *,"GET_OBS_COV_MAT COMPLETE"
@@ -662,7 +662,7 @@ contains
       allocate (pre_dif(bkg_len))
       allocate (tmp_mat(bkg_len))
 
-      ! writer_tl = qgtl_writer_type('NETCDF')
+!      writer_tl = qgtl_writer_type('NETCDF')
 
       tim_bkc(:,:)=bkg_cov(:,:,t)
       tim_hrh(:,:)=hrh_cov(:,:,t)
@@ -676,18 +676,21 @@ contains
       else
         ! RUN THE FORWARD MODEL FOR ALL STEPS AFTER THE FIRST
         mdl_vec(:) = tlm_vec(:,t-1)
+
         ! print *, "FORWARD MODEL"
+
         model = qg_model_type(bkg_config, state_vector=mdl_vec(:), step=t)
         call model%adv_nsteps(1)
         model_TL = qg_tl_type(bkg_config, state_vector=mdl_vec(:), trajectory_vector=model%get_state_vector() - mdl_vec(:), step = t)
         call model_TL%adv_nsteps(3)
 
-        ! if (nitr == 0) then
-        !   write(filename,'(A,I0.7)') 'tlout_', t
-        !   call writer_tl%write(model_TL, filename)
-        ! end if
+!        if (nitr == 0) then
+!          write(filename,'(A,I0.7)') 'tlout_', t
+!          call writer_tl%write(model_TL, filename)
+!        end if
 
         mdl_vec(:) = model_TL%get_state_vector()
+
         ! print *, "END FORWARD_MODEL"
 
         if (mthd > 3) new_vec(:,t) = mdl_vec(:)
@@ -705,15 +708,17 @@ contains
       ! SOLVE FOR COST FUNCTION J
       ! FIRST TERM
       jvc_one=dot_product(pre_tra,pre_dif)
+
       ! SECOND TERM
       call dgemm("N", "N", 1, bkg_len, bkg_len, 1.d0, dif_tra, 1, tim_hrh, bkg_len, 0.d0, tmp_mat, 1)
-      ! The following is equivalent, but may be slower due to the need to transpose the matrix?
-      ! call dgemv("T", bkg_len, bkg_len, 1.d0, tim_hrh, bkg_len, dif_tra, 1, 0.d0, tmp_mat, 1)
       jvc_two=dot_product(tmp_mat,dif_vec)
+
       ! THIRD TERM
       jvc_the=dot_product(dif_tra,tim_htr)
+
       ! COST FUNCTION
       jtim(t) = 0.5*(jvc_one+jvc_two-2.0*jvc_the)
+
       ! WRITE (*,'(A10,3F16.4)') "COST: ",jvc_one,jvc_two,-2.0*jvc_the
 
     end subroutine forward
@@ -737,6 +742,8 @@ contains
       real(KIND=8), allocatable   :: pre_dif(:)
       real(KIND=8), allocatable   :: ges_vec(:)
       real(KIND=8), allocatable   :: grd_jvc(:)
+      real(KIND=8)                :: tot, avg
+      integer                     :: i, nlatlon
       type(qg_model_type)         :: model
       type(qg_adj_type)           :: model_ADJ
       character(len=128)          :: filename
@@ -753,7 +760,7 @@ contains
       allocate (ges_vec(bkg_len))
       allocate (grd_jvc(bkg_len))
 
-      ! writer_adj = qgadj_writer_type('NETCDF')
+!      writer_adj = qgadj_writer_type('NETCDF')
 
       tim_bkc(:,:)=bkg_cov(:,:,t)
       tim_hrh(:,:)=brh_cov(:,:,t)
@@ -769,20 +776,21 @@ contains
         ! FOR ALL OTHER TIME STEPS - ADJOINT NEEDED
         if (mthd.eq.3) mdl_vec(:)=tlm_vec(:,t+1)
         if (mthd > 3) mdl_vec(:)=anl_vec(:,t+1)
+
           ! print *, "BACKWARD_MODEL"
+
           model = qg_model_type(bkg_config, state_vector=mdl_vec(:), step=t)
           call model%adv_nsteps(1)
-          ! model_ADJ = qg_adj_type(bkg_config, state_vector=mdl_vec(:), trajectory_vector=(model%get_state_vector() - mdl_vec(:)), step = t)
-          ! call model_ADJ%adv_nsteps(3)
           model_ADJ = qg_adj_type(bkg_config, state_vector=model%get_state_vector(), trajectory_vector=model%get_state_vector() - mdl_vec(:), step = t + 1)
           call model_ADJ%adv_nsteps(4)
 
-          ! if (nitr == 0) then
-          !   write(filename,'(A,I0.7)') 'adjout_', t
-          !   call writer_adj%write(model_ADJ, filename)
-          ! end if
+!          if (nitr == 0) then
+!            write(filename,'(A,I0.7)') 'adjout_', t
+!            call writer_adj%write(model_ADJ, filename)
+!          end if
 
           mdl_vec(:) = model_ADJ%get_state_vector()
+
           ! print *, "END BACKWARD_MODEL"
       end if
 
@@ -803,7 +811,22 @@ contains
 
       tmp_vec(:)=pre_dif(:)+tmp_vec(:)-tim_htr(:)
       call dgemv("N", bkg_len, bkg_len, 1.d0, tim_bkc, bkg_len, tmp_vec, 1, 0.d0, grd_jvc, 1)
-      new_vec(:,t)=ges_vec(:)-grd_jvc(:)*alph
+
+      ! Ensure increment sums to zero
+      nlatlon = model_ADJ%get_nlat() * model_ADJ%get_nlon()
+      do i = 1, model_ADJ%get_nvl()
+        tot = sum(grd_jvc(1 + (i - 1) * nlatlon : i * nlatlon))
+        avg = tot / float(nlatlon)
+!        print *, "var_solver_backward grd_jvc BEFORE i, tot, avg = ", i, tot, avg
+        grd_jvc(1 + (i - 1) * nlatlon : i * nlatlon) = grd_jvc(1 + (i - 1) * nlatlon : i * nlatlon) - avg
+!        tot = sum(grd_jvc(1 + (i - 1) * nlatlon : i * nlatlon))
+!        avg = tot / float(nlatlon)
+!        print *, "var_solver_backward grd_jvc AFTER i, tot, avg = ", i, tot, avg
+      end do
+
+!      model = qg_model_type(bkg_config, state_vector=grd_jvc(:), step=t)
+
+      new_vec(:,t) = ges_vec(:) - grd_jvc(:) * alph
 
       if(mthd < 4) tlm_vec(:,t)=new_vec(:,t)
 

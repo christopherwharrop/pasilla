@@ -1,0 +1,5 @@
+# Ignore output logs
+make_B_qg.sh.[eo]*
+
+# Ignore output run directories
+sigma_*

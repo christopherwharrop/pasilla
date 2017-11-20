@@ -1,5 +1,11 @@
       PROGRAM BMATRIX
 
+      ! Get unit numbers for stdin, stdout, stderr in a portable way
+      use, intrinsic :: iso_fortran_env, only : stdin=>input_unit, &
+                                                stdout=>output_unit, &
+                                                stderr=>error_unit
+
+
       use netcdf
 
       IMPLICIT NONE
@@ -16,7 +22,7 @@
       INTEGER XX,YY,ZZ,XL,YL
       INTEGER*8 MASKS 
       REAL A,C,DLAT,DLON,TLAT,TLAX,DTOR,ERAD,TMPA,TMPC,DIST,LFAC
-      REAL PARM1, PARM2
+      REAL PARM1, PARM2, SIGMA
       REAL MASK(X,Y)
       INTEGER*8 nrow
       REAL ratio
@@ -28,14 +34,22 @@
     integer :: nDimensions, nVariables, nAttributes, unlimitedDimID
     integer :: BVarDimID, BVarID
 
+!    namelist /parm/ sigma
+    namelist /parm/ parm1, parm2
+
+    ! Read namelists from stdin
+    read(stdin,nml=parm)
+
+    print *, "Building B matrix with parm1, parm2 = ", parm1, parm2
 
     allocate(bbb(x,y,z))
     allocate(fbbb(X * Y * Z, X * Y * Z))
 
       DTOR=ATAN(1.0)/45.0
       ERAD=6372.8
-      PARM1=3.0*111.1
-      PARM2=4.0*PARM1
+!      PARM1=3.0*111.1
+!      PARM2=4.0*PARM1
+!      SIGMA=0.00130
       MASKS=0
 
       PRINT *,"SIZE OF OUTPUT: ",SIZE(FBBB)
@@ -64,6 +78,9 @@
         DO YY=1,Y
           DO XX=1,X
 
+            SIGMA = ABS(1.0/sin(LAT(XX,YY) * 3.14159 / 180.0)) * PARM1 + PARM2
+            print *, LAT(XX,YY), sigma
+
             DO YL=1,Y
               DO XL=1,X
                 DLAT=DTOR*(LAT(XL,YL)-LAT(XX,YY)) 
@@ -75,14 +92,17 @@
                 DIST=ERAD*C
 !               LFAC=0.5+0.5*ABS(COS(TLAX))
                 LFAC=1.0
-                MASK(XL,YL)=1.0
+!CWH                MASK(XL,YL)=1.0
           !     PRINT *,XX,YY,XL,YL
           !     PRINT *,LAT(XX,YY),LON(XX,YY),LAT(XL,YL),LON(XL,YL)
           !     PRINT *,DLAT,DLON
           !     PRINT *,SIN(DLAT/2.0),COS(TLAT),COS(TLAX),SIN(DLON/2.0)
           !     PRINT *,A,C,DIST,LFAC
-                IF(DIST.GT.(PARM1/LFAC)) MASK(XL,YL)=EXP((LFAC/PARM1)*(PARM1/LFAC-DIST/LFAC))
-                IF(DIST.GT.(PARM2/LFAC)) MASK(XL,YL)=0.0
+!CWH                IF(DIST.GT.(PARM1/LFAC)) MASK(XL,YL)=EXP((LFAC/PARM1)*(PARM1/LFAC-DIST/LFAC))
+!CWH                IF(DIST.GT.(PARM2/LFAC)) MASK(XL,YL)=0.0
+                MASK(XL,YL) = EXP(-(DIST * SIGMA)**2)
+                if (MASK(XL,YL) .LT. 0.01) MASK(XL,YL) = 0.0
+
           !     PRINT *,"MASK: ",MASK(XL,YL)
           !     PRINT *,"-------------------------"
 !               MASK(XL,YL)=0.0

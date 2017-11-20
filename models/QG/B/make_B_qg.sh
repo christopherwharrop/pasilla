@@ -4,32 +4,45 @@ module load intel/16.1.150
 module load netcdf
 module load grads
 
-# Create psidiff.z[123].dat files for input to bmatrix.exe
-if [ ! -f psidiff.z1.dat ]; then
-  grads -blc plot.grads.z1.gs &
-fi
-if [ ! -f psidiff.z2.dat ]; then
-  grads -blc plot.grads.z2.gs &
-fi
-if [ ! -f psidiff.z3.dat ]; then
-  grads -blc plot.grads.z3.gs &
-fi
+# Get base directory
+BASE_DIR=/scratch4/BMC/gsd-hpcs/Christopher.W.Harrop/pasilla.tapenade/models/QG/B
 
-# Wait for background Grads scripts to complete
-wait
+# Get desired B matrix sigma from command line
+#sigma=$1
+parm1=$1
+parm2=$2
 
-# Make the latlon.dat file if needed
-if [ ! -f latlon.dat ]; then
-  ifort -o latlon.exe latlon.f90 -O3
-  ./latlon.exe
-fi
+# Create work directory and cd into it
+#workdir=${BASE_DIR}/sigma_${sigma}
+workdir=${BASE_DIR}/sigma_${parm1}_${parm2}
+rm -rf ${workdir}
+mkdir -p ${workdir}
+cd ${workdir}
+
+# link to input files
+ln -s ../psidiff.z1.dat
+ln -s ../psidiff.z2.dat
+ln -s ../psidiff.z3.dat
+ln -s ../latlon.dat
+
+# Copy namelist and modify it
+cp ../bmatrix.namelist .
+#sed -i "s/sigma = [^[:blank:]]*,/sigma = ${sigma},/" bmatrix.namelist
+sed -i "s/parm1 = [^[:blank:]]*,/parm1 = ${parm1},/" bmatrix.namelist
+sed -i "s/parm2 = [^[:blank:]]*,/parm2 = ${parm2},/" bmatrix.namelist
 
 # Make B squared
-ifort -o bmatrix.exe bmatrix.f90 -O3 -mkl=parallel -I${NETCDF}/include -L${NETCDF}/lib -lnetcdff -lnetcdf
-./bmatrix.exe > bmatrix.out
+rm -f b_sqr.nc
+ln -s ../bmatrix.exe
+echo "Running bmatrix.exe for sigma=$sigma"
+./bmatrix.exe < bmatrix.namelist > bmatrix.out
 
 # Make B
-ifort -o sqrt_b.exe sqrt_b.f90 -O3 -mkl=parallel -I${NETCDF}/include -L${NETCDF}/lib -lnetcdff -lnetcdf
+rm -f b.nc
+ln -s ../sqrt_b.exe
+echo "Running sqrt_b.exe"
 ./sqrt_b.exe > sqrt_b.out
 
-
+# Copy B to the input data directory
+#cp b.nc /scratch4/BMC/gsd-hpcs/QG/inputdata/bT21.${sigma}.nc
+cp b.nc /scratch4/BMC/gsd-hpcs/QG/inputdata/bT21.${parm1}_${parm2}.nc

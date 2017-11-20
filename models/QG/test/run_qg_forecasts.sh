@@ -1,23 +1,28 @@
 #!/bin/sh -l
 
 # Load modules
-module load intel/16.1.150
+module load intel/18.1.163
 module load netcdf
 
 # Check usage
-if [ $# -ne 2 ]; then
-  echo "USAGE: run_qg_forecasts.sh START_FCST END_FCST"
+if [ $# -ne 3 ]; then
+#if [ $# -ne 4 ]; then
+  echo "USAGE: run_qg_forecasts.sh START_FCST END_FCST SIGMA"
   exit 1
 else
   start_fcst=$1                    # Starting forecast step
-  end_fcst=$2                      # Perform forecasts for 120 days
+  end_fcst=$2                      # Ending forecast step
+  sigma=$3                         # Shape of B matrix gaussian
+#  parm1=$3
+#  parm2=$4
 fi
 
 # Set OMP environment
 export OMP_STACKSIZE=1G
 
 # Set locations of data, namelists, and executables
-PASILLA_DIR=$(dirname $(dirname $(dirname $(dirname $(readlink -m $0)))))  # DO NOT CHANGE THIS
+#PASILLA_DIR=$(dirname $(dirname $(dirname $(dirname $(readlink -m $0)))))  # DO NOT CHANGE THIS
+PASILLA_DIR=/scratch4/BMC/gsd-hpcs/Christopher.W.Harrop/pasilla.tapenade
 NATURE_DIR=${PASILLA_DIR}/models/QG/nature  # Needed for initial analysis file
 VARSOLVER_DIR=${PASILLA_DIR}/varsolver
 QG_DIR=${PASILLA_DIR}/models/QG
@@ -26,7 +31,8 @@ GPTL_PATH=/contrib/gptl/gptl-v5.5_nompi_noomp/bin
 PARSE_PATH=${HOME}/bin
 
 # Set experiment location
-BASE_DIR=${QG_DIR}/test
+BASE_DIR=${QG_DIR}/test/sigma_$sigma
+#BASE_DIR=${QG_DIR}/test/sigma_${parm1}_${parm2}
 
 # Set model parameters
 one_hour=3                       # There are 3 steps in one "hour"
@@ -61,8 +67,8 @@ while [ $f -le $end_fcst ]; do
 
   # Loop over methods
 # for method in 1 2 3 4 5; do
-#  for method in 1 3; do
-  for method in 3 5; do
+# for method in 1 3; do
+  for method in 5; do
 
     OBS_DIR=${PASILLA_DIR}/models/QG/obs_$method
 
@@ -72,9 +78,9 @@ while [ $f -le $end_fcst ]; do
       export MKL_DYNAMIC=false
       export OMP_NESTED=true
       export OMP_NUM_THREADS=3
-      export MKL_NUM_THREADS=4
+      export MKL_NUM_THREADS=8
     else
-      export OMP_NUM_THREADS=4
+      export OMP_NUM_THREADS=8
     fi
 
     # If this is not the first forecast, do the DA
@@ -110,7 +116,9 @@ while [ $f -le $end_fcst ]; do
       ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/${obsfile}
       ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/qgcoefT${resolution}.dat
       ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/qgbergT${resolution}.dat
-      ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/bT${resolution}.nc b.nc
+#      ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/bT${resolution}.${parm1}_${parm2}.nc b.nc
+      ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/bT${resolution}.${sigma}.nc b.nc
+#      ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/bT${resolution}.nc b.nc
       ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/mu_operator.dat
 
       # Run the assimilation
@@ -167,7 +175,9 @@ while [ $f -le $end_fcst ]; do
       ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/${obsfile}
       ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/qgcoefT${resolution}.dat
       ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/qgbergT${resolution}.dat
-      ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/bT${resolution}.nc b.nc
+#      ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/bT${resolution}.${parm1}_${parm2}.nc b.nc
+      ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/bT${resolution}.${sigma}.nc b.nc
+#      ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/bT${resolution}.nc b.nc
       ln -s /scratch4/BMC/gsd-hpcs/QG/inputdata/mu_operator.dat
 
     # Run the QG model
@@ -209,7 +219,7 @@ while [ $f -le $end_fcst ]; do
 
     # Run the QG model
     cp $QG_DIR/exe/QG.exe .
-    ./QG.exe < ./QG.namelist 
+    ./QG.exe < ./QG.namelist
 
   done # for method
 
@@ -223,3 +233,6 @@ while [ $f -le $end_fcst ]; do
   (( f = $f + $assimilation_window ))
 
 done  # while f
+
+# Verify the run
+${QG_DIR}/test/verify/verify_qg_forecasts.sh ${sigma}

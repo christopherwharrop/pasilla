@@ -9,7 +9,8 @@ while [ $h -le $fcst_length ]; do
 
   hh=`printf %04d $h`
 
-  for m in 1 3; do
+  for m in 5; do
+#  for m in 1 3; do
 #  for m in 1 2 3; do
 #  for m in 1; do
 

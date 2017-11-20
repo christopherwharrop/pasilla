@@ -8,7 +8,6 @@ LIBS=-L$(GPTL)/lib -lgptl -L$(UTILITIES)/lib -lpasilla_util $(NETCDF_LIBS)
 FFLAGS+=$(OPENMP)
 FFLAGS+=$(GPTLFLAGS)
 FFLAGS+=$(ENDIAN_FLAG)
-FFLAGS+=-g -traceback -O0
 
 #OBJS=module_QG_model.o module_QG_config.o module_QG_writer.o module_QG_reader.o module_QG_ggsp.o nag.o nagb.o module_QG_tl.o module_QG_adj.o module_QG_util.o module_QGTL_writer.o module_QGADJ_writer.o
 OBJS=module_QG_model.o module_QG_config.o module_QG_writer.o module_QG_reader.o module_QG_ggsp.o nag.o module_QG_tl.o module_QG_adj.o module_QG_util.o module_QGTL_writer.o module_QGADJ_writer.o

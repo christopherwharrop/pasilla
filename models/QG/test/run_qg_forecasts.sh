@@ -70,7 +70,7 @@ while [ $f -le $end_fcst ]; do
 # for method in 1 3; do
   for method in 5; do
 
-    OBS_DIR=${PASILLA_DIR}/models/QG/obs_$method
+    OBS_DIR=${PASILLA_DIR}/models/QG/obs/method_$method
 
     # Set OMP options for this method
     method_dir=$method
@@ -101,8 +101,8 @@ while [ $f -le $end_fcst ]; do
         (( tidx=$tidx+1 ))
       done
 
-      # Bring in the obs file BUG!! NEED DIFFERENT OBS FILES FOR EACH METHOD
-      obsfile="qgobs_${f7}.txt"
+      # Bring in the obs file
+      obsfile="qgobs_${method}_${f7}.txt"
       ln -s $OBS_DIR/$obsfile qgobs_${method}.txt
 
       # Bring in the namelist and set it up

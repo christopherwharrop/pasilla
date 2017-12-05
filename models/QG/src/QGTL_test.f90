@@ -7,7 +7,6 @@ program QGTL_test
 
   use QG_Model
   use QG_Config
-  use QG_Model_TL
   use QG_Reader
   use kind
 

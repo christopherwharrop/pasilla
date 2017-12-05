@@ -8,7 +8,6 @@ program QG
   use kind
   use QG_Config
   use QG_Model
-  use QG_Model_TL
   use QG_Model_ADJ
   use QG_Reader
   use QG_Writer

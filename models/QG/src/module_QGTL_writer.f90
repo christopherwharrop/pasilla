@@ -2,8 +2,7 @@ module QGTL_Writer
 
   use kind,           only : r8kind
   use Abstract_Model, only : abstract_model_type
-  use QG_Model,       only : qg_model_type
-  use QG_Model_TL,    only : qg_tl_type
+  use QG_Model,       only : qg_model_type, qg_tl_type
   use QG_Config,      only : qg_config_type
   use gptl
 !  use NetCDF_Writer, only : netcdf_writer_type

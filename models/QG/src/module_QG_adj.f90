@@ -2,7 +2,6 @@ module QG_Model_ADJ
 
   use kind
   use Abstract_Model, only : abstract_model_type
-  use QG_Model_TL
   use QG_Config
   use QG_GGSP
   use QG_Util

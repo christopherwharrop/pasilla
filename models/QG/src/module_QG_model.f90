@@ -202,6 +202,116 @@ module QG_Model
   end interface
 
   !-------------------------------------------------------------------------------
+  ! qg_adj_type
+  !-------------------------------------------------------------------------------
+  public :: qg_adj_type
+
+  type, extends(qg_model_type) :: qg_adj_type
+    private
+
+    ! Model state
+    real(r8kind), allocatable :: trajectory(:,:) ! Adjoint trajectory
+    real(r8kind), allocatable :: psitb(:,:)      ! Thickness at the ntl levels
+    real(r8kind), allocatable :: qprimeb(:,:)    ! Potential vorticity
+
+  contains
+    final :: destructor_qg_adj
+    procedure :: adv_nsteps => adv_nsteps_adj
+    procedure :: get_trajectory => get_trajectory_adj
+    procedure, private :: dqdt_b
+    procedure, private :: ddt_b
+    procedure, private :: jacob_b
+    procedure, private :: jacobd_b
+    procedure, private :: qtopsi_b
+    procedure, private :: fmtofs_b
+    procedure, private :: fstofm_b
+  end type qg_adj_type
+
+  interface qg_adj_type
+    procedure :: constructor_qg_adj
+  end interface
+
+  interface
+    module function constructor_qg_adj(config, state, state_vector, trajectory, trajectory_vector, for, step) result (qg_adj)
+      type(qg_config_type),   intent(in) :: config
+      real(r8kind), optional, intent(in) :: state(:,:)
+      real(r8kind), optional, intent(in) :: state_vector(:)
+      real(r8kind), optional, intent(in) :: trajectory(:,:)
+      real(r8kind), optional, intent(in) :: trajectory_vector(:)
+      real(r8kind), optional, intent(in) :: for(:,:)
+      integer,      optional, intent(in) :: step
+      type(qg_adj_type)                  :: qg_adj
+    end function constructor_qg_adj
+    module elemental subroutine destructor_qg_adj(this)
+      type(qg_adj_type), intent(inout) :: this
+    end subroutine destructor_qg_adj
+    module subroutine adv_nsteps_adj(this, nsteps)
+      class(qg_adj_type) :: this
+      integer            :: nsteps
+    end subroutine adv_nsteps_adj
+    module subroutine dqdt_b(this, y, yb, dydt, dydtb)
+      class(qg_adj_type), intent(inout) :: this
+      real(r8kind),       intent(   in) :: y(:, :)
+      real(r8kind)                      :: yb(:, :)
+      real(r8kind)                      :: dydt(:, :)
+      real(r8kind)                      :: dydtb(:, :)
+    end subroutine dqdt_b
+    module subroutine ddt_b(this, psi, psib, psit, psitb, qprime, qprimeb, for, dqprdtb)
+      class(qg_adj_type), intent(inout) :: this    
+      real(r8kind),       intent(   in) :: psi(:,:)
+      real(r8kind)                      :: psib(:,:)
+      real(r8kind),       intent(   in) :: psit(:,:)
+      real(r8kind)                      :: psitb(:,:)
+      real(r8kind),       intent(   in) :: qprime(:,:)
+      real(r8kind)                      :: qprimeb(:,:)
+      real(r8kind),       intent(   in) :: for(:,:)
+      real(r8kind)                      :: dqprdtb(:,:)
+    end subroutine ddt_b
+    module subroutine jacob_b(this, psiloc, psilocb, pvor, pvorb, sjacobb)
+      class(qg_adj_type), intent(in) :: this
+      real(r8kind),       intent(in) :: psiloc(:)
+      real(r8kind)                   :: psilocb(:)
+      real(r8kind),       intent(in) :: pvor(:)
+      real(r8kind)                   :: pvorb(:)
+      real(r8kind)                   :: sjacobb(:)
+    end subroutine jacob_b
+    module subroutine jacobd_b(this, psiloc, psilocb, pvor, pvorb, sjacobb)
+      class(qg_adj_type), intent(inout) :: this
+      real(r8kind),       intent(   in) :: psiloc(:)
+      real(r8kind),       intent(  out) :: psilocb(:)
+      real(r8kind),       intent(   in) :: pvor(:)
+      real(r8kind),       intent(  out) :: pvorb(:)
+      real(r8kind),       intent(   in) :: sjacobb(:)
+    end subroutine jacobd_b
+    module subroutine qtopsi_b(this, qprime, qprimeb, psi, psib, psit, psitb)
+      class(qg_adj_type), intent(in) :: this
+      real(r8kind),       intent(in) :: qprime(:,:)   ! potential vorticity
+      real(r8kind)                   :: qprimeb(:,:)
+      real(r8kind)                   :: psi(:,:)      ! stream function at the nvl levels
+      real(r8kind)                   :: psib(:,:)
+      real(r8kind)                   :: psit(:,:)     ! thickness at the ntl levels
+      real(r8kind)                   :: psitb(:,:)
+    end subroutine qtopsi_b
+    module subroutine fmtofs_b(this, y, yb, zb)
+      class(qg_adj_type)       :: this
+      real(r8kind), intent(in) :: y(:, :)
+      real(r8kind)             :: yb(:, :)
+      real(r8kind)             :: zb(:,:)
+    end subroutine fmtofs_b
+    module subroutine fstofm_b(this, y, yb, ntr, zb)
+      class(qg_adj_type), intent(in) :: this
+      real(r8kind),       intent(in) :: y(:,:)
+      real(r8kind)                   :: yb(:,:)
+      integer,            intent(in) :: ntr
+      real(r8kind)                   :: zb(:,:)
+    end subroutine fstofm_b
+    module function get_trajectory_adj(this) result(trajectory)
+      class(qg_adj_type), intent(in) :: this
+      real(r8kind), allocatable      :: trajectory(:,:)
+    end function get_trajectory_adj
+  end interface
+
+  !-------------------------------------------------------------------------------
   ! Constants
   !-------------------------------------------------------------------------------
 

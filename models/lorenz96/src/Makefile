@@ -2,8 +2,8 @@ include ../../../macros.mk
 
 UTILITIES=../../../utilities
 
-INCLUDES=-I$(GPTL)/include -I$(UTILITIES)/include $(NETCDF_INCLUDES) -I../../abstract/include -I.
-LIBS=-L$(GPTL)/lib -lgptl -L$(UTILITIES)/lib -lpasilla_util $(NETCDF_LIBS)
+INCLUDES=-I$(UTILITIES)/include $(NETCDF_INCLUDES) -I../../abstract/include -I.
+LIBS=-L$(UTILITIES)/lib -lpasilla_util $(NETCDF_LIBS)
 
 #OBJS=module_L96_model.o module_L96_tl.o module_L96_adj.o module_L96_config.o module_L96_reader.o module_L96_writer.o module_L96TL_writer.o module_L96ADJ_writer.o module_netcdf_writer.o ../../abstract/src/module_model.o
 OBJS=module_L96_model.o module_L96_tl.o module_L96_adj.o module_L96_config.o module_L96_reader.o module_L96_writer.o module_netcdf_writer.o ../../abstract/src/module_model.o

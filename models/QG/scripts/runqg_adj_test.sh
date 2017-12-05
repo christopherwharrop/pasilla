@@ -7,13 +7,17 @@
 # expid identifies the directory where the output of the run will be stored
 # obsfile is the datafile with observations used to calculate the forcing from
 
-module load intel/16.1.150
-module load netcdf
+#module load intel/16.1.150
+#module load netcdf
 #module load pgi/16.10
 #module load netcdf/4.4.0
 
 # Set the path to GPTL
 GPTL_PATH=/contrib/gptl/gptl-v5.5_nompi_noomp/bin
+
+# Set the path to the input data
+#INPUT_DATA=/lfs3/projects/gsd-hpcs/QG/inputdata
+INPUT_DATA=/home1/01033/harrop/QG/inputdata
 
 # Set the resolution of the run
 resol="21"
@@ -39,14 +43,14 @@ mkdir -p ${rundir}
 cd ${rundir}
 
 # Copy the inputdata into place
-cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/${obsfile} .
-cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/qgcoefT${resol}.dat .
-cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/qgbergT${resol}.dat .
-#cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/mu_operator.dat .
+cp -prd ${INPUT_DATA}/${obsfile} .
+cp -prd ${INPUT_DATA}/qgcoefT${resol}.dat .
+cp -prd ${INPUT_DATA}/qgbergT${resol}.dat .
+#cp -prd ${INPUT_DATA}/mu_operator.dat .
 
 # These are needed for boostrapping model state without a restart file
-cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/qginitT${resol}.nc .
-cp -prd /scratch4/BMC/gsd-hpcs/QG/inputdata/qgforcingT${resol}.nc .
+cp -prd ${INPUT_DATA}/qginitT${resol}.nc .
+cp -prd ${INPUT_DATA}/qgforcingT${resol}.nc .
 
 # Make sure obs file exists.
 if [ ! -e $obsfile ]; then

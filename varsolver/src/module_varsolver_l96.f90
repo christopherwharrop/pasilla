@@ -3,7 +3,6 @@
 
 module module_varsolver_l96
 
-  use gptl
   use module_constants
   use Abstract_Model, only : abstract_model_type
   use L96_Config,     only : l96_config_type

@@ -5,9 +5,8 @@ program QGADJ_Test
                                             stdout=>output_unit, &
                                             stderr=>error_unit
 
-  use QG_Model, only : qg_model_type, qg_tl_type
+  use QG_Model, only : qg_model_type, qg_tl_type, qg_adj_type
   use QG_Config, only : qg_config_type
-  use QG_Model_ADJ, only    : qg_adj_type
   use QG_Reader
   use kind, only     : r8kind, i8kind
 

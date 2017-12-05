@@ -3,7 +3,7 @@
 
 program adept
 
-  use gptl
+!  use gptl
   use module_varsolver_qg
   use Abstract_Model, only : abstract_model_type
 
@@ -29,9 +29,9 @@ program adept
 
   ! BJE
   ! INITIALIZE GPTL AND START A TIMER
-  ret = gptlsetutr (gptlnanotime)
-  ret = gptlinitialize ()                    
-  ret = gptlstart ('adept')                 
+!  ret = gptlsetutr (gptlnanotime)
+!  ret = gptlinitialize ()
+!  ret = gptlstart ('adept')
 
   ! BJE
   ! GET THE METHOD TO USE
@@ -92,13 +92,13 @@ program adept
   ! B(-1/2)H(T)R(-1)H       = brh_cov 
   ! INPUTS: Y, H, Xb, R(-1), B 
   ! USE SAME VARIABLE NAME PRE AND POST
-  ret = gptlstart ('solver')
+!  ret = gptlstart ('solver')
   call pre_sol(obs_opr,obs_cov,bkg_cov,hrh_cov,brh_cov,obs_vec,htr_ino,bht_ino,jvc_for)
 
   ! BJE
   ! THE MAIN EVENT - THE SOLVER
   call var_solver(bkg_cov,hrh_cov,brh_cov,htr_ino,bht_ino,jvc_for,bkg_vec,anl_vec)
-  ret = gptlstop ('solver')
+!  ret = gptlstop ('solver')
 
   ! BJE
   ! OUTPUT THE NEW ANALYSIS
@@ -106,10 +106,10 @@ program adept
 
   ! BJE
   ! END THE TIMER AND OUTPUT THE GPTL RESULTS
-  ret = gptlstop ('adept') 
-  ret = gptlpr (0) 
+!  ret = gptlstop ('adept')
+!  ret = gptlpr (0)
   !ret = gptlpr_summary (MPI_COMM_WORLD) 
-  ret = gptlfinalize ()
+!  ret = gptlfinalize ()
 
   ! THAT IS THE END OF THE MAIN PROGRAM
   ! NO, REALLY, THAT WAS THE END OF THE MAIN PROGRAM

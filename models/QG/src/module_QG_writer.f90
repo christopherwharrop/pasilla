@@ -4,7 +4,6 @@ module QG_Writer
   use Abstract_Model, only : abstract_model_type
   use QG_Model,       only : qg_model_type
   use QG_Config,      only : qg_config_type
-  use gptl
 !  use NetCDF_Writer, only : netcdf_writer_type
 
   implicit none

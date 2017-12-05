@@ -8,12 +8,11 @@ program QG
   use kind
   use QG_Config
   use QG_Model
-  use QG_Model_ADJ
   use QG_Reader
   use QG_Writer
   use QGTL_Writer
   use QGADJ_Writer
-  use gptl
+!  use gptl
 
   implicit none
 
@@ -44,9 +43,9 @@ program QG
   integer                   :: nsh2, nvl
   integer                   :: step, ret
 
-  ret = gptlsetutr (gptlnanotime)
-  ret = gptlinitialize ()
-  ret = gptlstart ('QG')
+!  ret = gptlsetutr (gptlnanotime)
+!  ret = gptlinitialize ()
+!  ret = gptlstart ('QG')
 
   ! Read namelist from stdin
   read(stdin,nml=runtime)
@@ -151,9 +150,9 @@ program QG
 
   enddo
 
-  ret = gptlstop ('QG') 
-  ret = gptlpr (0) 
-  ret = gptlfinalize ()
+!  ret = gptlstop ('QG')
+!  ret = gptlpr (0)
+!  ret = gptlfinalize ()
 
  
 end program QG

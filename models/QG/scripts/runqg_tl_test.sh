@@ -16,7 +16,8 @@
 GPTL_PATH=/contrib/gptl/gptl-v5.5_nompi_noomp/bin
 
 # Set the path to the input data
-INPUT_DATA=/lfs3/projects/gsd-hpcs/QG/inputdata
+#INPUT_DATA=/lfs3/projects/gsd-hpcs/QG/inputdata
+INPUT_DATA=/home1/01033/harrop/QG/inputdata
 
 # Set the resolution of the run
 resol="21"

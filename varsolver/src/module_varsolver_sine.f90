@@ -3,7 +3,6 @@
 
 module module_varsolver_sine
 
-  use gptl
   use module_constants
   use Abstract_Model, only : abstract_model_type
   use sine,           only : sine_type, sine_TL_type, sine_ADJ_type

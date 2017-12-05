@@ -7,7 +7,7 @@ program adept
   use, intrinsic :: iso_fortran_env, only : stdin=>input_unit, &
                                             stdout=>output_unit, &
                                             stderr=>error_unit
-  use gptl
+!  use gptl
   use config, only                 : Config_Type
   use background, only             : Background_Type
   use observations, only           : Observations_Type
@@ -31,9 +31,9 @@ program adept
 
   ! BJE
   ! INITIALIZE GPTL AND START A TIMER
-  ret = gptlsetutr (gptlnanotime)
-  ret = gptlinitialize ()                    
-  ret = gptlstart ('adept')                 
+!  ret = gptlsetutr (gptlnanotime)
+!  ret = gptlinitialize ()
+!  ret = gptlstart ('adept')
 
   ! Read the assimilation configuration
   cfg = Config_Type(stdin)
@@ -68,10 +68,10 @@ program adept
 
   ! BJE
   ! END THE TIMER AND OUTPUT THE GPTL RESULTS
-  ret = gptlstop ('adept') 
-  ret = gptlpr (0) 
+!  ret = gptlstop ('adept')
+!  ret = gptlpr (0)
   !ret = gptlpr_summary (MPI_COMM_WORLD) 
-  ret = gptlfinalize ()
+!  ret = gptlfinalize ()
 
   ! THAT IS THE END OF THE MAIN PROGRAM
   ! NO, REALLY, THAT WAS THE END OF THE MAIN PROGRAM

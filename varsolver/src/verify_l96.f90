@@ -3,7 +3,7 @@
 
 program adept
 
-  use gptl
+!  use gptl
   use module_verify_l96
   use Abstract_Model, only : abstract_model_type
 
@@ -18,9 +18,9 @@ program adept
 
   ! BJE
   ! INITIALIZE GPTL AND START A TIMER
-  ret = gptlsetutr (gptlnanotime)
-  ret = gptlinitialize ()
-  ret = gptlstart ('adept')
+!  ret = gptlsetutr (gptlnanotime)
+!  ret = gptlinitialize ()
+!  ret = gptlstart ('adept')
 
   ! BJE
   ! FIRST - NEED TO KNOW HOW MANY OBSERVATIONS AND STATE VECTOR
@@ -53,9 +53,9 @@ program adept
 
   ! BJE
   ! END THE TIMER AND OUTPUT THE GPTL RESULTS
-  ret = gptlstop ('adept') 
-  ret = gptlpr (0) 
-  ret = gptlfinalize ()
+!  ret = gptlstop ('adept')
+!  ret = gptlpr (0)
+!  ret = gptlfinalize ()
 
   ! THAT IS THE END OF THE MAIN PROGRAM
   ! NO, REALLY, THAT WAS THE END OF THE MAIN PROGRAM

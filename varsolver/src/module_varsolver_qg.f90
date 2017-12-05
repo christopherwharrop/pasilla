@@ -3,13 +3,10 @@
 
 module module_varsolver_qg
 
-  use gptl
   use module_constants
   use Abstract_Model, only : abstract_model_type
   use QG_Config,      only : qg_config_type
-  use QG_Model,       only : qg_model_type
-  use QG_Model_TL,    only : qg_tl_type
-  use QG_Model_ADJ,   only : qg_adj_type
+  use QG_Model,       only : qg_model_type, qg_tl_type, qg_adj_type
   use QG_Reader,      only : qg_reader_type
   use QG_Writer,      only : qg_writer_type
 

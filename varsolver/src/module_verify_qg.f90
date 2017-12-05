@@ -3,7 +3,6 @@
 
 module module_verify_qg
 
-  use gptl
   use module_constants
   use Abstract_Model, only : abstract_model_type
   use QG_Config,     only : qg_config_type

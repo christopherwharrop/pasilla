@@ -2,14 +2,14 @@ include ../../macros.mk
 
 UTILITIES=../../utilities
 
-INCLUDES=-I. -I$(GPTL)/include            \
+INCLUDES=                                 \
          -I../../utilities/include        \
          -I../../models/abstract/include  \
          -I../../models/sine/include      \
          -I../../models/lorenz96/include  \
          -I../../models/QG/include
 
-LIBS=-L$(GPTL)/lib -lgptl                   \
+LIBS=                                       \
      -L$(NETCDF)/lib -lnetcdf -lnetcdff     \
      -L../../models/sine/lib -lsine         \
      -L../../models/lorenz96/lib -llorenz96 \
@@ -18,7 +18,7 @@ LIBS=-L$(GPTL)/lib -lgptl                   \
 
 
 FFLAGS+=$(OPENMP)
-FFLAGS+=$(GPTLFLAGS)
+#FFLAGS+=$(GPTLFLAGS)
 
 all: varsolver_sine.exe varsolver_l96.exe varsolver_qg.exe verify_qg.exe verify_l96.exe
 

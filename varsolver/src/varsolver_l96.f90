@@ -3,7 +3,7 @@
 
 program adept
 
-  use gptl
+!  use gptl
   use module_varsolver_l96
   use Abstract_Model, only : abstract_model_type
 
@@ -29,9 +29,9 @@ program adept
 
   ! BJE
   ! INITIALIZE GPTL AND START A TIMER
-  ret = gptlsetutr (gptlnanotime)
-  ret = gptlinitialize ()                    
-  ret = gptlstart ('adept')                 
+!  ret = gptlsetutr (gptlnanotime)
+!  ret = gptlinitialize ()
+!  ret = gptlstart ('adept')
 
   ! BJE
   ! GET THE METHOD TO USE
@@ -104,10 +104,10 @@ program adept
 
   ! BJE
   ! END THE TIMER AND OUTPUT THE GPTL RESULTS
-  ret = gptlstop ('adept') 
-  ret = gptlpr (0) 
+!  ret = gptlstop ('adept')
+!  ret = gptlpr (0)
   !ret = gptlpr_summary (MPI_COMM_WORLD) 
-  ret = gptlfinalize ()
+!  ret = gptlfinalize ()
 
   ! THAT IS THE END OF THE MAIN PROGRAM
   ! NO, REALLY, THAT WAS THE END OF THE MAIN PROGRAM

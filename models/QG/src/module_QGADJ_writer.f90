@@ -2,10 +2,8 @@ module QGADJ_Writer
 
   use kind,           only : r8kind
   use Abstract_Model, only : abstract_model_type
-  use QG_Model,       only : qg_model_type
-  use QG_Model_ADJ,   only : qg_adj_type
+  use QG_Model,       only : qg_model_type, qg_adj_type
   use QG_Config,      only : qg_config_type
-  use gptl
 !  use NetCDF_Writer, only : netcdf_writer_type
 
   implicit none

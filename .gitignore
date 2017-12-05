@@ -6,6 +6,7 @@
 
 # Module files
 *.mod
+*.smod
 
 # Executables
 *.exe

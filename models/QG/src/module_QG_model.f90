@@ -9,6 +9,9 @@ module QG_Model
 
   private
 
+  !-------------------------------------------------------------------------------
+  ! qg_model_type
+  !-------------------------------------------------------------------------------
   public :: qg_model_type
 
   type, extends(abstract_model_type) :: qg_model_type
@@ -102,6 +105,105 @@ module QG_Model
   interface qg_model_type
     procedure :: constructor_qg_model
   end interface
+
+  !-------------------------------------------------------------------------------
+  ! qg_tl_type
+  !-------------------------------------------------------------------------------
+  public :: qg_tl_type
+
+  type, extends(qg_model_type) :: qg_tl_type
+    private
+
+    ! Model state
+    real(r8kind), allocatable :: trajectory(:,:) ! Tangent Linear trajectory
+    real(r8kind), allocatable :: psitd(:,:)       ! Thickness at the ntl levels
+    real(r8kind), allocatable :: qprimed(:,:)     ! Potential vorticity
+    
+  contains
+    final :: destructor_qg_tl
+    procedure :: adv_nsteps => adv_nsteps_tl
+    procedure :: get_trajectory => get_trajectory_tl
+    procedure :: get_qprimed
+    procedure, private :: dqdt_d
+    procedure, private :: ddt_d
+    procedure, private :: jacob_d
+    procedure, private :: jacobd_d
+  end type qg_tl_type
+
+  interface qg_tl_type
+    procedure :: constructor_qg_tl
+  end interface
+
+  interface
+    module function constructor_qg_tl(config, state, state_vector, trajectory, trajectory_vector, for, step) result (qg_tl)
+      type(qg_config_type),   intent(in) :: config
+      real(r8kind), optional, intent(in) :: state(:,:)
+      real(r8kind), optional, intent(in) :: state_vector(:)
+      real(r8kind), optional, intent(in) :: trajectory(:,:)
+      real(r8kind), optional, intent(in) :: trajectory_vector(:)
+      real(r8kind), optional, intent(in) :: for(:,:)
+      integer,      optional, intent(in) :: step
+      type(qg_tl_type)                   :: qg_tl
+    end function constructor_qg_tl
+    module elemental subroutine destructor_qg_tl(this)
+      type(qg_tl_type), intent(inout) :: this
+    end subroutine destructor_qg_tl
+    module subroutine adv_nsteps_tl(this, nsteps)
+      class(qg_tl_type) :: this
+      integer           :: nsteps
+    end subroutine adv_nsteps_tl
+    module subroutine dqdt_d(this, y, yd, dydt, dydtd)
+      class(qg_tl_type) :: this
+      real(r8kind), intent( in) :: y(:,:)
+      real(r8kind), intent( in) :: yd(:,:)
+      real(r8kind), intent(out) :: dydt(:,:)
+      real(r8kind), intent(out) :: dydtd(:,:)
+    end subroutine dqdt_d
+    module subroutine ddt_d(this, psi, psid, psit, psitd, qprime, qprimed, for, dqprdt, dqprdtd)
+      class(qg_tl_type), intent( in) :: this
+      real(r8kind),      intent( in) :: psi(:,:)    ! stream function at the nvl levels
+      real(r8kind),      intent( in) :: psid(:,:)    ! stream function at the nvl levels
+      real(r8kind),      intent( in) :: psit(:,:)   ! thickness at the ntl levels
+      real(r8kind),      intent( in) :: psitd(:,:)   ! thickness at the ntl levels
+      real(r8kind),      intent( in) :: qprime(:,:) ! potential vorticity
+      real(r8kind),      intent( in) :: qprimed(:,:) ! potential vorticity
+      real(r8kind),      intent( in) :: for(:,:)    ! constant potential vorticity forcing at the nvl levels
+      real(r8kind),      intent(out) :: dqprdt(:,:)
+      real(r8kind),      intent(out) :: dqprdtd(:,:)
+    end subroutine ddt_d
+    module subroutine jacob_d(this, psiloc, psilocd, pvor, pvord, sjacob, sjacobd)
+      class(qg_tl_type), intent(in) :: this
+      real(r8kind), intent( in) :: psiloc(:)
+      real(r8kind), intent( in) :: psilocd(:)
+      real(r8kind), intent( in) :: pvor(:)
+      real(r8kind), intent( in) :: pvord(:)
+      real(r8kind), intent(out) :: sjacob(:)
+      real(r8kind), intent(out) :: sjacobd(:)
+    end subroutine jacob_d
+    module subroutine jacobd_d(this, psiloc, psilocd, pvor, pvord, sjacob, sjacobd)
+      class(qg_tl_type), intent( in) :: this
+      real(r8kind),      intent( in) :: psiloc(:)
+      real(r8kind),      intent( in) :: psilocd(:)
+      real(r8kind),      intent( in) :: pvor(:)
+      real(r8kind),      intent( in) :: pvord(:)
+      real(r8kind),      intent(out) :: sjacob(:)
+      real(r8kind),      intent(out) :: sjacobd(:)
+    end subroutine jacobd_d
+    module function get_trajectory_tl(this) result(trajectory)
+      class(qg_tl_type),            intent(in) :: this
+!      real(r8kind), dimension(this%nsh2,this%nvl) :: trajectory
+      real(r8kind), allocatable :: trajectory(:,:)
+    end function get_trajectory_tl
+    module function get_qprimed(this) result(qprimed)
+      class(qg_tl_type),            intent(in) :: this
+  !    real(r8kind), dimension(this%nsh2,this%nvl) :: qprimed
+      real(r8kind), allocatable :: qprimed(:,:)
+    end function get_qprimed
+  end interface
+
+  !-------------------------------------------------------------------------------
+  ! Constants
+  !-------------------------------------------------------------------------------
 
   ! Mathematical and physical constants
   real(r8kind), parameter :: pi = 4d0 * atan(1d0)     ! value of pi

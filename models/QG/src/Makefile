@@ -66,5 +66,5 @@ module_QG_util.o: module_QG_util.f90
 	$(FC) $(FFLAGS) -c module_QG_util.f90 $(INCLUDES)
 
 clean:
-	rm -f *.exe *.o *.mod *.a
+	rm -f *.exe *.o *.mod *.smod *.a
 

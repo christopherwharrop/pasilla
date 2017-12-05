@@ -4,7 +4,8 @@ FCDEBUG=#-O0 -check all,noarg_temp_created -fpe0 -init=snan,arrays
 LAPACK=-mkl=parallel
 FFLAGS=-g -traceback $(FCOPT) $(LAPACK) $(FCDEBUG)
 GPTLFLAGS=-finstrument-functions 
-GPTL=/contrib/gptl/gptl-v5.5_nompi_omp/
+#GPTL=/contrib/gptl/gptl-v5.5_nompi_omp/
+GPTL=/home/hpc/GPTL/gptl-v5.3.1/intel_nompi
 NETCDF_INCLUDES=-I$(NETCDF)/include
 NETCDF_LIBS=-L$(NETCDF)/lib -lnetcdf -lnetcdff
 OPENMP=-qopenmp -qopt-report-file=stdout -qopt-report-phase:openmp

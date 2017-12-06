@@ -70,7 +70,7 @@ module QG_Model
 
   contains
     final :: destructor_qg_model
-    procedure :: adv_nsteps
+    procedure :: adv_nsteps => adv_nsteps_model
     procedure :: gridfields
     procedure :: get_config
     procedure :: get_step
@@ -251,10 +251,10 @@ module QG_Model
     end subroutine adv_nsteps_adj
     module subroutine dqdt_b(this, y, yb, dydt, dydtb)
       class(qg_adj_type), intent(inout) :: this
-      real(r8kind),       intent(   in) :: y(:, :)
-      real(r8kind)                      :: yb(:, :)
-      real(r8kind)                      :: dydt(:, :)
-      real(r8kind)                      :: dydtb(:, :)
+      real(r8kind),       intent(   in) :: y(:,:)
+      real(r8kind)                      :: yb(:,:)
+      real(r8kind)                      :: dydt(:,:)
+      real(r8kind)                      :: dydtb(:,:)
     end subroutine dqdt_b
     module subroutine ddt_b(this, psi, psib, psit, psitb, qprime, qprimeb, for, dqprdtb)
       class(qg_adj_type), intent(inout) :: this    
@@ -431,7 +431,6 @@ contains
   ! Deallocates pointers used by a qg_model_type object (none currently)
   !------------------------------------------------------------------
   elemental subroutine destructor_qg_model(this)
-
 
     type(qg_model_type), intent(inout) :: this
 
@@ -882,7 +881,7 @@ contains
   ! input  qprime at current time
   ! output qprime at current time plus dt
   !-----------------------------------------------------------------------
-  subroutine adv_nsteps(this, nsteps)
+  subroutine adv_nsteps_model(this, nsteps)
 
     class(qg_model_type) :: this
     integer              :: nsteps
@@ -938,7 +937,7 @@ contains
 
     end if
 
-  end subroutine adv_nsteps
+  end subroutine adv_nsteps_model
 
 
   !-----------------------------------------------------------------------

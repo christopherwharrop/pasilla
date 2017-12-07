@@ -212,7 +212,7 @@ contains
   subroutine adv_nsteps(this, nsteps)
 
     class(l96_adj_type), intent(inout) :: this
-    integer, intent(in) :: nsteps
+    integer            , intent(   in) :: nsteps
 
     real(r8kind), dimension(this%config%get_nx()) :: x1, x2, x3, x4, dx, inter
     real(r8kind), dimension(this%config%get_nx()) :: x1b, x2b, x3b, x4b, interb

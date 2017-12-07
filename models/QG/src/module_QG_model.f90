@@ -50,8 +50,8 @@ module QG_Model
     ! Laplace/Helmholtz direct and inverse operators
     real(r8kind), allocatable :: rinhel(:,:) ! Laplace and Helmholtz operator for Q-PSI inversion
     real(r8kind), allocatable :: diss(:,:)   ! Dissipation coefficients for each spherical harmonic
-!                                             !   diss(k,1) : Hyperviscosity at the three levels (tdif sets timescale)
-!                                             !   diss(k,2) : Ekman friction at lower level (tdis sets timescale)
+                                             !   diss(k,1) : Hyperviscosity at the three levels (tdif sets timescale)
+                                             !   diss(k,2) : Ekman friction at lower level (tdis sets timescale)
     real(r8kind)              :: rl1         ! One over Rossby rad. of def. squared of 200-500 thickness
     real(r8kind)              :: rl2         ! One over Rossby rad. of def. squared of 500-800 thickness
     real(r8kind)              :: relt1       ! Nondimensional relaxation coefficient of 200-500 thickness
@@ -149,8 +149,8 @@ module QG_Model
       type(qg_tl_type), intent(inout) :: this
     end subroutine destructor_qg_tl
     module subroutine adv_nsteps_tl(this, nsteps)
-      class(qg_tl_type) :: this
-      integer           :: nsteps
+      class(qg_tl_type), intent(inout) :: this
+      integer          , intent(   in) :: nsteps
     end subroutine adv_nsteps_tl
     module subroutine dqdt_d(this, y, yd, dydt, dydtd)
       class(qg_tl_type) :: this
@@ -191,12 +191,10 @@ module QG_Model
     end subroutine jacobd_d
     module function get_trajectory_tl(this) result(trajectory)
       class(qg_tl_type),            intent(in) :: this
-!      real(r8kind), dimension(this%nsh2,this%nvl) :: trajectory
       real(r8kind), allocatable :: trajectory(:,:)
     end function get_trajectory_tl
     module function get_qprimed(this) result(qprimed)
       class(qg_tl_type),            intent(in) :: this
-  !    real(r8kind), dimension(this%nsh2,this%nvl) :: qprimed
       real(r8kind), allocatable :: qprimed(:,:)
     end function get_qprimed
   end interface
@@ -246,8 +244,8 @@ module QG_Model
       type(qg_adj_type), intent(inout) :: this
     end subroutine destructor_qg_adj
     module subroutine adv_nsteps_adj(this, nsteps)
-      class(qg_adj_type) :: this
-      integer            :: nsteps
+      class(qg_adj_type), intent(inout) :: this
+      integer           , intent(   in) :: nsteps
     end subroutine adv_nsteps_adj
     module subroutine dqdt_b(this, y, yb, dydt, dydtb)
       class(qg_adj_type), intent(inout) :: this
@@ -883,8 +881,8 @@ contains
   !-----------------------------------------------------------------------
   subroutine adv_nsteps_model(this, nsteps)
 
-    class(qg_model_type) :: this
-    integer              :: nsteps
+    class(qg_model_type), intent(inout) :: this
+    integer             , intent(   in) :: nsteps
 
     integer :: step, k, l, nvar
     real(r8kind) :: dt2, dt6

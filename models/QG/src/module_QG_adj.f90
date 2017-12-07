@@ -157,8 +157,8 @@ contains
   !-----------------------------------------------------------------------
   module subroutine adv_nsteps_adj(this, nsteps)
 
-    class(qg_adj_type) :: this
-    integer           :: nsteps
+    class(qg_adj_type), intent(inout) :: this
+    integer           , intent(   in) :: nsteps
 
     integer :: step, k, l, nvar, i
     real(r8kind) :: dt2, dt6

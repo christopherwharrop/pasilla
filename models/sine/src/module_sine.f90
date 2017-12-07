@@ -305,7 +305,7 @@ contains
   subroutine adv_nsteps(this, nsteps)
 
     class(sine_type), intent(inout) :: this
-    integer, intent(in) :: nsteps
+    integer         , intent(   in) :: nsteps
 
     integer :: step, j
 
@@ -331,7 +331,7 @@ contains
   subroutine adv_nsteps_d(this, nsteps)
 
     class(sine_TL_type), intent(inout) :: this
-    integer, intent(in) :: nsteps
+    integer            , intent(   in) :: nsteps
 
     integer :: step, j
 
@@ -361,7 +361,7 @@ contains
   subroutine adv_nsteps_b(this, nsteps)
 
     class(sine_ADJ_type), intent(inout) :: this
-    integer, intent(in) :: nsteps
+    integer             , intent(   in) :: nsteps
 
     integer :: step, j
 

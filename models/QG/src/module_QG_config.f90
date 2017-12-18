@@ -1,7 +1,7 @@
 module QG_Config
 
-  use kind,   only : r4kind, r8kind
-!  use Config, only : config_type
+  use kind,            only : r4kind, r8kind
+  use Abstract_Config, only : abstract_config_type
   use QG_GGSP
 
   implicit none
@@ -10,7 +10,7 @@ module QG_Config
 
   public :: qg_config_type
 
-  type :: qg_config_type
+  type, extends(abstract_config_type) :: qg_config_type
     private
     ! Namelist params variables
     integer           :: resolution ! Model resolution

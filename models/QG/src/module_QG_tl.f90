@@ -1,10 +1,5 @@
 submodule(QG_Model) QG_Model_TL
 
-!  use kind
-!  use QG_Config
-!  use QG_GGSP
-!  use QG_Util
-
   implicit none
 
 contains
@@ -498,10 +493,8 @@ contains
   module function get_trajectory_tl(this) result(trajectory)
 
     class(qg_tl_type),            intent(in) :: this
-!    real(r8kind), dimension(this%nsh2,this%nvl) :: trajectory
     real(r8kind), allocatable :: trajectory(:,:)
 
-!    trajectory = this%trajectory
     allocate(trajectory, source = this%trajectory)
 
   end function get_trajectory_tl
@@ -513,10 +506,8 @@ contains
   module function get_qprimed(this) result(qprimed)
 
     class(qg_tl_type),            intent(in) :: this
-!    real(r8kind), dimension(this%nsh2,this%nvl) :: qprimed
     real(r8kind), allocatable :: qprimed(:,:)
 
-!    qprimed = this%qprimed
     allocate(qprimed, source = this%qprimed)
 
   end function get_qprimed

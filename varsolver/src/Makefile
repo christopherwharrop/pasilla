@@ -11,16 +11,17 @@ INCLUDES=                                 \
 
 LIBS=                                       \
      -L$(NETCDF)/lib -lnetcdf -lnetcdff     \
-     -L../../models/sine/lib -lsine         \
      -L../../models/lorenz96/lib -llorenz96 \
      -L../../models/QG/lib -lqg             \
      -L$(UTILITIES)/lib -lpasilla_util
+#     -L../../models/sine/lib -lsine         \
 
 
 FFLAGS+=$(OPENMP)
 #FFLAGS+=$(GPTLFLAGS)
 
-all: varsolver_sine.exe varsolver_l96.exe varsolver_qg.exe verify_qg.exe verify_l96.exe
+#all: varsolver_sine.exe varsolver_l96.exe varsolver_qg.exe verify_qg.exe verify_l96.exe
+all: varsolver_l96.exe varsolver_qg.exe verify_qg.exe verify_l96.exe
 
 varsolver_sine.exe: varsolver_sine.f90 module_varsolver_sine.o
 	$(FC) -o varsolver_sine.exe varsolver_sine.f90 module_varsolver_sine.o $(FFLAGS) $(LAPACK) $(INCLUDES) $(LIBS)

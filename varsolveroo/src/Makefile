@@ -1,7 +1,7 @@
 include ../../macros.mk
 
 INCLUDES=-I$(GPTL)/include -I../../utilities/include -I../../models/abstract/include -I../../models/sine/include -I../../models/lorenz96/include -I.
-LIBS=-L../../models/sine/lib -lsine -L$(NETCDF)/lib -lnetcdf -lnetcdff -L../../models/lorenz96/lib -llorenz96
+LIBS=-L$(NETCDF)/lib -lnetcdf -lnetcdff -L../../models/lorenz96/lib -llorenz96 #-L../../models/sine/lib -lsine
 FFLAGS+=$(OPENMP)
 #FFLAGS+=$(GPTLFLAGS)
 

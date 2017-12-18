@@ -178,11 +178,12 @@ contains
   !
   ! Return the model configuration
   !------------------------------------------------------------------
-  pure type(l96_config_type) function get_config(this)
+  function get_config(this) result(config)
 
     class(l96_model_type), intent(in) :: this
+    type(l96_config_type)             :: config
 
-    get_config = this%config
+    config = this%config
 
   end function get_config
 

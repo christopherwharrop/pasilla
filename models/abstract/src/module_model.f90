@@ -1,5 +1,7 @@
 module Abstract_Model
 
+  use Abstract_Config, only : abstract_config_type
+
   implicit none
 
   private

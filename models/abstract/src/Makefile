@@ -8,7 +8,7 @@ FFLAGS+=$(OPENMP)
 
 all: module_model.o module_config.o
 
-module_model.o: module_model.f90
+module_model.o: module_model.f90 module_config.o
 	$(FC) $(FFLAGS) -c module_model.f90 $(INCLUDES)
 
 module_config.o: module_config.f90
